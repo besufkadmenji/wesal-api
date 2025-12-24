@@ -7,6 +7,8 @@ import { GraphQLConfigModule } from '../lib/graphql/graphql.module';
 import { UserModule } from './user/user.module';
 import { CountryModule } from './country/country.module';
 import { CityModule } from './city/city.module';
+import { CategoryModule } from './category/category.module';
+import { AdvertisementModule } from './advertisement/advertisement.module';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { CityModule } from './city/city.module';
     UserModule,
     CountryModule,
     CityModule,
+    CategoryModule,
+    AdvertisementModule,
   ],
   controllers: [AppController],
   providers: [AppService],
