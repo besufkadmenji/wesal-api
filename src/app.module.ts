@@ -9,6 +9,7 @@ import { CountryModule } from './country/country.module';
 import { CityModule } from './city/city.module';
 import { CategoryModule } from './category/category.module';
 import { AdvertisementModule } from './advertisement/advertisement.module';
+import { ConversationModule } from './conversation/conversation.module';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { AdvertisementModule } from './advertisement/advertisement.module';
     CityModule,
     CategoryModule,
     AdvertisementModule,
+    ConversationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
