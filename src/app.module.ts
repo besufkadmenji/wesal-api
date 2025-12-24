@@ -12,6 +12,7 @@ import { AdvertisementModule } from './advertisement/advertisement.module';
 import { ConversationModule } from './conversation/conversation.module';
 import { ContractModule } from './contract/contract.module';
 import { PaymentModule } from './payment/payment.module';
+import { FavoriteModule } from './favorite/favorite.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { PaymentModule } from './payment/payment.module';
     ConversationModule,
     ContractModule,
     PaymentModule,
+    FavoriteModule,
   ],
   controllers: [AppController],
   providers: [AppService],
