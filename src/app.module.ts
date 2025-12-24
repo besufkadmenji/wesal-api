@@ -5,6 +5,8 @@ import { AppController } from '../lib/app/app.controller';
 import { AppService } from '../lib/app/app.service';
 import { GraphQLConfigModule } from '../lib/graphql/graphql.module';
 import { UserModule } from './user/user.module';
+import { CountryModule } from './country/country.module';
+import { CityModule } from './city/city.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { UserModule } from './user/user.module';
     }),
     GraphQLConfigModule,
     UserModule,
+    CountryModule,
+    CityModule,
   ],
   controllers: [AppController],
   providers: [AppService],

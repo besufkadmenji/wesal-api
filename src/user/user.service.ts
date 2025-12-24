@@ -13,6 +13,8 @@ import {
 import { I18nService } from '../../lib/i18n/i18n.service';
 import { USER_ERROR_CODES } from './errors/user.error-codes';
 import { USER_ERROR_MESSAGES } from './errors/user.error-messages';
+import { UserPaginationInput } from './dto/user-pagination.input';
+import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 
 @Injectable()
 export class UserService {
@@ -52,10 +54,40 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  async findAll(): Promise<User[]> {
-    return this.userRepository.find({
-      order: { createdAt: 'DESC' },
+  async findAll(
+    paginationInput?: UserPaginationInput,
+  ): Promise<IPaginatedType<User>> {
+    const {
+      page = 1,
+      limit = 10,
+      sortBy,
+      sortOrder = 'ASC',
+    } = paginationInput || {};
+
+    const skip = (page - 1) * limit;
+    const order: {
+      [key: string]: 'ASC' | 'DESC';
+    } = sortBy ? { [sortBy]: sortOrder } : { createdAt: 'DESC' };
+
+    const [items, total] = await this.userRepository.findAndCount({
+      skip,
+      take: limit,
+      order,
     });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrevious: page > 1,
+      },
+    };
   }
 
   async findOne(id: string, language: LanguageCode = 'en'): Promise<User> {

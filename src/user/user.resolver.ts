@@ -5,6 +5,8 @@ import { CreateUserInput } from './dto/create-user.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
+import { UserPaginationInput } from './dto/user-pagination.input';
+import { PaginatedUserResponse } from './dto/paginated-user.response';
 
 @Resolver(() => User)
 export class UserResolver {
@@ -19,9 +21,14 @@ export class UserResolver {
     return this.userService.create(createUserInput, language);
   }
 
-  @Query(() => [User], { name: 'users', description: 'Get all users' })
-  findAll() {
-    return this.userService.findAll();
+  @Query(() => PaginatedUserResponse, {
+    name: 'users',
+    description: 'Get all users with pagination',
+  })
+  findAll(
+    @Args('pagination', { nullable: true }) pagination?: UserPaginationInput,
+  ) {
+    return this.userService.findAll(pagination);
   }
 
   @Query(() => User, { name: 'user', description: 'Get user by ID' })

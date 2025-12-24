@@ -25,6 +25,7 @@ export class ValidationExceptionFilter implements ExceptionFilter {
     const request = ctx.req;
 
     const acceptLanguage = request.headers['accept-language'];
+    console.log('Accept-Language header:', acceptLanguage);
     const language: LanguageCode = acceptLanguage?.includes('ar') ? 'ar' : 'en';
 
     const exceptionResponse = exception.getResponse() as {
