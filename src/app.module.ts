@@ -10,6 +10,8 @@ import { CityModule } from './city/city.module';
 import { CategoryModule } from './category/category.module';
 import { AdvertisementModule } from './advertisement/advertisement.module';
 import { ConversationModule } from './conversation/conversation.module';
+import { ContractModule } from './contract/contract.module';
+import { PaymentModule } from './payment/payment.module';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { ConversationModule } from './conversation/conversation.module';
     CategoryModule,
     AdvertisementModule,
     ConversationModule,
+    ContractModule,
+    PaymentModule,
   ],
   controllers: [AppController],
   providers: [AppService],
