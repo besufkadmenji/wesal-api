@@ -14,6 +14,8 @@ import { ContractModule } from './contract/contract.module';
 import { PaymentModule } from './payment/payment.module';
 import { FavoriteModule } from './favorite/favorite.module';
 import { RatingModule } from './rating/rating.module';
+import { ComplaintModule } from './complaint/complaint.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -43,6 +45,8 @@ import { RatingModule } from './rating/rating.module';
     PaymentModule,
     FavoriteModule,
     RatingModule,
+    ComplaintModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService],
