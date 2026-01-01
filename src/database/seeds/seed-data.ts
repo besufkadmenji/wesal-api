@@ -1,15 +1,11 @@
-import { DataSource } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Country } from '../../country/entities/country.entity';
 import { City } from '../../city/entities/city.entity';
 import { Category } from '../../category/entities/category.entity';
 
-export const seedDatabase = async (dataSource: DataSource) => {
-  // Get repositories
-  const countryRepository = dataSource.getRepository(Country);
-  const cityRepository = dataSource.getRepository(City);
-  const categoryRepository = dataSource.getRepository(Category);
-
-  // Seed Countries
+export const seedCountries = async (
+  countryRepository: Repository<Country>,
+): Promise<Country> => {
   const saudiarabia = await countryRepository.findOne({
     where: { code: 'SA' },
   });
@@ -27,40 +23,32 @@ export const seedDatabase = async (dataSource: DataSource) => {
     console.log('✓ Saudi Arabia already exists');
   }
 
+  return ksa;
+};
+
+export const seedCities = async (
+  cityRepository: Repository<City>,
+  countryRepository: Repository<Country>,
+): Promise<void> => {
+  const country = await countryRepository.findOne({
+    where: { code: 'SA' },
+  });
+
+  if (!country) {
+    console.log('⚠ Country not found, skipping cities seeding');
+    return;
+  }
+
   // Seed Cities for Saudi Arabia
   const citiesData = [
-    {
-      name: 'Riyadh',
-      countryId: ksa.id,
-    },
-    {
-      name: 'Jeddah',
-      countryId: ksa.id,
-    },
-    {
-      name: 'Dammam',
-      countryId: ksa.id,
-    },
-    {
-      name: 'Mecca',
-      countryId: ksa.id,
-    },
-    {
-      name: 'Medina',
-      countryId: ksa.id,
-    },
-    {
-      name: 'Abha',
-      countryId: ksa.id,
-    },
-    {
-      name: 'Taif',
-      countryId: ksa.id,
-    },
-    {
-      name: 'Khobar',
-      countryId: ksa.id,
-    },
+    { name: 'Riyadh', countryId: country.id },
+    { name: 'Jeddah', countryId: country.id },
+    { name: 'Dammam', countryId: country.id },
+    { name: 'Mecca', countryId: country.id },
+    { name: 'Medina', countryId: country.id },
+    { name: 'Abha', countryId: country.id },
+    { name: 'Taif', countryId: country.id },
+    { name: 'Khobar', countryId: country.id },
   ];
 
   for (const cityData of citiesData) {
@@ -76,7 +64,11 @@ export const seedDatabase = async (dataSource: DataSource) => {
       console.log(`✓ City "${cityData.name}" already exists`);
     }
   }
+};
 
+export const seedCategories = async (
+  categoryRepository: Repository<Category>,
+): Promise<void> => {
   // Seed Categories
   const categoriesData = [
     {
@@ -154,6 +146,5 @@ export const seedDatabase = async (dataSource: DataSource) => {
       console.log(`✓ Category "${categoryData.nameEn}" already exists`);
     }
   }
-
-  console.log('\n✅ Database seeding completed!');
 };
+
