@@ -39,7 +39,6 @@ export class AppController {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       const result = this.fileUploadService.saveFile(
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         file.buffer as Buffer,
