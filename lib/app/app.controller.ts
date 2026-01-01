@@ -1,7 +1,15 @@
-import { Controller, Get, Post, UploadedFile, UseInterceptors, Query, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { AppService } from './app.service';
 import { FileUploadService } from '../file-upload';
+import { AppService } from './app.service';
 
 @Controller()
 export class AppController {
@@ -25,16 +33,30 @@ export class AppController {
       throw new BadRequestException('No file provided');
     }
 
-    const result = this.fileUploadService.saveFile(
-      file.buffer,
-      file.originalname,
-      subfolder,
-    );
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    if (!file.buffer || !file.originalname) {
+      throw new BadRequestException('Invalid file format');
+    }
 
-    return {
-      filename: result.filename,
-      url: result.url,
-      size: result.size,
-    };
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      const result = this.fileUploadService.saveFile(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        file.buffer as Buffer,
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        file.originalname as string,
+        subfolder,
+      );
+
+      return {
+        filename: result.filename,
+        url: result.url,
+        size: result.size,
+      };
+    } catch (error) {
+      throw new BadRequestException(
+        `File upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
   }
 }
