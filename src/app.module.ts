@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import * as path from 'path';
 import { AppController } from '../lib/app/app.controller';
 import { AppService } from '../lib/app/app.service';
 import { GraphQLConfigModule } from '../lib/graphql/graphql.module';
@@ -17,6 +19,7 @@ import { RatingModule } from './rating/rating.module';
 import { ComplaintModule } from './complaint/complaint.module';
 import { NotificationModule } from './notification/notification.module';
 import { AuthModule } from './auth/auth.module';
+import { FileUploadModule } from '../lib/file-upload';
 
 // Parse DATABASE_URL if available, otherwise use individual env variables
 function getDatabaseConfig() {
@@ -58,6 +61,12 @@ function getDatabaseConfig() {
       migrations: [__dirname + '/migrations/*{.ts,.js}'],
       synchronize: true,
     }),
+    ServeStaticModule.forRoot({
+      rootPath: process.env.NODE_ENV === 'production'
+        ? '/var/data'
+        : path.join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+    }),
     GraphQLConfigModule,
     AuthModule,
     UserModule,
@@ -72,6 +81,7 @@ function getDatabaseConfig() {
     RatingModule,
     ComplaintModule,
     NotificationModule,
+    FileUploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],
