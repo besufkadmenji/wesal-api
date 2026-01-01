@@ -62,9 +62,10 @@ function getDatabaseConfig() {
       synchronize: true,
     }),
     ServeStaticModule.forRoot({
-      rootPath: process.env.NODE_ENV === 'production'
-        ? '/var/data/uploads'
-        : path.join(process.cwd(), 'uploads'),
+      rootPath:
+        process.env.NODE_ENV === 'production'
+          ? '/var/data/uploads'
+          : path.join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
     }),
     GraphQLConfigModule,

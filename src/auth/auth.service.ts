@@ -16,8 +16,10 @@ import { ForgotPasswordInput } from './dto/forgot-password.input';
 import { LoginInput } from './dto/login.input';
 import { RegisterInput } from './dto/register.input';
 import { ResendOtpInput } from './dto/resend-otp.input';
-import { ResetPasswordInput } from './dto/reset-password.input';
+import { ResetPasswordWithTokenInput } from './dto/reset-password-with-token.input';
 import { VerifyOtpInput } from './dto/verify-otp.input';
+import { VerifyPasswordResetOtpInput } from './dto/verify-password-reset-otp.input';
+import { VerifyPasswordResetOtpResponse } from './dto/verify-password-reset-otp.response';
 import { Otp } from './entities/otp.entity';
 import { OtpType } from './enums/otp-type.enum';
 import { AUTH_ERROR_MESSAGES } from './errors/auth.error-messages';
@@ -293,15 +295,15 @@ export class AuthService {
     return true;
   }
 
-  async resetPassword(
-    resetPasswordInput: ResetPasswordInput,
+  async verifyPasswordResetOtp(
+    verifyPasswordResetOtpInput: VerifyPasswordResetOtpInput,
     language: LanguageCode = 'en',
-  ): Promise<boolean> {
-    // Verify OTP
+    ipAddress?: string,
+  ): Promise<VerifyPasswordResetOtpResponse> {
+    // Find valid OTP
     const otp = await this.otpRepository.findOne({
       where: {
-        target: resetPasswordInput.target,
-        code: resetPasswordInput.code,
+        target: verifyPasswordResetOtpInput.target,
         type: OtpType.PASSWORD_RESET,
         isUsed: false,
         expiresAt: MoreThan(new Date()),
@@ -316,31 +318,127 @@ export class AuthService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
+    // Check attempt rate limiting (max 5 failed attempts per OTP)
+    if (otp.attemptCount >= 5) {
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['TOO_MANY_OTP_ATTEMPTS'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Check if last attempt was less than 30 seconds ago (prevent brute force)
+    if (otp.lastAttemptAt && otp.lastAttemptAt instanceof Date) {
+      const timeSinceLastAttempt = Date.now() - otp.lastAttemptAt.getTime();
+      if (timeSinceLastAttempt < 30000) {
+        // 30 seconds
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['OTP_VERIFICATION_THROTTLED'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+    }
+
+    // Verify OTP code
+    if (otp.code !== verifyPasswordResetOtpInput.code) {
+      otp.attemptCount += 1;
+      otp.lastAttemptAt = new Date();
+      await this.otpRepository.save(otp);
+
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['INVALID_OTP'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Verify IP address matches (security check)
+    if (otp.ipAddress && ipAddress && otp.ipAddress !== ipAddress) {
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['OTP_IP_MISMATCH'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
     // Mark OTP as used
     otp.isUsed = true;
     await this.otpRepository.save(otp);
 
-    // Update password
-    const user = await this.userRepository.findOne({
-      where: { id: otp.userId },
+    // Issue a temporary reset token (short-lived, e.g., 15 minutes)
+    const payload = { sub: otp.userId, type: 'password_reset' };
+    const resetToken: string = this.jwtService.sign(payload, {
+      expiresIn: '15m',
     });
 
-    if (!user) {
+    return { resetToken };
+  }
+
+  async resetPassword(
+    resetPasswordWithTokenInput: ResetPasswordWithTokenInput,
+    language: LanguageCode = 'en',
+  ): Promise<boolean> {
+    try {
+      // Verify and decode the reset token
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const payload: any = this.jwtService.verify(
+        resetPasswordWithTokenInput.resetToken,
+      );
+
+      // Ensure token is a password reset token
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (payload.type !== 'password_reset') {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['INVALID_OTP'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Get user from token
+      const user = await this.userRepository.findOne({
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+        where: { id: payload.sub },
+      });
+
+      if (!user) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['USER_NOT_FOUND'],
+          language,
+        );
+        throw new I18nNotFoundException({ en: message, ar: message }, language);
+      }
+
+      // Update password
+      const hashedPassword = await bcrypt.hash(
+        resetPasswordWithTokenInput.newPassword,
+        10,
+      );
+      user.password = hashedPassword;
+      await this.userRepository.save(user);
+
+      return true;
+    } catch (error) {
+      if (
+        error instanceof I18nBadRequestException ||
+        error instanceof I18nNotFoundException
+      ) {
+        throw error;
+      }
+
       const message = I18nService.translate(
-        AUTH_ERROR_MESSAGES['USER_NOT_FOUND'],
+        AUTH_ERROR_MESSAGES['INVALID_OTP'],
         language,
       );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
-
-    const hashedPassword = await bcrypt.hash(
-      resetPasswordInput.newPassword,
-      10,
-    );
-    user.password = hashedPassword;
-    await this.userRepository.save(user);
-
-    return true;
   }
 
   private async generateAndSendOtp(

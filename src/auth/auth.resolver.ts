@@ -1,17 +1,19 @@
-import { Resolver, Mutation, Args } from '@nestjs/graphql';
 import { Req } from '@nestjs/common';
+import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import type { Request } from 'express';
-import { AuthService } from './auth.service';
-import { User } from '../user/entities/user.entity';
-import { RegisterInput } from './dto/register.input';
-import { LoginInput } from './dto/login.input';
-import { VerifyOtpInput } from './dto/verify-otp.input';
-import { ResendOtpInput } from './dto/resend-otp.input';
-import { ForgotPasswordInput } from './dto/forgot-password.input';
-import { ResetPasswordInput } from './dto/reset-password.input';
-import { AuthResponse } from './dto/auth-response';
 import { GetLanguage } from '../../lib/i18n';
 import type { LanguageCode } from '../../lib/i18n/language.types';
+import { User } from '../user/entities/user.entity';
+import { AuthService } from './auth.service';
+import { AuthResponse } from './dto/auth-response';
+import { ForgotPasswordInput } from './dto/forgot-password.input';
+import { LoginInput } from './dto/login.input';
+import { RegisterInput } from './dto/register.input';
+import { ResendOtpInput } from './dto/resend-otp.input';
+import { ResetPasswordWithTokenInput } from './dto/reset-password-with-token.input';
+import { VerifyOtpInput } from './dto/verify-otp.input';
+import { VerifyPasswordResetOtpInput } from './dto/verify-password-reset-otp.input';
+import { VerifyPasswordResetOtpResponse } from './dto/verify-password-reset-otp.response';
 
 @Resolver()
 export class AuthResolver {
@@ -88,13 +90,32 @@ export class AuthResolver {
     );
   }
 
+  @Mutation(() => VerifyPasswordResetOtpResponse, {
+    description: 'Verify password reset OTP and get reset token',
+  })
+  async verifyPasswordResetOtp(
+    @Args('input') verifyPasswordResetOtpInput: VerifyPasswordResetOtpInput,
+    @GetLanguage() language: LanguageCode,
+    @Req() request?: Request,
+  ): Promise<VerifyPasswordResetOtpResponse> {
+    const ipAddress = this.getClientIp(request);
+    return this.authService.verifyPasswordResetOtp(
+      verifyPasswordResetOtpInput,
+      language,
+      ipAddress,
+    );
+  }
+
   @Mutation(() => Boolean, {
-    description: 'Reset password using OTP',
+    description: 'Reset password using reset token',
   })
   async resetPassword(
-    @Args('input') resetPasswordInput: ResetPasswordInput,
+    @Args('input') resetPasswordWithTokenInput: ResetPasswordWithTokenInput,
     @GetLanguage() language: LanguageCode,
   ): Promise<boolean> {
-    return this.authService.resetPassword(resetPasswordInput, language);
+    return this.authService.resetPassword(
+      resetPasswordWithTokenInput,
+      language,
+    );
   }
 }
