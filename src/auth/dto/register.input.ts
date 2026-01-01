@@ -11,6 +11,7 @@ import {
   IsNumber,
   IsArray,
   Matches,
+  MaxLength,
 } from 'class-validator';
 import { UserRole } from '../../user/enums/user-role.enum';
 
@@ -70,6 +71,20 @@ export class RegisterInput {
   @IsOptional()
   @IsNumber()
   longitude?: number;
+
+  @Field()
+  @IsNotEmpty()
+  @IsString()
+  @MaxLength(255)
+  bankName: string;
+
+  @Field()
+  @IsNotEmpty()
+  @IsString()
+  @Matches(/^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/, {
+    message: 'Invalid IBAN format',
+  })
+  ibanNumber: string;
 
   @Field(() => [String], { nullable: true })
   @IsOptional()

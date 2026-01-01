@@ -95,6 +95,20 @@ export class CreateUserInput {
   @IsNumber()
   longitude?: number;
 
+  @Field({ nullable: true })
+  @IsOptional()
+  @MaxLength(255, {
+    message: 'Bank name must not exceed 255 characters',
+  })
+  bankName?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @Matches(/^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/, {
+    message: 'Invalid IBAN format',
+  })
+  ibanNumber?: string;
+
   @Field(() => [String], { nullable: true })
   @IsOptional()
   @IsArray()
