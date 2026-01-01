@@ -51,7 +51,7 @@ export class FileUploadService {
     fs.writeFileSync(filePath, buffer);
 
     // Generate URL (adjust based on your API domain)
-    const apiUrl = process.env.API_URL || 'http://localhost:3000';
+    const apiUrl = process.env.API_URL || 'http://localhost:4000';
     const relativePath = subfolder
       ? `/uploads/${subfolder}/${uniqueFilename}`
       : `/uploads/${uniqueFilename}`;

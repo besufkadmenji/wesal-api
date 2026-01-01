@@ -40,7 +40,7 @@ describe('AppController', () => {
 
       const mockResult = {
         filename: 'test-1234567890.txt',
-        url: 'http://localhost:3000/uploads/test-1234567890.txt',
+        url: 'http://localhost:4000/uploads/test-1234567890.txt',
         size: 12,
       };
 
