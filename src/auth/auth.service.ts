@@ -23,6 +23,7 @@ import { VerifyPasswordResetOtpResponse } from './dto/verify-password-reset-otp.
 import { Otp } from './entities/otp.entity';
 import { OtpType } from './enums/otp-type.enum';
 import { AUTH_ERROR_MESSAGES } from './errors/auth.error-messages';
+import { UserRole } from 'src/user/enums/user-role.enum';
 
 @Injectable()
 export class AuthService {
@@ -41,6 +42,18 @@ export class AuthService {
     registerInput: RegisterInput,
     language: LanguageCode = 'en',
   ): Promise<User> {
+    // Validate that providers provide bank details
+    if (
+      registerInput.role === UserRole.USER &&
+      (!registerInput.bankName || !registerInput.ibanNumber)
+    ) {
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['PROVIDER_BANK_DETAILS_REQUIRED'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
     // Create user using UserService (handles validation, hashing, and categories)
     const savedUser = await this.userService.create(registerInput, language);
 

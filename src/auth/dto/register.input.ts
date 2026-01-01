@@ -72,19 +72,19 @@ export class RegisterInput {
   @IsNumber()
   longitude?: number;
 
-  @Field()
-  @IsNotEmpty()
+  @Field({ nullable: true })
+  @IsOptional()
   @IsString()
   @MaxLength(255)
-  bankName: string;
+  bankName?: string;
 
-  @Field()
-  @IsNotEmpty()
+  @Field({ nullable: true })
+  @IsOptional()
   @IsString()
   @Matches(/^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/, {
     message: 'Invalid IBAN format',
   })
-  ibanNumber: string;
+  ibanNumber?: string;
 
   @Field(() => [String], { nullable: true })
   @IsOptional()
