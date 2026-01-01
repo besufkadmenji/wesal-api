@@ -63,7 +63,7 @@ function getDatabaseConfig() {
     }),
     ServeStaticModule.forRoot({
       rootPath: process.env.NODE_ENV === 'production'
-        ? '/var/data'
+        ? '/var/data/uploads'
         : path.join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
     }),
