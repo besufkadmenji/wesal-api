@@ -61,7 +61,7 @@ export class User {
 
   @Field({ nullable: true })
   @Column({ type: 'varchar', length: 500, nullable: true })
-  avatarUrl?: string;
+  avatarFilename?: string;
 
   @Field({ nullable: true })
   @Column({ type: 'uuid', nullable: true })

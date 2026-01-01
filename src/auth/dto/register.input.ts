@@ -1,17 +1,17 @@
-import { InputType, Field } from '@nestjs/graphql';
+import { Field, InputType } from '@nestjs/graphql';
 import {
-  IsEmail,
-  IsNotEmpty,
-  IsString,
-  MinLength,
-  IsPhoneNumber,
-  IsEnum,
-  IsOptional,
-  IsUUID,
-  IsNumber,
   IsArray,
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsPhoneNumber,
+  IsString,
+  IsUUID,
   Matches,
   MaxLength,
+  MinLength,
 } from 'class-validator';
 import { UserRole } from '../../user/enums/user-role.enum';
 
@@ -50,6 +50,10 @@ export class RegisterInput {
   @IsOptional()
   @IsEnum(UserRole)
   role?: UserRole;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  avatarFilename?: string;
 
   // Provider-specific fields
   @Field({ nullable: true })
