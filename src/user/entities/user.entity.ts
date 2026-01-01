@@ -88,6 +88,14 @@ export class User {
   @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
   longitude?: number;
 
+  @Field({ nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  bankName?: string;
+
+  @Field({ nullable: true })
+  @Column({ type: 'varchar', length: 34, nullable: true })
+  ibanNumber?: string;
+
   @Field(() => [Category], { nullable: true })
   @ManyToMany(() => Category, { nullable: true })
   @JoinTable({
