@@ -1,24 +1,30 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
+import { UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
 import { User } from './entities/user.entity';
-import { CreateUserInput } from './dto/create-user.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { UserPaginationInput } from './dto/user-pagination.input';
 import { PaginatedUserResponse } from './dto/paginated-user.response';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Resolver(() => User)
 export class UserResolver {
   constructor(private readonly userService: UserService) {}
 
-  @Mutation(() => User, { description: 'Create a new user' })
-  createUser(
-    @Args('createUserInput') createUserInput: CreateUserInput,
+  @Query(() => User, {
+    name: 'me',
+    description: 'Get current authenticated user',
+  })
+  @UseGuards(JwtAuthGuard)
+  async getCurrentUser(
+    @CurrentUser() user: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ) {
-    console.log('Language in resolver:', language);
-    return this.userService.create(createUserInput, language);
+    return this.userService.findOne(user.sub, language);
   }
 
   @Query(() => PaginatedUserResponse, {

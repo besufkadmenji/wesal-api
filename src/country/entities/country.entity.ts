@@ -22,6 +22,10 @@ export class Country {
   @Column({ type: 'varchar', length: 500 })
   name: string;
 
+  @Field({ nullable: true })
+  @Column({ type: 'varchar', length: 10, nullable: true, unique: true })
+  dialCode?: string;
+
   @Field()
   @CreateDateColumn()
   createdAt: Date;

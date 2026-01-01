@@ -3,10 +3,13 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinTable,
+  ManyToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { UserRole } from '../enums/user-role.enum';
+import { Category } from '../../category/entities/category.entity';
 
 @ObjectType()
 @Entity('users')
@@ -14,6 +17,10 @@ export class User {
   @Field(() => ID)
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Field({ nullable: true })
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  dialCode?: string;
 
   @Field()
   @Column({ type: 'varchar', length: 500, unique: true })
@@ -23,8 +30,16 @@ export class User {
   @Column({ type: 'varchar', length: 500, unique: true })
   email: string;
 
-  @Column({ type: 'varchar', length: 500 })
-  passwordHash: string;
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  password: string;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  emailVerified: boolean;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  phoneVerified: boolean;
 
   @Field(() => UserRole)
   @Column({
@@ -40,9 +55,9 @@ export class User {
   isActive: boolean;
 
   // Profile fields
-  @Field()
-  @Column({ type: 'varchar', length: 500 })
-  fullName: string;
+  @Field({ nullable: true })
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  name?: string;
 
   @Field({ nullable: true })
   @Column({ type: 'varchar', length: 500, nullable: true })
@@ -59,6 +74,28 @@ export class User {
   @Field({ nullable: true })
   @Column({ type: 'varchar', length: 500, default: 'en' })
   languageCode?: string;
+
+  // Provider-specific fields
+  @Field({ nullable: true })
+  @Column({ type: 'text', nullable: true })
+  address?: string;
+
+  @Field({ nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
+  latitude?: number;
+
+  @Field({ nullable: true })
+  @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
+  longitude?: number;
+
+  @Field(() => [Category], { nullable: true })
+  @ManyToMany(() => Category, { nullable: true })
+  @JoinTable({
+    name: 'user_categories',
+    joinColumn: { name: 'userId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'categoryId', referencedColumnName: 'id' },
+  })
+  categories?: Category[];
 
   @Field()
   @CreateDateColumn()

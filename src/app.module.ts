@@ -16,6 +16,35 @@ import { FavoriteModule } from './favorite/favorite.module';
 import { RatingModule } from './rating/rating.module';
 import { ComplaintModule } from './complaint/complaint.module';
 import { NotificationModule } from './notification/notification.module';
+import { AuthModule } from './auth/auth.module';
+
+// Parse DATABASE_URL if available, otherwise use individual env variables
+function getDatabaseConfig() {
+  const databaseUrl = process.env.DATABASE_URL;
+
+  if (databaseUrl) {
+    // Parse PostgreSQL connection string: postgresql://user:password@host:port/database
+    const url = new URL(databaseUrl);
+    return {
+      type: 'postgres' as const,
+      host: url.hostname,
+      port: parseInt(url.port || '5432'),
+      username: url.username,
+      password: url.password,
+      database: url.pathname.slice(1), // Remove leading slash
+    };
+  }
+
+  // Fall back to individual environment variables
+  return {
+    type: 'postgres' as const,
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT || '5432'),
+    username: process.env.DB_USERNAME,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+  };
+}
 
 @Module({
   imports: [
@@ -24,17 +53,13 @@ import { NotificationModule } from './notification/notification.module';
       envFilePath: '.env',
     }),
     TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DB_HOST,
-      port: parseInt(process.env.DB_PORT || '5432'),
-      username: process.env.DB_USERNAME,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
+      ...getDatabaseConfig(),
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       migrations: [__dirname + '/migrations/*{.ts,.js}'],
       synchronize: true,
     }),
     GraphQLConfigModule,
+    AuthModule,
     UserModule,
     CountryModule,
     CityModule,

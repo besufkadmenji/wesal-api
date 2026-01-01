@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
+import { Category } from '../category/entities/category.entity';
 import { CreateUserInput } from './dto/create-user.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import type { LanguageCode } from '../../lib/i18n/language.types';
@@ -21,6 +22,8 @@ export class UserService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
   ) {}
 
   async create(
@@ -44,11 +47,20 @@ export class UserService {
     }
 
     // Hash password
-    const passwordHash = await bcrypt.hash(createUserInput.password, 10);
+    const hashedPassword = await bcrypt.hash(createUserInput.password, 10);
+
+    // Handle categories for providers
+    let categories: Category[] | undefined;
+    if (createUserInput.categoryIds && createUserInput.categoryIds.length > 0) {
+      categories = await this.categoryRepository.find({
+        where: { id: In(createUserInput.categoryIds) },
+      });
+    }
 
     const user = this.userRepository.create({
       ...createUserInput,
-      passwordHash,
+      password: hashedPassword,
+      categories,
     });
 
     return this.userRepository.save(user);

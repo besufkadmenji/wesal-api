@@ -7,6 +7,8 @@ import {
   MaxLength,
   IsOptional,
   IsUUID,
+  IsNumber,
+  IsArray,
 } from 'class-validator';
 import { USER_ERROR_CODES } from '../errors/user.error-codes';
 
@@ -45,7 +47,14 @@ export class CreateUserInput {
   @MaxLength(500, {
     message: USER_ERROR_CODES.INVALID_FULLNAME_LENGTH,
   })
-  fullName: string;
+  name: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @Matches(/^\+?[1-9]\d{1,3}$/, {
+    message: 'dialCode must be a valid international dial code',
+  })
+  dialCode?: string;
 
   @Field({ nullable: true })
   @IsOptional()
@@ -70,4 +79,25 @@ export class CreateUserInput {
     message: USER_ERROR_CODES.INVALID_LANGUAGE_CODE,
   })
   languageCode?: string;
+
+  // Provider-specific fields
+  @Field({ nullable: true })
+  @IsOptional()
+  address?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsNumber()
+  latitude?: number;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsNumber()
+  longitude?: number;
+
+  @Field(() => [String], { nullable: true })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  categoryIds?: string[];
 }
