@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as fs from 'fs';
 import * as path from 'path';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface FileUploadResult {
   filename: string;
@@ -32,11 +33,9 @@ export class FileUploadService {
     filename: string,
     subfolder?: string,
   ): FileUploadResult {
-    // Create unique filename with timestamp
-    const timestamp = Date.now();
+    // Create unique filename using UUID to prevent file collisions
     const ext = path.extname(filename);
-    const name = path.basename(filename, ext);
-    const uniqueFilename = `${name}-${timestamp}${ext}`;
+    const uniqueFilename = `${uuidv4()}${ext}`;
 
     // Create subdirectory if specified
     const folder = subfolder
