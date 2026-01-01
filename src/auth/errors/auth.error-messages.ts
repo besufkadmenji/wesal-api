@@ -1,10 +1,10 @@
-import { TranslatedError } from '../../../lib/i18n/i18n.service';
+import { TranslatedError } from 'lib/i18n/i18n.service';
 import { AUTH_ERROR_CODES } from './auth.error-codes';
 
 export const AUTH_ERROR_MESSAGES: Record<string, TranslatedError> = {
   [AUTH_ERROR_CODES.INVALID_CREDENTIALS]: {
-    en: 'Invalid email or password',
-    ar: 'البريد الإلكتروني أو كلمة المرور غير صحيحة',
+    en: 'Invalid credentials',
+    ar: 'بيانات الاعتماد غير صحيحة',
   },
   [AUTH_ERROR_CODES.USER_NOT_FOUND]: {
     en: 'User not found',
