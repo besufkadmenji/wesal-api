@@ -39,11 +39,17 @@ export class UserService {
     });
 
     if (existingUser) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_ALREADY_EXISTS],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
+      if (existingUser.phoneVerified && existingUser.emailVerified) {
+        const message = I18nService.translate(
+          USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_ALREADY_EXISTS],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+      return existingUser;
     }
 
     // Hash password
