@@ -74,4 +74,8 @@ export const AUTH_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Invalid or expired token',
     ar: 'الرمز غير صالح أو منتهي الصلاحية',
   },
+  [AUTH_ERROR_CODES.PROVIDER_BANK_DETAILS_REQUIRED]: {
+    en: 'You must provide bank name and IBAN number',
+    ar: 'يجب تقديم اسم البنك ورقم الآيبان',
+  },
 };
