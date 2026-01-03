@@ -117,6 +117,40 @@ export class FileUploadService {
     }
   }
 
+  async getFileWithMetadata(
+    s3Key: string,
+  ): Promise<{ buffer: Buffer; contentType?: string }> {
+    const getCommand = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: s3Key,
+    });
+
+    try {
+      const response = await this.s3Client.send(getCommand);
+
+      if (!response.Body) {
+        throw new Error('File body is empty');
+      }
+
+      const chunks: Buffer[] = [];
+      const stream = response.Body as unknown as NodeJS.ReadableStream;
+
+      const buffer = await new Promise<Buffer>((resolve, reject) => {
+        stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+        stream.on('end', () => resolve(Buffer.concat(chunks)));
+        stream.on('error', reject);
+      });
+
+      return {
+        buffer,
+        contentType: response.ContentType,
+      };
+    } catch (error) {
+      console.error('Error fetching file with metadata from S3:', error);
+      throw error;
+    }
+  }
+
   getUploadDir(): string {
     return `s3://${this.bucket}`;
   }
