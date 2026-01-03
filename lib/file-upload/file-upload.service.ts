@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'crypto';
 import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
-import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
 
 export interface FileUploadResult {
@@ -44,7 +44,7 @@ export class FileUploadService {
   ): Promise<FileUploadResult> {
     // Create unique filename using UUID to prevent file collisions
     const ext = path.extname(filename);
-    const uniqueFilename = `${uuidv4()}${ext}`;
+    const uniqueFilename = `${randomUUID()}${ext}`;
 
     // Build S3 key with optional subfolder
     const s3Key = subfolder ? `${subfolder}/${uniqueFilename}` : uniqueFilename;
