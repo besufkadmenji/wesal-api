@@ -147,4 +147,3 @@ export const seedCategories = async (
     }
   }
 };
-
