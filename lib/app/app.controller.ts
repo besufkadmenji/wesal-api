@@ -52,11 +52,11 @@ export class AppController {
       );
 
       // Build download URL that can be used in <img src> tags
-      const downloadUrl = `/download/${encodeURIComponent(result.path)}`;
+      const filesUrl = `/files/${encodeURIComponent(result.path)}`;
 
       return {
         filename: result.filename,
-        url: downloadUrl,
+        url: filesUrl,
         size: result.size,
       };
     } catch (error) {
@@ -95,6 +95,35 @@ export class AppController {
       }
       throw new BadRequestException(
         `File download failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      );
+    }
+  }
+
+  @Get('files/:encodedPath')
+  async serveFile(
+    @Param('encodedPath') encodedPath: string,
+    @Res() res: Response,
+  ) {
+    try {
+      const s3Key = decodeURIComponent(encodedPath);
+
+      const { buffer, contentType } =
+        await this.fileUploadService.getFileWithMetadata(s3Key);
+
+      res.set({
+        'Content-Type': contentType ?? 'application/octet-stream',
+        'Content-Disposition': 'inline',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Content-Length': buffer.length,
+      });
+
+      return res.send(buffer);
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('NoSuchKey')) {
+        throw new NotFoundException('File not found');
+      }
+      throw new BadRequestException(
+        `File serving failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
   }
