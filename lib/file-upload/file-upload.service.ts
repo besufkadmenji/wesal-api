@@ -5,6 +5,7 @@ import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import * as path from 'path';
 
@@ -73,6 +74,31 @@ export class FileUploadService {
       url,
       size: buffer.length,
     };
+  }
+
+  async getFile(s3Key: string): Promise<Buffer> {
+    const getCommand = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: s3Key,
+    });
+
+    try {
+      const response = await this.s3Client.send(getCommand);
+      // Convert stream to buffer
+      if (!response.Body) {
+        throw new Error('File body is empty');
+      }
+      const chunks: Buffer[] = [];
+      const stream = response.Body as unknown as NodeJS.ReadableStream;
+      return new Promise((resolve, reject) => {
+        stream.on('data', (chunk: Buffer) => chunks.push(chunk));
+        stream.on('end', () => resolve(Buffer.concat(chunks)));
+        stream.on('error', reject);
+      });
+    } catch (error) {
+      console.error('Error fetching file from S3:', error);
+      throw error;
+    }
   }
 
   deleteFile(s3Key: string): boolean {
