@@ -25,7 +25,7 @@ export class AppController {
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  uploadFile(
+  async uploadFile(
     @UploadedFile() file: any,
     @Query('subfolder') subfolder?: string,
   ) {
@@ -39,7 +39,7 @@ export class AppController {
     }
 
     try {
-      const result = this.fileUploadService.saveFile(
+      const result = await this.fileUploadService.saveFile(
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         file.buffer as Buffer,
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
