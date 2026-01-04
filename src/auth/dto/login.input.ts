@@ -17,7 +17,7 @@ export class LoginInput {
   @MinLength(1)
   password: string;
 
-  @Field(() => UserRole, { nullable: true })
+  @Field(() => UserRole)
   @IsEnum(UserRole)
   role: UserRole;
 }
