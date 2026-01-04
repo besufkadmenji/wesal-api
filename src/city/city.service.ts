@@ -29,7 +29,7 @@ export class CityService {
     // Check if city with same name exists in the same country
     const existingCity = await this.cityRepository.findOne({
       where: {
-        name: createCityInput.name,
+        nameEn: createCityInput.nameEn,
         countryId: createCityInput.countryId,
       },
     });
@@ -59,7 +59,7 @@ export class CityService {
     const skip = (page - 1) * limit;
     const order: {
       [key: string]: 'ASC' | 'DESC';
-    } = sortBy ? { [sortBy]: sortOrder } : { name: 'ASC' };
+    } = sortBy ? { [sortBy]: sortOrder } : { nameEn: 'ASC' };
 
     const [items, total] = await this.cityRepository.findAndCount({
       skip,
@@ -113,7 +113,7 @@ export class CityService {
     const skip = (page - 1) * limit;
     const order: {
       [key: string]: 'ASC' | 'DESC';
-    } = sortBy ? { [sortBy]: sortOrder } : { name: 'ASC' };
+    } = sortBy ? { [sortBy]: sortOrder } : { nameEn: 'ASC' };
 
     const [items, total] = await this.cityRepository.findAndCount({
       where: { countryId },
@@ -146,10 +146,10 @@ export class CityService {
     const city = await this.findOne(id, language);
 
     // Check if new name conflicts with another city in the same country
-    if (updateCityInput.name || updateCityInput.countryId) {
+    if (updateCityInput.nameEn || updateCityInput.countryId) {
       const conflictCity = await this.cityRepository.findOne({
         where: {
-          name: updateCityInput.name || city.name,
+          nameEn: updateCityInput.nameEn || city.nameEn,
           countryId: updateCityInput.countryId || city.countryId,
         },
       });
