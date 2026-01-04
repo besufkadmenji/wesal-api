@@ -10,6 +10,7 @@ import { I18nService } from 'lib/i18n/i18n.service';
 import { LanguageCode } from 'lib/i18n/language.types';
 import { SmsService } from 'lib/sms/sms.service';
 import { User } from 'src/user/entities/user.entity';
+import { UserRole } from 'src/user/enums/user-role.enum';
 import { UserService } from 'src/user/user.service';
 import { AuthResponse } from './dto/auth-response';
 import { ForgotPasswordInput } from './dto/forgot-password.input';
@@ -23,7 +24,6 @@ import { VerifyPasswordResetOtpResponse } from './dto/verify-password-reset-otp.
 import { Otp } from './entities/otp.entity';
 import { OtpType } from './enums/otp-type.enum';
 import { AUTH_ERROR_MESSAGES } from './errors/auth.error-messages';
-import { UserRole } from 'src/user/enums/user-role.enum';
 
 @Injectable()
 export class AuthService {
@@ -82,6 +82,7 @@ export class AuthService {
       .where('user.email = :identifier OR user.phone = :identifier', {
         identifier: loginInput.emailOrPhone,
       })
+      .andWhere('user.role = :role', { role: loginInput.role })
       .getOne();
 
     if (!user) {
