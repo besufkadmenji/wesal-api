@@ -28,7 +28,11 @@ export class City {
 
   @Field()
   @Column({ type: 'varchar', length: 500 })
-  name: string;
+  nameEn: string;
+
+  @Field()
+  @Column({ type: 'varchar', length: 500 })
+  nameAr: string;
 
   @Field()
   @CreateDateColumn()

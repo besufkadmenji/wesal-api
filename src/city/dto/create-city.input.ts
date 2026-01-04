@@ -20,5 +20,14 @@ export class CreateCityInput {
   @MaxLength(500, {
     message: CITY_ERROR_CODES.INVALID_CITY_NAME_LENGTH,
   })
-  name: string;
+  nameEn: string;
+
+  @Field()
+  @IsNotEmpty({
+    message: CITY_ERROR_CODES.CITY_NAME_REQUIRED,
+  })
+  @MaxLength(500, {
+    message: CITY_ERROR_CODES.INVALID_CITY_NAME_LENGTH,
+  })
+  nameAr: string;
 }

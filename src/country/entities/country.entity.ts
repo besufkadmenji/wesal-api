@@ -16,11 +16,15 @@ export class Country {
 
   @Field()
   @Column({ type: 'varchar', length: 500, unique: true })
+  codeEn: string;
+
+  @Field()
+  @Column({ type: 'varchar', length: 500, unique: true })
   code: string;
 
   @Field()
   @Column({ type: 'varchar', length: 500 })
-  name: string;
+  nameAr: string;
 
   @Field({ nullable: true })
   @Column({ type: 'varchar', length: 10, nullable: true, unique: true })

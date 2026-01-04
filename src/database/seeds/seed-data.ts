@@ -13,8 +13,9 @@ export const seedCountries = async (
   let ksa: Country;
   if (!saudiarabia) {
     ksa = countryRepository.create({
-      name: 'Saudi Arabia',
+      codeEn: 'Saudi Arabia',
       code: 'SA',
+      nameAr: 'المملكة العربية السعودية',
     });
     await countryRepository.save(ksa);
     console.log('✓ Saudi Arabia created');
@@ -41,27 +42,27 @@ export const seedCities = async (
 
   // Seed Cities for Saudi Arabia
   const citiesData = [
-    { name: 'Riyadh', countryId: country.id },
-    { name: 'Jeddah', countryId: country.id },
-    { name: 'Dammam', countryId: country.id },
-    { name: 'Mecca', countryId: country.id },
-    { name: 'Medina', countryId: country.id },
-    { name: 'Abha', countryId: country.id },
-    { name: 'Taif', countryId: country.id },
-    { name: 'Khobar', countryId: country.id },
+    { nameEn: 'Riyadh', nameAr: 'الرياض', countryId: country.id },
+    { nameEn: 'Jeddah', nameAr: 'جدة', countryId: country.id },
+    { nameEn: 'Dammam', nameAr: 'الدمام', countryId: country.id },
+    { nameEn: 'Mecca', nameAr: 'مكة', countryId: country.id },
+    { nameEn: 'Medina', nameAr: 'المدينة', countryId: country.id },
+    { nameEn: 'Abha', nameAr: 'أبها', countryId: country.id },
+    { nameEn: 'Taif', nameAr: 'الطائف', countryId: country.id },
+    { nameEn: 'Khobar', nameAr: 'الخبر', countryId: country.id },
   ];
 
   for (const cityData of citiesData) {
     const existingCity = await cityRepository.findOne({
-      where: { name: cityData.name, countryId: cityData.countryId },
+      where: { nameEn: cityData.nameEn, countryId: cityData.countryId },
     });
 
     if (!existingCity) {
       const city = cityRepository.create(cityData);
       await cityRepository.save(city);
-      console.log(`✓ City "${cityData.name}" created`);
+      console.log(`✓ City "${cityData.nameEn}" created`);
     } else {
-      console.log(`✓ City "${cityData.name}" already exists`);
+      console.log(`✓ City "${cityData.nameEn}" already exists`);
     }
   }
 };
