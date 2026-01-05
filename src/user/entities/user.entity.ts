@@ -55,11 +55,13 @@ export class User {
   isActive: boolean;
 
   // Profile fields
-  @Field({ nullable: true })
+  @Field(() => String, {
+    nullable: true,
+  })
   @Column({ type: 'varchar', length: 500, nullable: true })
   name?: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Column({ type: 'varchar', length: 500, nullable: true })
   avatarFilename?: string | null;
 

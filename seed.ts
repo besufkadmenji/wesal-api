@@ -49,7 +49,7 @@ async function runSeeds() {
     let ksa: Country;
     if (!saudiarabia) {
       ksa = countryRepository.create({
-        codeEn: 'Saudi Arabia',
+        nameEn: 'Saudi Arabia',
         code: 'SA',
         nameAr: 'المملكة العربية السعودية',
         dialCode: '+966',
