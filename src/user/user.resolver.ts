@@ -50,6 +50,7 @@ export class UserResolver {
     @Args('updateUserInput') updateUserInput: UpdateUserInput,
     @GetLanguage() language: LanguageCode,
   ) {
+    console.log('language', language);
     return this.userService.update(
       updateUserInput.id,
       updateUserInput,
