@@ -57,11 +57,11 @@ export class User {
   // Profile fields
   @Field({ nullable: true })
   @Column({ type: 'varchar', length: 500, nullable: true })
-  name?: string;
+  name?: string | null;
 
   @Field({ nullable: true })
   @Column({ type: 'varchar', length: 500, nullable: true })
-  avatarFilename?: string;
+  avatarFilename?: string | null;
 
   @Field({ nullable: true })
   @Column({ type: 'uuid', nullable: true })
