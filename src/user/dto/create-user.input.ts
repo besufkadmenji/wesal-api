@@ -1,14 +1,14 @@
 import { Field, InputType } from '@nestjs/graphql';
 import {
+  IsArray,
   IsEmail,
   IsNotEmpty,
-  Matches,
-  MinLength,
-  MaxLength,
+  IsNumber,
   IsOptional,
   IsUUID,
-  IsNumber,
-  IsArray,
+  Matches,
+  MaxLength,
+  MinLength,
 } from 'class-validator';
 import { USER_ERROR_CODES } from '../errors/user.error-codes';
 
@@ -114,4 +114,12 @@ export class CreateUserInput {
   @IsArray()
   @IsUUID('4', { each: true })
   categoryIds?: string[];
+
+  @Field({ nullable: true })
+  @IsOptional()
+  commercialRegistrationNumber?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  withAbsher?: boolean;
 }

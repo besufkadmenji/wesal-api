@@ -98,6 +98,14 @@ export class User {
   @Column({ type: 'varchar', length: 34, nullable: true })
   ibanNumber?: string;
 
+  @Field({ nullable: true })
+  @Column({ type: 'text', nullable: true })
+  commercialRegistrationNumber?: string;
+
+  @Field({ nullable: true })
+  @Column({ type: 'boolean', default: false })
+  withAbsher?: boolean;
+
   @Field(() => [Category], { nullable: true })
   @ManyToMany(() => Category, { nullable: true })
   @JoinTable({
