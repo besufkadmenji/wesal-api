@@ -13,7 +13,7 @@ export const seedCountries = async (
   let ksa: Country;
   if (!saudiarabia) {
     ksa = countryRepository.create({
-      codeEn: 'Saudi Arabia',
+      nameEn: 'Saudi Arabia',
       code: 'SA',
       nameAr: 'المملكة العربية السعودية',
     });

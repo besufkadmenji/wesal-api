@@ -16,7 +16,7 @@ export class Country {
 
   @Field()
   @Column({ type: 'varchar', length: 500, unique: true })
-  codeEn: string;
+  nameEn: string;
 
   @Field()
   @Column({ type: 'varchar', length: 500, unique: true })
