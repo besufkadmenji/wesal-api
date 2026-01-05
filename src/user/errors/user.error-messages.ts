@@ -107,6 +107,10 @@ export const USER_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Longitude cannot be removed',
     ar: 'لا يمكن حذف خط الطول',
   },
+  [USER_ERROR_CODES.CATEGORIES_CANNOT_BE_REMOVED]: {
+    en: 'Categories cannot be removed if they already exist',
+    ar: 'لا يمكن حذف الفئات إذا كانت موجودة بالفعل',
+  },
 };
 
 // Register user error messages in the central registry

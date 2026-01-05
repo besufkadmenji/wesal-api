@@ -221,7 +221,39 @@ export class UserService {
       }
     }
 
-    Object.assign(user, updateUserInput);
+    // Validate categories - cannot be emptied if they already exist
+    if (
+      updateUserInput.categoryIds !== undefined &&
+      updateUserInput.categoryIds !== null
+    ) {
+      if (
+        user.categories &&
+        user.categories.length > 0 &&
+        updateUserInput.categoryIds.length === 0
+      ) {
+        const message = I18nService.translate(
+          USER_ERROR_MESSAGES['CATEGORIES_CANNOT_BE_REMOVED'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Update categories if provided
+      if (updateUserInput.categoryIds.length > 0) {
+        const categories = await this.categoryRepository.find({
+          where: { id: In(updateUserInput.categoryIds) },
+        });
+        user.categories = categories;
+      }
+    }
+
+    // Remove categoryIds from the update payload before assigning
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { categoryIds, ...updateData } = updateUserInput;
+    Object.assign(user, updateData);
     return this.userRepository.save(user);
   }
 
@@ -233,6 +265,7 @@ export class UserService {
     await this.userRepository.update(id, { avatarFilename: null });
     return true;
   }
+
   async remove(id: string, language: LanguageCode = 'en'): Promise<User> {
     const user = await this.findOne(id, language);
     return this.userRepository.remove(user);
