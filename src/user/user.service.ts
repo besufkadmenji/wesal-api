@@ -109,7 +109,10 @@ export class UserService {
   }
 
   async findOne(id: string, language: LanguageCode = 'en'): Promise<User> {
-    const user = await this.userRepository.findOneBy({ id });
+    const user = await this.userRepository.findOne({
+      where: { id },
+      relations: ['categories'],
+    });
     if (!user) {
       const message = I18nService.translate(
         USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_NOT_FOUND],
