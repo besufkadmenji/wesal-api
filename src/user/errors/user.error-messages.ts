@@ -79,6 +79,34 @@ export const USER_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Full name is required',
     ar: 'الاسم الكامل مطلوب',
   },
+  [USER_ERROR_CODES.EMAIL_PHONE_IMMUTABLE]: {
+    en: 'Email and phone cannot be changed',
+    ar: 'لا يمكن تغيير البريد الإلكتروني والهاتف',
+  },
+  [USER_ERROR_CODES.NAME_CANNOT_BE_REMOVED]: {
+    en: 'Name cannot be removed',
+    ar: 'لا يمكن حذف الاسم',
+  },
+  [USER_ERROR_CODES.BANK_NAME_CANNOT_BE_REMOVED]: {
+    en: 'Bank name cannot be removed',
+    ar: 'لا يمكن حذف اسم البنك',
+  },
+  [USER_ERROR_CODES.IBAN_CANNOT_BE_REMOVED]: {
+    en: 'IBAN cannot be removed',
+    ar: 'لا يمكن حذف رقم الآيبان',
+  },
+  [USER_ERROR_CODES.ADDRESS_CANNOT_BE_REMOVED]: {
+    en: 'Address cannot be removed',
+    ar: 'لا يمكن حذف العنوان',
+  },
+  [USER_ERROR_CODES.LATITUDE_CANNOT_BE_REMOVED]: {
+    en: 'Latitude cannot be removed',
+    ar: 'لا يمكن حذف خط العرض',
+  },
+  [USER_ERROR_CODES.LONGITUDE_CANNOT_BE_REMOVED]: {
+    en: 'Longitude cannot be removed',
+    ar: 'لا يمكن حذف خط الطول',
+  },
 };
 
 // Register user error messages in the central registry

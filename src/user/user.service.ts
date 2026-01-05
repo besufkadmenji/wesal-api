@@ -127,24 +127,20 @@ export class UserService {
   ): Promise<User> {
     const user = await this.findOne(id, language);
 
-    // Check if new email/phone is already taken
+    // Phone and email cannot be changed
     if (updateUserInput.email || updateUserInput.phone) {
-      const conflictUser = await this.userRepository.findOne({
-        where: [
-          {
-            email: updateUserInput.email || user.email,
-            id: `NOT(${id})`,
-          },
-          {
-            phone: updateUserInput.phone || user.phone,
-            id: `NOT(${id})`,
-          },
-        ],
-      });
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES['EMAIL_PHONE_IMMUTABLE'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
 
-      if (conflictUser) {
+    // Validate that existing data cannot be unset
+    if (updateUserInput.name === null || updateUserInput.name === '') {
+      if (user.name) {
         const message = I18nService.translate(
-          USER_ERROR_MESSAGES[USER_ERROR_CODES.EMAIL_ALREADY_IN_USE],
+          USER_ERROR_MESSAGES['NAME_CANNOT_BE_REMOVED'],
           language,
         );
         throw new I18nBadRequestException(
@@ -154,19 +150,86 @@ export class UserService {
       }
     }
 
-    // Hash new password if provided
-    if (updateUserInput.password) {
-      updateUserInput['passwordHash'] = await bcrypt.hash(
-        updateUserInput.password,
-        10,
-      );
-      delete updateUserInput['password'];
+    if (updateUserInput.bankName === null || updateUserInput.bankName === '') {
+      if (user.bankName) {
+        const message = I18nService.translate(
+          USER_ERROR_MESSAGES['BANK_NAME_CANNOT_BE_REMOVED'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+    }
+
+    if (
+      updateUserInput.ibanNumber === null ||
+      updateUserInput.ibanNumber === ''
+    ) {
+      if (user.ibanNumber) {
+        const message = I18nService.translate(
+          USER_ERROR_MESSAGES['IBAN_CANNOT_BE_REMOVED'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+    }
+
+    if (updateUserInput.address === null || updateUserInput.address === '') {
+      if (user.address) {
+        const message = I18nService.translate(
+          USER_ERROR_MESSAGES['ADDRESS_CANNOT_BE_REMOVED'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+    }
+
+    if (updateUserInput.latitude === null) {
+      if (user.latitude !== null && user.latitude !== undefined) {
+        const message = I18nService.translate(
+          USER_ERROR_MESSAGES['LATITUDE_CANNOT_BE_REMOVED'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+    }
+
+    if (updateUserInput.longitude === null) {
+      if (user.longitude !== null && user.longitude !== undefined) {
+        const message = I18nService.translate(
+          USER_ERROR_MESSAGES['LONGITUDE_CANNOT_BE_REMOVED'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
     }
 
     Object.assign(user, updateUserInput);
     return this.userRepository.save(user);
   }
 
+  async removeAvatar(
+    id: string,
+    language: LanguageCode = 'en',
+  ): Promise<boolean> {
+    await this.findOne(id, language);
+    await this.userRepository.update(id, { avatarFilename: null });
+    return true;
+  }
   async remove(id: string, language: LanguageCode = 'en'): Promise<User> {
     const user = await this.findOne(id, language);
     return this.userRepository.remove(user);

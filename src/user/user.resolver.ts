@@ -57,6 +57,14 @@ export class UserResolver {
     );
   }
 
+  @Mutation(() => Boolean, { description: 'Delete user avatar by ID' })
+  removeAvatar(
+    @Args('id', { type: () => ID }) id: string,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.userService.removeAvatar(id, language);
+  }
+
   @Mutation(() => User, { description: 'Delete user by ID' })
   removeUser(
     @Args('id', { type: () => ID }) id: string,
