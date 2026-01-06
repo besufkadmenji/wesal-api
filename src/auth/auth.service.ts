@@ -22,6 +22,12 @@ import { VerifyOtpInput } from './dto/verify-otp.input';
 import { VerifyPasswordResetOtpInput } from './dto/verify-password-reset-otp.input';
 import { VerifyPasswordResetOtpResponse } from './dto/verify-password-reset-otp.response';
 import { ChangePasswordInput } from './dto/change-password.input';
+import { ChangeEmailInput } from './dto/change-email.input';
+import { ChangeEmailResponse } from './dto/change-email.response';
+import { ChangePhoneInput } from './dto/change-phone.input';
+import { ChangePhoneResponse } from './dto/change-phone.response';
+import { VerifyChangeEmailInput } from './dto/verify-change-email.input';
+import { VerifyChangePhoneInput } from './dto/verify-change-phone.input';
 import { Otp } from './entities/otp.entity';
 import { OtpType } from './enums/otp-type.enum';
 import { AUTH_ERROR_MESSAGES } from './errors/auth.error-messages';
@@ -483,6 +489,396 @@ export class AuthService {
     await this.userRepository.save(user);
 
     return true;
+  }
+
+  async initiateEmailChange(
+    userId: string,
+    changeEmailInput: ChangeEmailInput,
+    language: LanguageCode = 'en',
+  ): Promise<ChangeEmailResponse> {
+    // Find user
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['USER_NOT_FOUND'],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    // Check if new email is already in use
+    const existingUser = await this.userRepository.findOne({
+      where: { email: changeEmailInput.newEmail },
+    });
+
+    if (existingUser && existingUser.id !== userId) {
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['EMAIL_ALREADY_IN_USE'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Generate and send OTP to new email
+    await this.generateAndSendOtp(
+      userId,
+      changeEmailInput.newEmail,
+      OtpType.EMAIL_VERIFICATION,
+    );
+
+    // Issue a temporary change token (short-lived, e.g., 15 minutes)
+    const payload = {
+      sub: userId,
+      newEmail: changeEmailInput.newEmail,
+      type: 'email_change',
+    };
+    const changeToken: string = this.jwtService.sign(payload, {
+      expiresIn: '15m',
+    });
+
+    return { changeToken };
+  }
+
+  async initiatePhoneChange(
+    userId: string,
+    changePhoneInput: ChangePhoneInput,
+    language: LanguageCode = 'en',
+  ): Promise<ChangePhoneResponse> {
+    // Find user
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['USER_NOT_FOUND'],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    // Check if new phone is already in use
+    const existingUser = await this.userRepository.findOne({
+      where: { phone: changePhoneInput.newPhone },
+    });
+
+    if (existingUser && existingUser.id !== userId) {
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['PHONE_ALREADY_IN_USE'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Generate and send OTP to new phone
+    await this.generateAndSendOtp(
+      userId,
+      changePhoneInput.newPhone,
+      OtpType.PHONE_VERIFICATION,
+    );
+
+    // Issue a temporary change token (short-lived, e.g., 15 minutes)
+    const payload = {
+      sub: userId,
+      newPhone: changePhoneInput.newPhone,
+      type: 'phone_change',
+    };
+    const changeToken: string = this.jwtService.sign(payload, {
+      expiresIn: '15m',
+    });
+
+    return { changeToken };
+  }
+
+  async verifyEmailChange(
+    verifyChangeEmailInput: VerifyChangeEmailInput,
+    language: LanguageCode = 'en',
+    ipAddress?: string,
+  ): Promise<boolean> {
+    try {
+      // Verify and decode the change token
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const payload: any = this.jwtService.verify(
+        verifyChangeEmailInput.changeToken,
+      );
+
+      // Ensure token is an email change token
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (payload.type !== 'email_change') {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['INVALID_OTP'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Find valid OTP
+      const otp = await this.otpRepository.findOne({
+        where: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+          target: payload.newEmail,
+          type: OtpType.EMAIL_VERIFICATION,
+          isUsed: false,
+          expiresAt: MoreThan(new Date()),
+        },
+      });
+
+      if (!otp) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['INVALID_OTP'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Check attempt rate limiting (max 5 failed attempts per OTP)
+      if (otp.attemptCount >= 5) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['TOO_MANY_OTP_ATTEMPTS'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Check if last attempt was less than 30 seconds ago (prevent brute force)
+      if (otp.lastAttemptAt && otp.lastAttemptAt instanceof Date) {
+        const timeSinceLastAttempt = Date.now() - otp.lastAttemptAt.getTime();
+        if (timeSinceLastAttempt < 30000) {
+          // 30 seconds
+          const message = I18nService.translate(
+            AUTH_ERROR_MESSAGES['OTP_VERIFICATION_THROTTLED'],
+            language,
+          );
+          throw new I18nBadRequestException(
+            { en: message, ar: message },
+            language,
+          );
+        }
+      }
+
+      // Verify OTP code
+      if (otp.code !== verifyChangeEmailInput.code) {
+        otp.attemptCount += 1;
+        otp.lastAttemptAt = new Date();
+        await this.otpRepository.save(otp);
+
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['INVALID_OTP'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Verify IP address matches (security check)
+      if (otp.ipAddress && ipAddress && otp.ipAddress !== ipAddress) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['OTP_IP_MISMATCH'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Mark OTP as used
+      otp.isUsed = true;
+      await this.otpRepository.save(otp);
+
+      // Get user from token and update email
+      const user = await this.userRepository.findOne({
+        where: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+          id: payload.sub,
+        },
+      });
+
+      if (!user) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['USER_NOT_FOUND'],
+          language,
+        );
+        throw new I18nNotFoundException({ en: message, ar: message }, language);
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+      user.email = payload.newEmail;
+      await this.userRepository.save(user);
+
+      return true;
+    } catch (error) {
+      if (
+        error instanceof I18nBadRequestException ||
+        error instanceof I18nNotFoundException
+      ) {
+        throw error;
+      }
+
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['INVALID_OTP'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+  }
+
+  async verifyPhoneChange(
+    verifyChangePhoneInput: VerifyChangePhoneInput,
+    language: LanguageCode = 'en',
+    ipAddress?: string,
+  ): Promise<boolean> {
+    try {
+      // Verify and decode the change token
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const payload: any = this.jwtService.verify(
+        verifyChangePhoneInput.changeToken,
+      );
+
+      // Ensure token is a phone change token
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (payload.type !== 'phone_change') {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['INVALID_OTP'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Find valid OTP
+      const otp = await this.otpRepository.findOne({
+        where: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+          target: payload.newPhone,
+          type: OtpType.PHONE_VERIFICATION,
+          isUsed: false,
+          expiresAt: MoreThan(new Date()),
+        },
+      });
+
+      if (!otp) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['INVALID_OTP'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Check attempt rate limiting (max 5 failed attempts per OTP)
+      if (otp.attemptCount >= 5) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['TOO_MANY_OTP_ATTEMPTS'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Check if last attempt was less than 30 seconds ago (prevent brute force)
+      if (otp.lastAttemptAt && otp.lastAttemptAt instanceof Date) {
+        const timeSinceLastAttempt = Date.now() - otp.lastAttemptAt.getTime();
+        if (timeSinceLastAttempt < 30000) {
+          // 30 seconds
+          const message = I18nService.translate(
+            AUTH_ERROR_MESSAGES['OTP_VERIFICATION_THROTTLED'],
+            language,
+          );
+          throw new I18nBadRequestException(
+            { en: message, ar: message },
+            language,
+          );
+        }
+      }
+
+      // Verify OTP code
+      if (otp.code !== verifyChangePhoneInput.code) {
+        otp.attemptCount += 1;
+        otp.lastAttemptAt = new Date();
+        await this.otpRepository.save(otp);
+
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['INVALID_OTP'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Verify IP address matches (security check)
+      if (otp.ipAddress && ipAddress && otp.ipAddress !== ipAddress) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['OTP_IP_MISMATCH'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Mark OTP as used
+      otp.isUsed = true;
+      await this.otpRepository.save(otp);
+
+      // Get user from token and update phone
+      const user = await this.userRepository.findOne({
+        where: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+          id: payload.sub,
+        },
+      });
+
+      if (!user) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['USER_NOT_FOUND'],
+          language,
+        );
+        throw new I18nNotFoundException({ en: message, ar: message }, language);
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+      user.phone = payload.newPhone;
+      await this.userRepository.save(user);
+
+      return true;
+    } catch (error) {
+      if (
+        error instanceof I18nBadRequestException ||
+        error instanceof I18nNotFoundException
+      ) {
+        throw error;
+      }
+
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['INVALID_OTP'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
   }
 
   private async generateAndSendOtp(

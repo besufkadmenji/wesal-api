@@ -18,6 +18,12 @@ import { ResetPasswordWithTokenInput } from './dto/reset-password-with-token.inp
 import { VerifyOtpInput } from './dto/verify-otp.input';
 import { VerifyPasswordResetOtpInput } from './dto/verify-password-reset-otp.input';
 import { VerifyPasswordResetOtpResponse } from './dto/verify-password-reset-otp.response';
+import { ChangeEmailInput } from './dto/change-email.input';
+import { ChangeEmailResponse } from './dto/change-email.response';
+import { ChangePhoneInput } from './dto/change-phone.input';
+import { ChangePhoneResponse } from './dto/change-phone.response';
+import { VerifyChangeEmailInput } from './dto/verify-change-email.input';
+import { VerifyChangePhoneInput } from './dto/verify-change-phone.input';
 
 @Resolver()
 export class AuthResolver {
@@ -135,11 +141,82 @@ export class AuthResolver {
     if (!user) {
       throw new Error('User not authenticated');
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
     return await this.authService.changePassword(
       user.sub,
       changePasswordInput,
       language,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => ChangeEmailResponse, {
+    description:
+      'Initiate email change - sends OTP to new email and returns change token',
+  })
+  async initiateEmailChange(
+    @Args('input') changeEmailInput: ChangeEmailInput,
+    @CurrentUser() user: JwtPayload | undefined,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<ChangeEmailResponse> {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    return await this.authService.initiateEmailChange(
+      user.sub,
+      changeEmailInput,
+      language,
+    );
+  }
+
+  @Mutation(() => Boolean, {
+    description: 'Verify email change with OTP and change token',
+  })
+  async verifyEmailChange(
+    @Args('input') verifyChangeEmailInput: VerifyChangeEmailInput,
+    @GetLanguage() language: LanguageCode,
+    @Req() request?: Request,
+  ): Promise<boolean> {
+    const ipAddress = this.getClientIp(request);
+    return await this.authService.verifyEmailChange(
+      verifyChangeEmailInput,
+      language,
+      ipAddress,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => ChangePhoneResponse, {
+    description:
+      'Initiate phone change - sends OTP to new phone and returns change token',
+  })
+  async initiatePhoneChange(
+    @Args('input') changePhoneInput: ChangePhoneInput,
+    @CurrentUser() user: JwtPayload | undefined,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<ChangePhoneResponse> {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    return await this.authService.initiatePhoneChange(
+      user.sub,
+      changePhoneInput,
+      language,
+    );
+  }
+
+  @Mutation(() => Boolean, {
+    description: 'Verify phone change with OTP and change token',
+  })
+  async verifyPhoneChange(
+    @Args('input') verifyChangePhoneInput: VerifyChangePhoneInput,
+    @GetLanguage() language: LanguageCode,
+    @Req() request?: Request,
+  ): Promise<boolean> {
+    const ipAddress = this.getClientIp(request);
+    return await this.authService.verifyPhoneChange(
+      verifyChangePhoneInput,
+      language,
+      ipAddress,
     );
   }
 }
