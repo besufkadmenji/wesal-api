@@ -21,6 +21,7 @@ import { ResetPasswordWithTokenInput } from './dto/reset-password-with-token.inp
 import { VerifyOtpInput } from './dto/verify-otp.input';
 import { VerifyPasswordResetOtpInput } from './dto/verify-password-reset-otp.input';
 import { VerifyPasswordResetOtpResponse } from './dto/verify-password-reset-otp.response';
+import { ChangePasswordInput } from './dto/change-password.input';
 import { Otp } from './entities/otp.entity';
 import { OtpType } from './enums/otp-type.enum';
 import { AUTH_ERROR_MESSAGES } from './errors/auth.error-messages';
@@ -453,6 +454,35 @@ export class AuthService {
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
+  }
+
+  async changePassword(
+    userId: string,
+    changePasswordInput: ChangePasswordInput,
+    language: LanguageCode = 'en',
+  ): Promise<boolean> {
+    // Find user
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['USER_NOT_FOUND'],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(
+      changePasswordInput.newPassword,
+      10,
+    );
+    user.password = hashedPassword;
+    await this.userRepository.save(user);
+
+    return true;
   }
 
   private async generateAndSendOtp(
