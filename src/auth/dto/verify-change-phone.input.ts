@@ -11,5 +11,10 @@ export class VerifyChangePhoneInput {
   @Field()
   @IsNotEmpty()
   @IsString()
+  countryCode: string;
+
+  @Field()
+  @IsNotEmpty()
+  @IsString()
   code: string;
 }
