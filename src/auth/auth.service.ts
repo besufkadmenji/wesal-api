@@ -584,6 +584,7 @@ export class AuthService {
     const payload = {
       sub: userId,
       newPhone: changePhoneInput.newPhone,
+      countryCode: changePhoneInput.countryCode,
       type: 'phone_change',
     };
     const changeToken: string = this.jwtService.sign(payload, {
@@ -862,6 +863,8 @@ export class AuthService {
 
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
       user.phone = payload.newPhone;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+      user.dialCode = payload.countryCode;
       await this.userRepository.save(user);
 
       return true;
