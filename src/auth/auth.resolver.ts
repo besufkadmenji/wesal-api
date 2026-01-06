@@ -1,11 +1,15 @@
-import { Req } from '@nestjs/common';
+import { Req, UseGuards } from '@nestjs/common';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import type { Request } from 'express';
 import { GetLanguage } from '../../lib/i18n';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { User } from '../user/entities/user.entity';
 import { AuthService } from './auth.service';
+import { CurrentUser } from './decorators/current-user.decorator';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import type { JwtPayload } from './strategies/jwt.strategy';
 import { AuthResponse } from './dto/auth-response';
+import { ChangePasswordInput } from './dto/change-password.input';
 import { ForgotPasswordInput } from './dto/forgot-password.input';
 import { LoginInput } from './dto/login.input';
 import { RegisterInput } from './dto/register.input';
@@ -115,6 +119,26 @@ export class AuthResolver {
   ): Promise<boolean> {
     return this.authService.resetPassword(
       resetPasswordWithTokenInput,
+      language,
+    );
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Mutation(() => Boolean, {
+    description: 'Change password for authenticated user',
+  })
+  async changePassword(
+    @Args('input') changePasswordInput: ChangePasswordInput,
+    @CurrentUser() user: JwtPayload | undefined,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<boolean> {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+    return await this.authService.changePassword(
+      user.sub,
+      changePasswordInput,
       language,
     );
   }
