@@ -28,6 +28,10 @@ export class Admin {
   fullName: string;
 
   @Field()
+  @Column({ type: 'varchar', length: 255, default: '' })
+  phoneNumber: string;
+
+  @Field()
   @Column({ type: 'varchar', length: 255 })
   organizationName: string;
 
