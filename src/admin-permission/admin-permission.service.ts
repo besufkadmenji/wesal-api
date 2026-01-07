@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { AdminPermission } from './entities/admin-permission.entity';
 import { AssignPermissionInput } from './dto/assign-permission.input';
 import { Admin } from '../admin/entities/admin.entity';
@@ -149,7 +149,9 @@ export class AdminPermissionService {
     }
 
     // Check if all permissions exist
-    const permissions = await this.permissionRepository.findByIds(permissionIds);
+    const permissions = await this.permissionRepository.findBy({
+      id: In(permissionIds),
+    });
     if (permissions.length !== permissionIds.length) {
       const message = I18nService.translate(
         ADMIN_PERMISSION_ERROR_MESSAGES['PERMISSION_NOT_FOUND'],
@@ -160,7 +162,7 @@ export class AdminPermissionService {
 
     // Get existing assignments
     const existing = await this.adminPermissionRepository.find({
-      where: { adminId, permissionId: permissionIds as any },
+      where: { adminId, permissionId: In(permissionIds) },
     });
     const existingPermissionIds = existing.map((ap) => ap.permissionId);
 
@@ -202,7 +204,7 @@ export class AdminPermissionService {
     // Delete matching assignments
     await this.adminPermissionRepository.delete({
       adminId,
-      permissionId: permissionIds as any,
+      permissionId: In(permissionIds),
     });
 
     return true;
