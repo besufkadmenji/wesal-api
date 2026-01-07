@@ -31,6 +31,10 @@ export class Admin {
   @Column({ type: 'varchar', length: 255, default: '' })
   phoneNumber: string;
 
+  @Field({ nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  avatarFilename: string;
+
   @Field()
   @Column({ type: 'varchar', length: 255 })
   organizationName: string;
