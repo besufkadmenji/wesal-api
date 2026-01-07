@@ -31,7 +31,9 @@ export async function seedAdmins(dataSource: DataSource): Promise<void> {
       await adminRepository.save(superAdmin);
       console.log('✓ Seeded super admin: superadmin@wesal.com');
     } else {
-      console.log(`✓ Admins already exist (${adminCount} found), skipping admin seed`);
+      console.log(
+        `✓ Admins already exist (${adminCount} found), skipping admin seed`,
+      );
     }
   } catch (error) {
     console.error('❌ Error seeding admin:', error);

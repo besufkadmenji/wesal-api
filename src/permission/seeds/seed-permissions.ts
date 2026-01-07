@@ -1,16 +1,14 @@
 import { DataSource } from 'typeorm';
-import * as fs from 'fs';
-import * as path from 'path';
 import { Permission } from '../entities/permission.entity';
+import { PermissionPlatform } from '../enums/permission-platform.enum';
+import { seedData } from './seed.data';
 
 export async function seedPermissions(dataSource: DataSource): Promise<void> {
   const permissionRepository = dataSource.getRepository(Permission);
 
   try {
     // Read seed.json
-    const seedPath = path.join(__dirname, '..', 'seed.json');
-    const seedData = JSON.parse(fs.readFileSync(seedPath, 'utf-8'));
-    const permissions = seedData.data?.permissions || [];
+    const permissions = seedData;
 
     let created = 0;
     let updated = 0;
@@ -32,7 +30,8 @@ export async function seedPermissions(dataSource: DataSource): Promise<void> {
           existing.name !== permissionData.name ||
           existing.nameAr !== permissionData.nameAr ||
           existing.description !== permissionData.description ||
-          existing.permissionPlatform !== permissionData.permissionPlatform;
+          existing.permissionPlatform.toString() !==
+            permissionData.permissionPlatform;
 
         if (needsUpdate) {
           Object.assign(existing, {
@@ -47,8 +46,16 @@ export async function seedPermissions(dataSource: DataSource): Promise<void> {
           skipped++;
         }
       } else {
-        // Create new
-        const permission = permissionRepository.create(permissionData);
+        const permission = permissionRepository.create({
+          name: permissionData.name,
+          nameAr: permissionData.nameAr,
+          description: permissionData.description,
+          module: permissionData.module,
+          action: permissionData.action,
+          resource: permissionData.resource,
+          permissionPlatform:
+            permissionData.permissionPlatform as PermissionPlatform,
+        });
         await permissionRepository.save(permission);
         created++;
       }
