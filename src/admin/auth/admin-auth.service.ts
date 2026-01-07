@@ -2,21 +2,22 @@ import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { LessThan, MoreThan, Repository } from 'typeorm';
-import { Admin } from '../entities/admin.entity';
-import { AdminLoginInput } from '../dto/admin-login.input';
-import { AdminForgotPasswordInput } from '../dto/admin-forgot-password.input';
-import { VerifyAdminPasswordResetOtpInput } from '../dto/verify-admin-password-reset-otp.input';
-import { AdminResetPasswordInput } from '../dto/admin-reset-password.input';
-import { AdminChangePasswordInput } from '../dto/admin-change-password.input';
-import { AdminAuthResponse } from '../dto/admin-auth.response';
-import { VerifyAdminPasswordResetOtpResponse } from '../dto/verify-admin-password-reset-otp.response';
-import { Otp } from '../../auth/entities/otp.entity';
-import { OtpType } from '../../auth/enums/otp-type.enum';
 import { EmailService } from 'lib/email/email.service';
 import { I18nBadRequestException, I18nNotFoundException } from 'lib/errors';
 import { I18nService } from 'lib/i18n/i18n.service';
 import type { LanguageCode } from 'lib/i18n/language.types';
+import { MoreThan, Repository } from 'typeorm';
+import { AdminOtp } from '../entities/admin-otp.entity';
+import { OtpType } from '../../auth/enums/otp-type.enum';
+import { AdminAuthResponse } from '../dto/admin-auth.response';
+import { AdminChangePasswordInput } from '../dto/admin-change-password.input';
+import { AdminForgotPasswordInput } from '../dto/admin-forgot-password.input';
+import { AdminLoginInput } from '../dto/admin-login.input';
+import { AdminResetPasswordInput } from '../dto/admin-reset-password.input';
+import { VerifyAdminPasswordResetOtpInput } from '../dto/verify-admin-password-reset-otp.input';
+import { VerifyAdminPasswordResetOtpResponse } from '../dto/verify-admin-password-reset-otp.response';
+import { Admin } from '../entities/admin.entity';
+import { AdminStatus } from '../enums/admin-status.enum';
 import { ADMIN_ERROR_MESSAGES } from '../errors/admin.error-messages';
 
 @Injectable()
@@ -24,8 +25,8 @@ export class AdminAuthService {
   constructor(
     @InjectRepository(Admin)
     private readonly adminRepository: Repository<Admin>,
-    @InjectRepository(Otp)
-    private readonly otpRepository: Repository<Otp>,
+    @InjectRepository(AdminOtp)
+    private readonly adminOtpRepository: Repository<AdminOtp>,
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
   ) {}
@@ -61,7 +62,7 @@ export class AdminAuthService {
     }
 
     // Check if admin is active
-    if (admin.status !== 'ACTIVE') {
+    if (admin.status !== AdminStatus.ACTIVE) {
       const message = I18nService.translate(
         ADMIN_ERROR_MESSAGES['INVALID_STATUS'],
         language,
@@ -127,7 +128,7 @@ export class AdminAuthService {
     ipAddress?: string,
   ): Promise<VerifyAdminPasswordResetOtpResponse> {
     // Find valid OTP
-    const otp = await this.otpRepository.findOne({
+    const otp = await this.adminOtpRepository.findOne({
       where: {
         target: verifyInput.email,
         type: OtpType.PASSWORD_RESET,
@@ -172,7 +173,7 @@ export class AdminAuthService {
     if (otp.code !== verifyInput.code) {
       otp.attemptCount += 1;
       otp.lastAttemptAt = new Date();
-      await this.otpRepository.save(otp);
+      await this.adminOtpRepository.save(otp);
 
       const message = I18nService.translate(
         ADMIN_ERROR_MESSAGES['INVALID_OTP'],
@@ -192,10 +193,10 @@ export class AdminAuthService {
 
     // Mark OTP as used
     otp.isUsed = true;
-    await this.otpRepository.save(otp);
+    await this.adminOtpRepository.save(otp);
 
     // Issue temporary reset token
-    const payload = { sub: otp.userId, type: 'admin_password_reset' };
+    const payload = { sub: otp.adminId, type: 'admin_password_reset' };
     const resetToken: string = this.jwtService.sign(payload, {
       expiresIn: '15m',
     });
@@ -227,7 +228,7 @@ export class AdminAuthService {
 
       // Get admin from token
       const admin = await this.adminRepository.findOne({
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
         where: { id: payload.sub },
       });
 
@@ -300,8 +301,8 @@ export class AdminAuthService {
     const code = '1234';
 
     // Create OTP with 10 minutes expiration
-    const otp = this.otpRepository.create({
-      userId: adminId,
+    const otp = this.adminOtpRepository.create({
+      adminId,
       target,
       type,
       code,
@@ -310,7 +311,7 @@ export class AdminAuthService {
       ipAddress,
       attemptCount: 0,
     });
-    await this.otpRepository.save(otp);
+    await this.adminOtpRepository.save(otp);
 
     // Send OTP via email
     if (type === OtpType.PASSWORD_RESET) {
