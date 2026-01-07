@@ -1,19 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { Admin } from './entities/admin.entity';
-import { AdminStatus } from './enums/admin-status.enum';
-import { CreateAdminInput } from './dto/create-admin.input';
-import { UpdateAdminInput } from './dto/update-admin.input';
-import { AdminPaginationInput } from './dto/admin-pagination.input';
-import { AdminPermissionType } from './enums/admin-permission-type.enum';
+import { IPaginatedType } from 'lib/common/dto/paginated-response';
+import { SortOrder } from 'lib/common/dto/pagination.input';
 import { I18nBadRequestException, I18nNotFoundException } from 'lib/errors';
 import { I18nService } from 'lib/i18n/i18n.service';
 import type { LanguageCode } from 'lib/i18n/language.types';
+import { Repository } from 'typeorm';
+import { AdminPaginationInput } from './dto/admin-pagination.input';
+import { CreateAdminInput } from './dto/create-admin.input';
+import { UpdateAdminInput } from './dto/update-admin.input';
+import { Admin } from './entities/admin.entity';
+import { AdminPermissionType } from './enums/admin-permission-type.enum';
+import { AdminStatus } from './enums/admin-status.enum';
 import { ADMIN_ERROR_MESSAGES } from './errors/admin.error-messages';
-import { SortOrder } from 'lib/common/dto/pagination.input';
-import { IPaginatedType } from 'lib/common/dto/paginated-response';
 
 @Injectable()
 export class AdminService {
@@ -149,14 +149,6 @@ export class AdminService {
           language,
         );
       }
-    }
-
-    // Hash password if provided
-    if (updateAdminInput.password) {
-      updateAdminInput.password = await bcrypt.hash(
-        updateAdminInput.password,
-        10,
-      );
     }
 
     // Update admin
