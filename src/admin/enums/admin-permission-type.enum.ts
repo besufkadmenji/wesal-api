@@ -4,6 +4,7 @@ export enum AdminPermissionType {
   ADMINISTRATOR = 'ADMINISTRATOR',
   MODERATOR = 'MODERATOR',
   VIEWER = 'VIEWER',
+  CUSTOM = 'CUSTOM',
 }
 
 registerEnumType(AdminPermissionType, {
