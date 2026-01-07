@@ -1,5 +1,5 @@
 import { InputType, Field, registerEnumType } from '@nestjs/graphql';
-import { IsOptional, IsIn } from 'class-validator';
+import { IsOptional, IsIn, IsString } from 'class-validator';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 import { AdminStatus } from '../enums/admin-status.enum';
 import { AdminPermissionType } from '../enums/admin-permission-type.enum';
@@ -33,6 +33,11 @@ registerEnumType(AdminSortFieldEnum, {
 
 @InputType()
 export class AdminPaginationInput extends PaginationInput {
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @Field(() => AdminStatus, { nullable: true })
   @IsOptional()
   status?: AdminStatus;
