@@ -1,14 +1,8 @@
-import { InputType, Field } from '@nestjs/graphql';
-import {
-  IsEmail,
-  IsString,
-  IsOptional,
-  IsEnum,
-  MinLength,
-} from 'class-validator';
+import { Field, InputType } from '@nestjs/graphql';
+import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
 import { AdminPermissionType } from '../enums/admin-permission-type.enum';
-import { AdminUserType } from '../enums/admin-user-type.enum';
 import { AdminStatus } from '../enums/admin-status.enum';
+import { AdminUserType } from '../enums/admin-user-type.enum';
 
 @InputType()
 export class UpdateAdminInput {
@@ -32,12 +26,6 @@ export class UpdateAdminInput {
   @IsString()
   roleName?: string;
 
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsString()
-  @MinLength(8)
-  password?: string;
-
   @Field(() => AdminPermissionType, { nullable: true })
   @IsOptional()
   @IsEnum(AdminPermissionType)
@@ -52,4 +40,9 @@ export class UpdateAdminInput {
   @IsOptional()
   @IsEnum(AdminStatus)
   status?: AdminStatus;
+
+  @Field()
+  @IsOptional()
+  @IsString()
+  phoneNumber: string;
 }
