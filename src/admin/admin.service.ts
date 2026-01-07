@@ -5,11 +5,14 @@ import * as bcrypt from 'bcrypt';
 import { Admin } from './entities/admin.entity';
 import { CreateAdminInput } from './dto/create-admin.input';
 import { UpdateAdminInput } from './dto/update-admin.input';
+import { AdminPaginationInput } from './dto/admin-pagination.input';
 import { AdminPermissionType } from './enums/admin-permission-type.enum';
 import { I18nBadRequestException, I18nNotFoundException } from 'lib/errors';
 import { I18nService } from 'lib/i18n/i18n.service';
 import type { LanguageCode } from 'lib/i18n/language.types';
 import { ADMIN_ERROR_MESSAGES } from './errors/admin.error-messages';
+import { SortOrder } from 'lib/common/dto/pagination.input';
+import { IPaginatedType } from 'lib/common/dto/paginated-response';
 
 @Injectable()
 export class AdminService {
@@ -47,10 +50,55 @@ export class AdminService {
     return this.adminRepository.save(admin);
   }
 
-  async findAll(): Promise<Admin[]> {
-    return this.adminRepository.find({
-      order: { createdAt: 'DESC' },
-    });
+  async findAll(
+    paginationInput?: AdminPaginationInput,
+  ): Promise<IPaginatedType<Admin>> {
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      permissionType,
+      sortBy,
+      sortOrder = SortOrder.ASC,
+    } = paginationInput || {};
+
+    const skip = (page - 1) * limit;
+    const orderByField = sortBy || 'createdAt';
+    const orderDirection = sortOrder === SortOrder.DESC ? 'DESC' : 'ASC';
+
+    const queryBuilder = this.adminRepository
+      .createQueryBuilder('admin')
+      .select('admin');
+
+    if (status) {
+      queryBuilder.andWhere('admin.status = :status', { status });
+    }
+
+    if (permissionType) {
+      queryBuilder.andWhere('admin.permissionType = :permissionType', {
+        permissionType,
+      });
+    }
+
+    const [items, total] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .orderBy(`admin.${orderByField}`, orderDirection)
+      .getManyAndCount();
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrevious: page > 1,
+      },
+    };
   }
 
   async findOne(id: string, language: LanguageCode = 'en'): Promise<Admin> {

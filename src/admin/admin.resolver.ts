@@ -4,6 +4,8 @@ import { AdminService } from './admin.service';
 import { Admin } from './entities/admin.entity';
 import { CreateAdminInput } from './dto/create-admin.input';
 import { UpdateAdminInput } from './dto/update-admin.input';
+import { AdminPaginationInput } from './dto/admin-pagination.input';
+import { PaginatedAdminResponse } from './dto/paginated-admin.response';
 import { GetLanguage } from 'lib/i18n/get-language.decorator';
 import type { LanguageCode } from 'lib/i18n/language.types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -21,10 +23,13 @@ export class AdminResolver {
     return this.adminService.create(createAdminInput, language);
   }
 
-  @Query(() => [Admin], { name: 'admins' })
+  @Query(() => PaginatedAdminResponse, { name: 'admins' })
   @UseGuards(JwtAuthGuard)
-  findAll() {
-    return this.adminService.findAll();
+  findAll(
+    @Args('paginationInput', { nullable: true })
+    paginationInput?: AdminPaginationInput,
+  ) {
+    return this.adminService.findAll(paginationInput);
   }
 
   @Query(() => Admin, { name: 'admin' })
