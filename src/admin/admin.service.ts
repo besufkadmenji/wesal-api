@@ -205,7 +205,11 @@ export class AdminService {
     return this.adminRepository.save(admin);
   }
 
-  async deactivate(id: string, language: LanguageCode = 'en'): Promise<Admin> {
+  async deactivate(
+    id: string,
+    reason?: string,
+    language: LanguageCode = 'en',
+  ): Promise<Admin> {
     const admin = await this.findOne(id, language);
 
     // Check if already inactive
@@ -239,6 +243,9 @@ export class AdminService {
     }
 
     admin.status = AdminStatus.INACTIVE;
+    if (reason) {
+      admin.deactivationReason = reason;
+    }
     return this.adminRepository.save(admin);
   }
 }

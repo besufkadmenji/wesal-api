@@ -70,6 +70,10 @@ export class Admin {
   })
   status: AdminStatus;
 
+  @Field({ nullable: true })
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  deactivationReason?: string | null;
+
   @Field()
   @CreateDateColumn()
   createdAt: Date;
