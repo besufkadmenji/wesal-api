@@ -65,4 +65,8 @@ export const ADMIN_ERROR_MESSAGES: Record<
     en: 'Cannot deactivate the last active administrator',
     ar: 'لا يمكن تعطيل آخر مسؤول نشط',
   },
+  INCORRECT_CURRENT_PASSWORD: {
+    en: 'Current password is incorrect',
+    ar: 'كلمة المرور الحالية غير صحيحة',
+  },
 } as const;
