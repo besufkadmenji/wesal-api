@@ -1,9 +1,9 @@
-import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { DataSource } from 'typeorm';
 import { Admin } from '../entities/admin.entity';
 import { AdminPermissionType } from '../enums/admin-permission-type.enum';
-import { AdminUserType } from '../enums/admin-user-type.enum';
 import { AdminStatus } from '../enums/admin-status.enum';
+import { AdminUserType } from '../enums/admin-user-type.enum';
 
 export async function seedAdmins(dataSource: DataSource): Promise<void> {
   const adminRepository = dataSource.getRepository(Admin);
@@ -23,7 +23,7 @@ export async function seedAdmins(dataSource: DataSource): Promise<void> {
         organizationName: 'Wesal Platform',
         roleName: 'Super Admin',
         password: hashedPassword,
-        permissionType: AdminPermissionType.ADMINISTRATOR,
+        permissionType: AdminPermissionType.SUPER_ADMIN,
         userType: AdminUserType.PLATFORM,
         status: AdminStatus.ACTIVE,
       });
