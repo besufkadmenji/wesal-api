@@ -6,6 +6,11 @@ export class AdminChangePasswordInput {
   @Field()
   @IsNotEmpty()
   @IsString()
+  currentPassword: string;
+
+  @Field()
+  @IsNotEmpty()
+  @IsString()
   @MinLength(8)
   newPassword: string;
 }

@@ -280,6 +280,20 @@ export class AdminAuthService {
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
 
+    // Verify current password
+    const isPasswordValid = await bcrypt.compare(
+      changePasswordInput.currentPassword,
+      admin.password || '',
+    );
+
+    if (!isPasswordValid) {
+      const message = I18nService.translate(
+        ADMIN_ERROR_MESSAGES['INCORRECT_CURRENT_PASSWORD'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
     // Hash new password
     const hashedPassword = await bcrypt.hash(
       changePasswordInput.newPassword,
