@@ -4,6 +4,7 @@ import { AdminService } from './admin.service';
 import { Admin } from './entities/admin.entity';
 import { CreateAdminInput } from './dto/create-admin.input';
 import { UpdateAdminInput } from './dto/update-admin.input';
+import { DeactivateAdminInput } from './dto/deactivate-admin.input';
 import { AdminPaginationInput } from './dto/admin-pagination.input';
 import { PaginatedAdminResponse } from './dto/paginated-admin.response';
 import { GetLanguage } from 'lib/i18n/get-language.decorator';
@@ -73,8 +74,9 @@ export class AdminResolver {
   @UseGuards(JwtAuthGuard)
   deactivateAdmin(
     @Args('id', { type: () => ID }) id: string,
+    @Args('input') input: DeactivateAdminInput,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.adminService.deactivate(id, language);
+    return this.adminService.deactivate(id, input.reason, language);
   }
 }
