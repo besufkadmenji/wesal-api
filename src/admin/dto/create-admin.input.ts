@@ -1,14 +1,15 @@
-import { InputType, Field } from '@nestjs/graphql';
+import { Field, InputType } from '@nestjs/graphql';
 import {
   IsEmail,
+  IsEnum,
   IsNotEmpty,
+  IsOptional,
   IsString,
   MinLength,
-  IsEnum,
 } from 'class-validator';
 import { AdminPermissionType } from '../enums/admin-permission-type.enum';
-import { AdminUserType } from '../enums/admin-user-type.enum';
 import { AdminStatus } from '../enums/admin-status.enum';
+import { AdminUserType } from '../enums/admin-user-type.enum';
 
 @InputType()
 export class CreateAdminInput {
@@ -21,6 +22,11 @@ export class CreateAdminInput {
   @IsNotEmpty()
   @IsString()
   fullName: string;
+
+  @Field()
+  @IsOptional()
+  @IsString()
+  phoneNumber: string;
 
   @Field()
   @IsNotEmpty()

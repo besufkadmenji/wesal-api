@@ -56,6 +56,7 @@ export class AdminService {
     const {
       page = 1,
       limit = 10,
+      search,
       status,
       permissionType,
       sortBy,
@@ -69,6 +70,13 @@ export class AdminService {
     const queryBuilder = this.adminRepository
       .createQueryBuilder('admin')
       .select('admin');
+
+    if (search) {
+      queryBuilder.andWhere(
+        '(admin.email ILIKE :search OR admin.fullName ILIKE :search OR admin.organizationName ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
 
     if (status) {
       queryBuilder.andWhere('admin.status = :status', { status });
