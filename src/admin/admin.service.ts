@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Admin } from './entities/admin.entity';
+import { AdminStatus } from './enums/admin-status.enum';
 import { CreateAdminInput } from './dto/create-admin.input';
 import { UpdateAdminInput } from './dto/update-admin.input';
 import { AdminPaginationInput } from './dto/admin-pagination.input';
@@ -186,5 +187,58 @@ export class AdminService {
 
     await this.adminRepository.remove(admin);
     return true;
+  }
+
+  async activate(id: string, language: LanguageCode = 'en'): Promise<Admin> {
+    const admin = await this.findOne(id, language);
+
+    // Check if already active
+    if (admin.status === AdminStatus.ACTIVE) {
+      const message = I18nService.translate(
+        ADMIN_ERROR_MESSAGES['ADMIN_ALREADY_ACTIVE'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    admin.status = AdminStatus.ACTIVE;
+    return this.adminRepository.save(admin);
+  }
+
+  async deactivate(id: string, language: LanguageCode = 'en'): Promise<Admin> {
+    const admin = await this.findOne(id, language);
+
+    // Check if already inactive
+    if (admin.status === AdminStatus.INACTIVE) {
+      const message = I18nService.translate(
+        ADMIN_ERROR_MESSAGES['ADMIN_ALREADY_INACTIVE'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Prevent deactivation of last active administrator
+    if (admin.permissionType === AdminPermissionType.ADMINISTRATOR) {
+      const activeAdministratorCount = await this.adminRepository.count({
+        where: {
+          permissionType: AdminPermissionType.ADMINISTRATOR,
+          status: AdminStatus.ACTIVE,
+        },
+      });
+
+      if (activeAdministratorCount === 1) {
+        const message = I18nService.translate(
+          ADMIN_ERROR_MESSAGES['CANNOT_DEACTIVATE_LAST_ADMINISTRATOR'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+    }
+
+    admin.status = AdminStatus.INACTIVE;
+    return this.adminRepository.save(admin);
   }
 }

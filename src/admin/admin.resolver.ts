@@ -59,4 +59,22 @@ export class AdminResolver {
   ) {
     return this.adminService.remove(id, language);
   }
+
+  @Mutation(() => Admin)
+  @UseGuards(JwtAuthGuard)
+  activateAdmin(
+    @Args('id', { type: () => ID }) id: string,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.adminService.activate(id, language);
+  }
+
+  @Mutation(() => Admin)
+  @UseGuards(JwtAuthGuard)
+  deactivateAdmin(
+    @Args('id', { type: () => ID }) id: string,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.adminService.deactivate(id, language);
+  }
 }
