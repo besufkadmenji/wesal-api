@@ -180,7 +180,7 @@ export class AdminPermissionService {
     // Return all permissions for this admin
     return this.adminPermissionRepository.find({
       where: { adminId },
-      relations: ['permission'],
+      relations: ['admin', 'permission'],
     });
   }
 
