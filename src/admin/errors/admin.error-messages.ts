@@ -53,4 +53,16 @@ export const ADMIN_ERROR_MESSAGES: Record<
     en: 'Too many OTP requests. Please wait before requesting again',
     ar: 'عدد كبير جداً من طلبات OTP. يرجى الانتظار قبل الطلب مرة أخرى',
   },
+  ADMIN_ALREADY_ACTIVE: {
+    en: 'Admin is already active',
+    ar: 'المسؤول نشط بالفعل',
+  },
+  ADMIN_ALREADY_INACTIVE: {
+    en: 'Admin is already inactive',
+    ar: 'المسؤول معطل بالفعل',
+  },
+  CANNOT_DEACTIVATE_LAST_ADMINISTRATOR: {
+    en: 'Cannot deactivate the last active administrator',
+    ar: 'لا يمكن تعطيل آخر مسؤول نشط',
+  },
 } as const;
