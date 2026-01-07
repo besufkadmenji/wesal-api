@@ -45,4 +45,9 @@ export class UpdateAdminInput {
   @IsOptional()
   @IsString()
   phoneNumber: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  avatarFilename: string;
 }
