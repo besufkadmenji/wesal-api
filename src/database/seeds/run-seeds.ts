@@ -4,6 +4,7 @@ import { City } from '../../city/entities/city.entity';
 import { Category } from '../../category/entities/category.entity';
 import { seedCountries, seedCities, seedCategories } from './seed-data';
 import { seedPermissions } from '../../permission/seeds/seed-permissions';
+import { seedAdmins } from '../../admin/seeds/seed-admins';
 
 export async function runDatabaseSeeds(dataSource: DataSource): Promise<void> {
   try {
@@ -19,6 +20,7 @@ export async function runDatabaseSeeds(dataSource: DataSource): Promise<void> {
     await seedCities(cityRepository, countryRepository);
     await seedCategories(categoryRepository);
     await seedPermissions(dataSource);
+    await seedAdmins(dataSource);
 
     console.log('\n✅ Seeding completed successfully!');
   } catch (error) {
