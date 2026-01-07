@@ -70,7 +70,7 @@ export class Admin {
   })
   status: AdminStatus;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Column({ type: 'varchar', length: 500, nullable: true })
   deactivationReason?: string | null;
 
