@@ -28,6 +28,11 @@ export class CreateAdminInput {
   @IsString()
   phoneNumber: string;
 
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  avatarFilename: string;
+
   @Field()
   @IsNotEmpty()
   @IsString()
