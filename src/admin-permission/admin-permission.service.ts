@@ -76,7 +76,7 @@ export class AdminPermissionService {
   async findAdminPermissions(adminId: string): Promise<AdminPermission[]> {
     return this.adminPermissionRepository.find({
       where: { adminId },
-      relations: ['permission'],
+      relations: ['permission', 'admin'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -84,7 +84,7 @@ export class AdminPermissionService {
   async findPermissionAdmins(permissionId: string): Promise<AdminPermission[]> {
     return this.adminPermissionRepository.find({
       where: { permissionId },
-      relations: ['admin'],
+      relations: ['permission', 'admin'],
       order: { createdAt: 'DESC' },
     });
   }
