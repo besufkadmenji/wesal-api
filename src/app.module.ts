@@ -20,6 +20,9 @@ import { ComplaintModule } from './complaint/complaint.module';
 import { NotificationModule } from './notification/notification.module';
 import { AuthModule } from './auth/auth.module';
 import { FileUploadModule } from '../lib/file-upload';
+import { AdminModule } from './admin/admin.module';
+import { PermissionModule } from './permission/permission.module';
+import { AdminPermissionModule } from './admin-permission/admin-permission.module';
 
 // Parse DATABASE_URL if available, otherwise use individual env variables
 function getDatabaseConfig() {
@@ -83,6 +86,9 @@ function getDatabaseConfig() {
     ComplaintModule,
     NotificationModule,
     FileUploadModule,
+    AdminModule,
+    PermissionModule,
+    AdminPermissionModule,
   ],
   controllers: [AppController],
   providers: [AppService],
