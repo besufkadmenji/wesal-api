@@ -87,24 +87,36 @@ export class UserService {
       sortBy,
       sortOrder = 'ASC',
       role,
+      search,
     } = paginationInput;
 
     const skip = (page - 1) * limit;
-    const order: {
-      [key: string]: 'ASC' | 'DESC';
-    } = sortBy ? { [sortBy]: sortOrder } : { createdAt: 'DESC' };
 
-    const [items, total] = await this.userRepository.findAndCount({
-      where: {
-        role,
-        status:
-          paginationInput.status ??
-          In([UserStatus.ACTIVE, UserStatus.INACTIVE, UserStatus.SUSPENDED]),
-      },
-      skip,
-      take: limit,
-      order,
-    });
+    const queryBuilder = this.userRepository
+      .createQueryBuilder('user')
+      .where('user.role = :role', { role })
+      .andWhere('user.status IN (:...statuses)', {
+        statuses: paginationInput.status ?? [
+          UserStatus.ACTIVE,
+          UserStatus.INACTIVE,
+          UserStatus.SUSPENDED,
+        ],
+      });
+
+    // Add search filter if provided
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      queryBuilder.andWhere(
+        '(user.name ILIKE :search OR user.email ILIKE :search OR user.phone ILIKE :search)',
+        { search: searchTerm },
+      );
+    }
+
+    const [items, total] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .orderBy(`user.${sortBy || 'createdAt'}`, sortOrder)
+      .getManyAndCount();
 
     const totalPages = Math.ceil(total / limit);
 

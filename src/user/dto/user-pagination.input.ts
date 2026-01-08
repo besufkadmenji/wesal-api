@@ -1,5 +1,11 @@
 import { Field, InputType, registerEnumType } from '@nestjs/graphql';
-import { IsOptional, IsIn, IsNotEmpty, IsEnum } from 'class-validator';
+import {
+  IsOptional,
+  IsIn,
+  IsNotEmpty,
+  IsEnum,
+  IsString,
+} from 'class-validator';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 import { UserRole } from '../enums/user-role.enum';
 import { UserStatus } from '../enums/user-status.enum';
@@ -50,4 +56,9 @@ export class UserPaginationInput extends PaginationInput {
   @IsOptional()
   @IsIn(USER_SORTABLE_FIELDS)
   sortBy?: UserSortField;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
