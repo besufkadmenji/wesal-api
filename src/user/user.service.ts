@@ -95,7 +95,12 @@ export class UserService {
     } = sortBy ? { [sortBy]: sortOrder } : { createdAt: 'DESC' };
 
     const [items, total] = await this.userRepository.findAndCount({
-      where: { role },
+      where: {
+        role,
+        status:
+          paginationInput.status ??
+          In([UserStatus.ACTIVE, UserStatus.INACTIVE, UserStatus.SUSPENDED]),
+      },
       skip,
       take: limit,
       order,

@@ -2,6 +2,7 @@ import { Field, InputType, registerEnumType } from '@nestjs/graphql';
 import { IsOptional, IsIn, IsNotEmpty, IsEnum } from 'class-validator';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 import { UserRole } from '../enums/user-role.enum';
+import { UserStatus } from '../enums/user-status.enum';
 
 const USER_SORTABLE_FIELDS = [
   'id',
@@ -36,6 +37,11 @@ export class UserPaginationInput extends PaginationInput {
   @IsNotEmpty()
   @IsEnum(UserRole)
   role: UserRole;
+
+  @Field(() => UserStatus, { nullable: true })
+  @IsOptional()
+  @IsEnum(UserStatus)
+  status?: UserStatus;
 
   @Field(() => UserSortFieldEnum, {
     nullable: true,
