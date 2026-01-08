@@ -55,7 +55,7 @@ export class CategoryService {
       .leftJoinAndSelect('category.parent', 'parent')
       .leftJoinAndSelect('category.children', 'children');
 
-    // Filter by parentId if provided, or get root categories
+    // Filter by parentId if provided
     if (parentId !== undefined) {
       if (parentId === null) {
         queryBuilder.where('category.parentId IS NULL');
@@ -131,7 +131,7 @@ export class CategoryService {
         );
       }
 
-      // If parentId is not null, verify it exists
+      // If parentId is not null, verify it exists and check for circular dependency
       if (updateCategoryInput.parentId !== null) {
         const parentCategory = await this.categoryRepository.findOne({
           where: { id: updateCategoryInput.parentId },
@@ -146,6 +146,26 @@ export class CategoryService {
             { en: message, ar: message },
             language,
           );
+        }
+
+        // Check for circular dependency - ensure new parent is not a descendant of current category
+        let ancestor = parentCategory;
+        while (ancestor.parentId) {
+          if (ancestor.parentId === category.id) {
+            const message = I18nService.translate(
+              CATEGORY_ERROR_MESSAGES['INVALID_PARENT_CATEGORY'],
+              language,
+            );
+            throw new I18nBadRequestException(
+              { en: message, ar: message },
+              language,
+            );
+          }
+          const nextAncestor = await this.categoryRepository.findOne({
+            where: { id: ancestor.parentId },
+          });
+          if (!nextAncestor) break;
+          ancestor = nextAncestor;
         }
       }
     }

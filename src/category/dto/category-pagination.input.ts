@@ -1,5 +1,5 @@
-import { InputType, Field } from '@nestjs/graphql';
-import { IsOptional, IsUUID, IsString } from 'class-validator';
+import { Field, InputType } from '@nestjs/graphql';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 
 @InputType()
