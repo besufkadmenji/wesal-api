@@ -128,7 +128,7 @@ export class User {
   })
   categories?: Category[];
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Column({ type: 'timestamp', nullable: true })
   deletedAt?: Date | null;
 
