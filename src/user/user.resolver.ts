@@ -4,6 +4,7 @@ import { UserService } from './user.service';
 import { User } from './entities/user.entity';
 import { UpdateUserInput } from './dto/update-user.input';
 import { DeactivateUserInput } from './dto/deactivate-user.input';
+import { DeleteUserInput } from './dto/delete-user.input';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { UserPaginationInput } from './dto/user-pagination.input';
@@ -68,9 +69,10 @@ export class UserResolver {
   @Mutation(() => User, { description: 'Delete user by ID' })
   removeUser(
     @Args('id', { type: () => ID }) id: string,
+    @Args('input') input: DeleteUserInput,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.userService.remove(id, language);
+    return this.userService.remove(id, input.reason, language);
   }
 
   @Mutation(() => User, { description: 'Activate user by ID' })

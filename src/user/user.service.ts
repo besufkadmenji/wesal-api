@@ -94,7 +94,8 @@ export class UserService {
 
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
-      .where('user.role = :role', { role })
+      .where('user.deletedAt IS NULL')
+      .andWhere('user.role = :role', { role })
       .andWhere('user.status IN (:...statuses)', {
         statuses: paginationInput.status ?? [
           UserStatus.ACTIVE,
@@ -134,10 +135,13 @@ export class UserService {
   }
 
   async findOne(id: string, language: LanguageCode = 'en'): Promise<User> {
-    const user = await this.userRepository.findOne({
-      where: { id },
-      relations: ['categories'],
-    });
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.categories', 'categories')
+      .where('user.id = :id', { id })
+      .andWhere('user.deletedAt IS NULL')
+      .getOne();
+
     if (!user) {
       const message = I18nService.translate(
         USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_NOT_FOUND],
@@ -291,9 +295,17 @@ export class UserService {
     return true;
   }
 
-  async remove(id: string, language: LanguageCode = 'en'): Promise<User> {
+  async remove(
+    id: string,
+    reason?: string,
+    language: LanguageCode = 'en',
+  ): Promise<User> {
     const user = await this.findOne(id, language);
-    return this.userRepository.remove(user);
+    user.deletedAt = new Date();
+    if (reason) {
+      user.deleteReason = reason;
+    }
+    return this.userRepository.save(user);
   }
 
   async activate(id: string, language: LanguageCode = 'en'): Promise<User> {

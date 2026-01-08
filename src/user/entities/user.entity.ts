@@ -128,6 +128,14 @@ export class User {
   })
   categories?: Category[];
 
+  @Field({ nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
+  deletedAt?: Date | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  deleteReason?: string | null;
+
   @Field()
   @CreateDateColumn()
   createdAt: Date;
