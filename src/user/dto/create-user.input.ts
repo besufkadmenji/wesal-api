@@ -10,6 +10,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { UserRole } from '../enums/user-role.enum';
 import { USER_ERROR_CODES } from '../errors/user.error-codes';
 
 @InputType()
@@ -122,4 +123,7 @@ export class CreateUserInput {
   @Field({ nullable: true })
   @IsOptional()
   withAbsher?: boolean;
+
+  @Field(() => UserRole)
+  role: UserRole;
 }

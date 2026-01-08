@@ -111,6 +111,18 @@ export const USER_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Categories cannot be removed if they already exist',
     ar: 'لا يمكن حذف الفئات إذا كانت موجودة بالفعل',
   },
+  [USER_ERROR_CODES.USER_ALREADY_ACTIVE]: {
+    en: 'User is already active',
+    ar: 'المستخدم نشط بالفعل',
+  },
+  [USER_ERROR_CODES.USER_ALREADY_INACTIVE]: {
+    en: 'User is already inactive',
+    ar: 'المستخدم معطل بالفعل',
+  },
+  [USER_ERROR_CODES.CANNOT_DEACTIVATE_LAST_ACTIVE_PROVIDER]: {
+    en: 'Cannot deactivate the last active provider',
+    ar: 'لا يمكن تعطيل آخر مزود نشط',
+  },
 };
 
 // Register user error messages in the central registry

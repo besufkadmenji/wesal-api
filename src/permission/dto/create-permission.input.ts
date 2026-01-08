@@ -1,10 +1,5 @@
 import { InputType, Field } from '@nestjs/graphql';
-import {
-  IsNotEmpty,
-  IsString,
-  IsEnum,
-  MinLength,
-} from 'class-validator';
+import { IsNotEmpty, IsString, IsEnum, MinLength } from 'class-validator';
 import { PermissionPlatform } from '../enums/permission-platform.enum';
 
 @InputType()

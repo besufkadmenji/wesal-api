@@ -9,6 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { UserRole } from '../enums/user-role.enum';
+import { UserStatus } from '../enums/user-status.enum';
 import { Category } from '../../category/entities/category.entity';
 
 @ObjectType()
@@ -53,6 +54,14 @@ export class User {
   @Field()
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
+
+  @Field(() => UserStatus)
+  @Column({
+    type: 'enum',
+    enum: UserStatus,
+    default: UserStatus.ACTIVE,
+  })
+  status: UserStatus;
 
   // Profile fields
   @Field(() => String, {

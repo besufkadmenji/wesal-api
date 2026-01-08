@@ -43,13 +43,12 @@ export class Permission {
   @Column({ type: 'varchar', length: 100 })
   resource: string;
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   @Field(() => PermissionPlatform)
   @Column({
     type: 'enum',
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+
     enum: PermissionPlatform,
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment,@typescript-eslint/no-unsafe-member-access
+
     default: PermissionPlatform.GLOBAL,
   })
   permissionPlatform: PermissionPlatform;
@@ -62,7 +61,6 @@ export class Permission {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
   @OneToMany(() => AdminPermission, (ap) => ap.permission, { cascade: true })
   adminPermissions?: AdminPermission[];
 }

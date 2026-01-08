@@ -71,4 +71,22 @@ export class UserResolver {
   ) {
     return this.userService.remove(id, language);
   }
+
+  @Mutation(() => User, { description: 'Activate user by ID' })
+  @UseGuards(JwtAuthGuard)
+  activateUser(
+    @Args('id', { type: () => ID }) id: string,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.userService.activate(id, language);
+  }
+
+  @Mutation(() => User, { description: 'Deactivate user by ID' })
+  @UseGuards(JwtAuthGuard)
+  deactivateUser(
+    @Args('id', { type: () => ID }) id: string,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.userService.deactivate(id, language);
+  }
 }

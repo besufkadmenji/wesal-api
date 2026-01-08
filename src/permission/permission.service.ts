@@ -47,7 +47,10 @@ export class PermissionService {
     });
   }
 
-  async findOne(id: string, language: LanguageCode = 'en'): Promise<Permission> {
+  async findOne(
+    id: string,
+    language: LanguageCode = 'en',
+  ): Promise<Permission> {
     const permission = await this.permissionRepository.findOne({
       where: { id },
     });

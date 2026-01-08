@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
+import { UserStatus } from './enums/user-status.enum';
+import { UserRole } from './enums/user-role.enum';
 import { Category } from '../category/entities/category.entity';
 import { CreateUserInput } from './dto/create-user.input';
 import { UpdateUserInput } from './dto/update-user.input';
@@ -67,6 +69,10 @@ export class UserService {
       ...createUserInput,
       password: hashedPassword,
       categories,
+      status:
+        createUserInput.role === UserRole.PROVIDER
+          ? UserStatus.PENDING_APPROVAL
+          : UserStatus.ACTIVE,
     });
 
     return this.userRepository.save(user);
@@ -271,5 +277,57 @@ export class UserService {
   async remove(id: string, language: LanguageCode = 'en'): Promise<User> {
     const user = await this.findOne(id, language);
     return this.userRepository.remove(user);
+  }
+
+  async activate(id: string, language: LanguageCode = 'en'): Promise<User> {
+    const user = await this.findOne(id, language);
+
+    // Check if already active
+    if (user.status === UserStatus.ACTIVE) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_ALREADY_ACTIVE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    user.status = UserStatus.ACTIVE;
+    return this.userRepository.save(user);
+  }
+
+  async deactivate(id: string, language: LanguageCode = 'en'): Promise<User> {
+    const user = await this.findOne(id, language);
+
+    // Check if already inactive
+    if (user.status === UserStatus.INACTIVE) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_ALREADY_INACTIVE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Prevent deactivation of last active provider
+    if (user.role === UserRole.PROVIDER) {
+      const activeProviderCount = await this.userRepository.count({
+        where: { role: UserRole.PROVIDER, status: UserStatus.ACTIVE },
+      });
+
+      if (activeProviderCount === 1) {
+        const message = I18nService.translate(
+          USER_ERROR_MESSAGES[
+            USER_ERROR_CODES.CANNOT_DEACTIVATE_LAST_ACTIVE_PROVIDER
+          ],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+    }
+
+    user.status = UserStatus.INACTIVE;
+    return this.userRepository.save(user);
   }
 }
