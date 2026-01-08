@@ -47,7 +47,7 @@ export class CategoryService {
   async findAll(
     paginationInput: CategoryPaginationInput,
   ): Promise<IPaginatedType<Category>> {
-    const { page = 1, limit = 10, parentId } = paginationInput;
+    const { page = 1, limit = 10, parentId, search } = paginationInput;
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.categoryRepository
@@ -62,6 +62,15 @@ export class CategoryService {
       } else {
         queryBuilder.where('category.parentId = :parentId', { parentId });
       }
+    }
+
+    // Add search filter if provided
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      queryBuilder.andWhere(
+        '(category.nameEn ILIKE :search OR category.nameAr ILIKE :search OR category.descriptionEn ILIKE :search OR category.descriptionAr ILIKE :search)',
+        { search: searchTerm },
+      );
     }
 
     const [items, total] = await queryBuilder
