@@ -46,10 +46,9 @@ export class RegisterInput {
   @IsPhoneNumber()
   phone: string;
 
-  @Field(() => UserRole, { nullable: true })
-  @IsOptional()
+  @Field(() => UserRole)
   @IsEnum(UserRole)
-  role?: UserRole;
+  role: UserRole;
 
   @Field({ nullable: true })
   @IsOptional()
