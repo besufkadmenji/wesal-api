@@ -175,6 +175,14 @@ export class CategoryService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
+    // Remove this category from all users' categories list
+    await this.categoryRepository
+      .createQueryBuilder()
+      .delete()
+      .from('user_categories')
+      .where('categoryId = :categoryId', { categoryId: id })
+      .execute();
+
     await this.categoryRepository.delete({ id });
     return category;
   }
