@@ -3,6 +3,7 @@ import { UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
 import { User } from './entities/user.entity';
 import { UpdateUserInput } from './dto/update-user.input';
+import { DeactivateUserInput } from './dto/deactivate-user.input';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { UserPaginationInput } from './dto/user-pagination.input';
@@ -85,8 +86,9 @@ export class UserResolver {
   @UseGuards(JwtAuthGuard)
   deactivateUser(
     @Args('id', { type: () => ID }) id: string,
+    @Args('input') input: DeactivateUserInput,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.userService.deactivate(id, language);
+    return this.userService.deactivate(id, input.reason, language);
   }
 }

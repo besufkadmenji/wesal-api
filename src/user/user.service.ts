@@ -300,7 +300,11 @@ export class UserService {
     return this.userRepository.save(user);
   }
 
-  async deactivate(id: string, language: LanguageCode = 'en'): Promise<User> {
+  async deactivate(
+    id: string,
+    reason?: string,
+    language: LanguageCode = 'en',
+  ): Promise<User> {
     const user = await this.findOne(id, language);
 
     // Check if already inactive
@@ -312,27 +316,30 @@ export class UserService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    // Prevent deactivation of last active provider
-    if (user.role === UserRole.PROVIDER) {
-      const activeProviderCount = await this.userRepository.count({
-        where: { role: UserRole.PROVIDER, status: UserStatus.ACTIVE },
-      });
+    // // Prevent deactivation of last active provider
+    // if (user.role === UserRole.PROVIDER) {
+    //   const activeProviderCount = await this.userRepository.count({
+    //     where: { role: UserRole.PROVIDER, status: UserStatus.ACTIVE },
+    //   });
 
-      if (activeProviderCount === 1) {
-        const message = I18nService.translate(
-          USER_ERROR_MESSAGES[
-            USER_ERROR_CODES.CANNOT_DEACTIVATE_LAST_ACTIVE_PROVIDER
-          ],
-          language,
-        );
-        throw new I18nBadRequestException(
-          { en: message, ar: message },
-          language,
-        );
-      }
-    }
+    //   if (activeProviderCount === 1) {
+    //     const message = I18nService.translate(
+    //       USER_ERROR_MESSAGES[
+    //         USER_ERROR_CODES.CANNOT_DEACTIVATE_LAST_ACTIVE_PROVIDER
+    //       ],
+    //       language,
+    //     );
+    //     throw new I18nBadRequestException(
+    //       { en: message, ar: message },
+    //       language,
+    //     );
+    //   }
+    // }
 
     user.status = UserStatus.INACTIVE;
+    if (reason) {
+      user.deactivationReason = reason;
+    }
     return this.userRepository.save(user);
   }
 }
