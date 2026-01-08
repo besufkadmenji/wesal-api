@@ -56,7 +56,7 @@ export class CountryService {
     const skip = (page - 1) * limit;
     const order: {
       [key: string]: 'ASC' | 'DESC';
-    } = sortBy ? { [sortBy]: sortOrder } : { name: 'ASC' };
+    } = sortBy ? { [sortBy]: sortOrder } : { createdAt: 'DESC' };
 
     const [items, total] = await this.countryRepository.findAndCount({
       skip,
