@@ -73,14 +73,15 @@ export class UserService {
   }
 
   async findAll(
-    paginationInput?: UserPaginationInput,
+    paginationInput: UserPaginationInput,
   ): Promise<IPaginatedType<User>> {
     const {
       page = 1,
       limit = 10,
       sortBy,
       sortOrder = 'ASC',
-    } = paginationInput || {};
+      role,
+    } = paginationInput;
 
     const skip = (page - 1) * limit;
     const order: {
@@ -88,6 +89,7 @@ export class UserService {
     } = sortBy ? { [sortBy]: sortOrder } : { createdAt: 'DESC' };
 
     const [items, total] = await this.userRepository.findAndCount({
+      where: { role },
       skip,
       take: limit,
       order,

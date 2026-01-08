@@ -29,11 +29,9 @@ export class UserResolver {
 
   @Query(() => PaginatedUserResponse, {
     name: 'users',
-    description: 'Get all users with pagination',
+    description: 'Get all users with pagination by role',
   })
-  findAll(
-    @Args('pagination', { nullable: true }) pagination?: UserPaginationInput,
-  ) {
+  findAll(@Args('pagination') pagination: UserPaginationInput) {
     return this.userService.findAll(pagination);
   }
 
