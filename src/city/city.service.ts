@@ -14,12 +14,15 @@ import { UpdateCityInput } from './dto/update-city.input';
 import { City } from './entities/city.entity';
 import { CITY_ERROR_CODES } from './errors/city.error-codes';
 import { CITY_ERROR_MESSAGES } from './errors/city.error-messages';
+import { User } from '../user/entities/user.entity';
 
 @Injectable()
 export class CityService {
   constructor(
     @InjectRepository(City)
     private readonly cityRepository: Repository<City>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   async create(
@@ -192,6 +195,20 @@ export class CityService {
 
   async remove(id: string, language: LanguageCode = 'en'): Promise<City> {
     const city = await this.findOne(id, language);
+
+    // Check if any users are using this city
+    const userCount = await this.userRepository.count({
+      where: { cityId: id },
+    });
+
+    if (userCount > 0) {
+      const message = I18nService.translate(
+        CITY_ERROR_MESSAGES[CITY_ERROR_CODES.CITY_IN_USE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
     await this.cityRepository.delete({ id });
     return city;
   }

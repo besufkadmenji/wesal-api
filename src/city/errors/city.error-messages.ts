@@ -27,6 +27,10 @@ export const CITY_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Invalid country ID format',
     ar: 'صيغة معرف الدولة غير صحيحة',
   },
+  [CITY_ERROR_CODES.CITY_IN_USE]: {
+    en: 'Cannot delete city that is being used by users',
+    ar: 'لا يمكن حذف مدينة يستخدمها المستخدمون',
+  },
 };
 
 // Register city error messages in the central registry
