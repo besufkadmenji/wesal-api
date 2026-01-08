@@ -4,7 +4,8 @@ import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 
 const CITY_SORTABLE_FIELDS = [
   'id',
-  'name',
+  'nameEn',
+  'nameAr',
   'countryId',
   'createdAt',
   'updatedAt',
@@ -14,7 +15,8 @@ export type CitySortField = (typeof CITY_SORTABLE_FIELDS)[number];
 
 export enum CitySortFieldEnum {
   id = 'id',
-  name = 'name',
+  nameEn = 'nameEn',
+  nameAr = 'nameAr',
   countryId = 'countryId',
   createdAt = 'createdAt',
   updatedAt = 'updatedAt',

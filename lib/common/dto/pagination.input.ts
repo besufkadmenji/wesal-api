@@ -32,5 +32,5 @@ export class PaginationInput {
     description: 'Sort order: ASC or DESC',
   })
   @IsOptional()
-  sortOrder?: SortOrder = SortOrder.ASC;
+  sortOrder?: SortOrder = SortOrder.DESC;
 }
