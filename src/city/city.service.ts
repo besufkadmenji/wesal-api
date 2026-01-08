@@ -46,7 +46,8 @@ export class CityService {
     }
 
     const city = this.cityRepository.create(createCityInput);
-    return this.cityRepository.save(city);
+    await this.cityRepository.save(city);
+    return this.findOne(city.id, language);
   }
 
   async findAll(
@@ -190,7 +191,8 @@ export class CityService {
     }
 
     Object.assign(city, updateCityInput);
-    return this.cityRepository.save(city);
+    await this.cityRepository.save(city);
+    return this.findOne(id, language);
   }
 
   async remove(id: string, language: LanguageCode = 'en'): Promise<City> {
