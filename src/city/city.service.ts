@@ -1,19 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { City } from './entities/city.entity';
-import { CreateCityInput } from './dto/create-city.input';
-import { UpdateCityInput } from './dto/update-city.input';
-import type { LanguageCode } from '../../lib/i18n/language.types';
+import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import {
   I18nBadRequestException,
   I18nNotFoundException,
 } from '../../lib/errors/i18n.exceptions';
 import { I18nService } from '../../lib/i18n/i18n.service';
+import type { LanguageCode } from '../../lib/i18n/language.types';
+import { CityPaginationInput } from './dto/city-pagination.input';
+import { CreateCityInput } from './dto/create-city.input';
+import { UpdateCityInput } from './dto/update-city.input';
+import { City } from './entities/city.entity';
 import { CITY_ERROR_CODES } from './errors/city.error-codes';
 import { CITY_ERROR_MESSAGES } from './errors/city.error-messages';
-import { CityPaginationInput } from './dto/city-pagination.input';
-import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 
 @Injectable()
 export class CityService {
@@ -53,14 +53,11 @@ export class CityService {
       page = 1,
       limit = 10,
       sortBy,
-      sortOrder = 'ASC',
+      sortOrder = 'DESC',
       search,
     } = paginationInput || {};
 
     const skip = (page - 1) * limit;
-    const order: {
-      [key: string]: 'ASC' | 'DESC';
-    } = sortBy ? { [sortBy]: sortOrder } : { nameEn: 'ASC' };
 
     const queryBuilder = this.cityRepository
       .createQueryBuilder('city')
@@ -78,7 +75,7 @@ export class CityService {
     const [items, total] = await queryBuilder
       .skip(skip)
       .take(limit)
-      .orderBy(sortBy ? `city.${sortBy}` : 'city.nameEn', sortOrder)
+      .orderBy(sortBy ? `city.${sortBy}` : 'city.createdAt', sortOrder)
       .getManyAndCount();
 
     const totalPages = Math.ceil(total / limit);
@@ -120,14 +117,11 @@ export class CityService {
       page = 1,
       limit = 10,
       sortBy,
-      sortOrder = 'ASC',
+      sortOrder = 'DESC',
       search,
     } = paginationInput || {};
 
     const skip = (page - 1) * limit;
-    const order: {
-      [key: string]: 'ASC' | 'DESC';
-    } = sortBy ? { [sortBy]: sortOrder } : { nameEn: 'ASC' };
 
     const queryBuilder = this.cityRepository
       .createQueryBuilder('city')
@@ -146,7 +140,7 @@ export class CityService {
     const [items, total] = await queryBuilder
       .skip(skip)
       .take(limit)
-      .orderBy(sortBy ? `city.${sortBy}` : 'city.nameEn', sortOrder)
+      .orderBy(sortBy ? `city.${sortBy}` : 'city.createdAt', sortOrder)
       .getManyAndCount();
 
     const totalPages = Math.ceil(total / limit);
@@ -198,6 +192,7 @@ export class CityService {
 
   async remove(id: string, language: LanguageCode = 'en'): Promise<City> {
     const city = await this.findOne(id, language);
-    return this.cityRepository.remove(city);
+    await this.cityRepository.delete({ id });
+    return city;
   }
 }
