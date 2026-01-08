@@ -138,6 +138,8 @@ export class UserService {
     const user = await this.userRepository
       .createQueryBuilder('user')
       .leftJoinAndSelect('user.categories', 'categories')
+      .leftJoinAndSelect('user.country', 'country')
+      .leftJoinAndSelect('user.city', 'city')
       .where('user.id = :id', { id })
       .andWhere('user.deletedAt IS NULL')
       .getOne();

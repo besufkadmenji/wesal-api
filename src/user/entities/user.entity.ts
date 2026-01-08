@@ -3,14 +3,18 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   JoinTable,
   ManyToMany,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { UserRole } from '../enums/user-role.enum';
 import { UserStatus } from '../enums/user-status.enum';
 import { Category } from '../../category/entities/category.entity';
+import { Country } from '../../country/entities/country.entity';
+import { City } from '../../city/entities/city.entity';
 
 @ObjectType()
 @Entity('users')
@@ -82,9 +86,19 @@ export class User {
   @Column({ type: 'uuid', nullable: true })
   countryId?: string;
 
+  @Field(() => Country, { nullable: true })
+  @ManyToOne(() => Country, { nullable: true })
+  @JoinColumn({ name: 'countryId' })
+  country?: Country | null;
+
   @Field({ nullable: true })
   @Column({ type: 'uuid', nullable: true })
   cityId?: string;
+
+  @Field(() => City, { nullable: true })
+  @ManyToOne(() => City, { nullable: true })
+  @JoinColumn({ name: 'cityId' })
+  city?: City | null;
 
   @Field({ nullable: true })
   @Column({ type: 'varchar', length: 500, default: 'en' })
