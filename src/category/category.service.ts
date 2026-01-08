@@ -1,16 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import {
-  I18nNotFoundException,
   I18nBadRequestException,
+  I18nNotFoundException,
 } from '../../lib/errors';
 import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
-import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
+import { CategoryPaginationInput } from './dto/category-pagination.input';
 import { CreateCategoryInput } from './dto/create-category.input';
 import { UpdateCategoryInput } from './dto/update-category.input';
-import { CategoryPaginationInput } from './dto/category-pagination.input';
 import { Category } from './entities/category.entity';
 import { CATEGORY_ERROR_MESSAGES } from './errors/category.error-messages';
 
@@ -55,7 +55,7 @@ export class CategoryService {
       .leftJoinAndSelect('category.parent', 'parent')
       .leftJoinAndSelect('category.children', 'children');
 
-    // Filter by parentId if provided
+    // Filter by parentId if provided, or get root categories
     if (parentId !== undefined) {
       if (parentId === null) {
         queryBuilder.where('category.parentId IS NULL');
@@ -115,7 +115,16 @@ export class CategoryService {
     updateCategoryInput: UpdateCategoryInput,
     language: LanguageCode = 'en',
   ): Promise<Category> {
-    const category = await this.findOne(updateCategoryInput.id, language);
+    const category = await this.categoryRepository.findOne({
+      where: { id: updateCategoryInput.id },
+    });
+    if (!category) {
+      const message = I18nService.translate(
+        CATEGORY_ERROR_MESSAGES['CATEGORY_NOT_FOUND'],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
 
     // Validate parentId if provided
     if (updateCategoryInput.parentId !== undefined) {
@@ -131,7 +140,7 @@ export class CategoryService {
         );
       }
 
-      // If parentId is not null, verify it exists and check for circular dependency
+      // If parentId is not null, verify it exists
       if (updateCategoryInput.parentId !== null) {
         const parentCategory = await this.categoryRepository.findOne({
           where: { id: updateCategoryInput.parentId },
@@ -146,26 +155,6 @@ export class CategoryService {
             { en: message, ar: message },
             language,
           );
-        }
-
-        // Check for circular dependency - ensure new parent is not a descendant of current category
-        let ancestor = parentCategory;
-        while (ancestor.parentId) {
-          if (ancestor.parentId === category.id) {
-            const message = I18nService.translate(
-              CATEGORY_ERROR_MESSAGES['INVALID_PARENT_CATEGORY'],
-              language,
-            );
-            throw new I18nBadRequestException(
-              { en: message, ar: message },
-              language,
-            );
-          }
-          const nextAncestor = await this.categoryRepository.findOne({
-            where: { id: ancestor.parentId },
-          });
-          if (!nextAncestor) break;
-          ancestor = nextAncestor;
         }
       }
     }

@@ -17,16 +17,16 @@ export class Category {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Column({ type: 'uuid', nullable: true })
-  parentId: string;
+  parentId: string | null;
 
   @Field(() => Category, { nullable: true })
   @ManyToOne(() => Category, (category) => category.children, {
     nullable: true,
   })
   @JoinColumn({ name: 'parentId' })
-  parent: Category;
+  parent: Category | null;
 
   @Field(() => [Category], { nullable: true })
   @OneToMany(() => Category, (category) => category.parent)
