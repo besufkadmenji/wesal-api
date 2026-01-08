@@ -14,4 +14,8 @@ export const CATEGORY_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Cannot set category as its own parent',
     ar: 'لا يمكن تعيين الفئة كأم لنفسها',
   },
+  [CATEGORY_ERROR_CODES.CATEGORY_HAS_CHILDREN]: {
+    en: 'Cannot delete category that has children',
+    ar: 'لا يمكن حذف فئة لها فئات فرعية',
+  },
 };

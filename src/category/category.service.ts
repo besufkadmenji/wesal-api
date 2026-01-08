@@ -165,7 +165,17 @@ export class CategoryService {
 
   async remove(id: string, language: LanguageCode = 'en'): Promise<Category> {
     const category = await this.findOne(id, language);
-    await this.categoryRepository.remove(category);
+
+    // Check if category has children
+    if (category.children && category.children.length > 0) {
+      const message = I18nService.translate(
+        CATEGORY_ERROR_MESSAGES['CATEGORY_HAS_CHILDREN'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    await this.categoryRepository.delete({ id });
     return category;
   }
 }
