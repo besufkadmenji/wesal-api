@@ -54,6 +54,7 @@ export class CityService {
       limit = 10,
       sortBy,
       sortOrder = 'ASC',
+      search,
     } = paginationInput || {};
 
     const skip = (page - 1) * limit;
@@ -61,12 +62,24 @@ export class CityService {
       [key: string]: 'ASC' | 'DESC';
     } = sortBy ? { [sortBy]: sortOrder } : { nameEn: 'ASC' };
 
-    const [items, total] = await this.cityRepository.findAndCount({
-      skip,
-      take: limit,
-      order,
-      relations: ['country'],
-    });
+    const queryBuilder = this.cityRepository
+      .createQueryBuilder('city')
+      .leftJoinAndSelect('city.country', 'country');
+
+    // Add search filter if provided
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      queryBuilder.where(
+        '(city.nameEn ILIKE :search OR city.nameAr ILIKE :search)',
+        { search: searchTerm },
+      );
+    }
+
+    const [items, total] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .orderBy(sortBy ? `city.${sortBy}` : 'city.nameEn', sortOrder)
+      .getManyAndCount();
 
     const totalPages = Math.ceil(total / limit);
 
@@ -108,6 +121,7 @@ export class CityService {
       limit = 10,
       sortBy,
       sortOrder = 'ASC',
+      search,
     } = paginationInput || {};
 
     const skip = (page - 1) * limit;
@@ -115,13 +129,25 @@ export class CityService {
       [key: string]: 'ASC' | 'DESC';
     } = sortBy ? { [sortBy]: sortOrder } : { nameEn: 'ASC' };
 
-    const [items, total] = await this.cityRepository.findAndCount({
-      where: { countryId },
-      skip,
-      take: limit,
-      order,
-      relations: ['country'],
-    });
+    const queryBuilder = this.cityRepository
+      .createQueryBuilder('city')
+      .leftJoinAndSelect('city.country', 'country')
+      .where('city.countryId = :countryId', { countryId });
+
+    // Add search filter if provided
+    if (search && search.trim()) {
+      const searchTerm = `%${search.trim()}%`;
+      queryBuilder.andWhere(
+        '(city.nameEn ILIKE :search OR city.nameAr ILIKE :search)',
+        { search: searchTerm },
+      );
+    }
+
+    const [items, total] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .orderBy(sortBy ? `city.${sortBy}` : 'city.nameEn', sortOrder)
+      .getManyAndCount();
 
     const totalPages = Math.ceil(total / limit);
 

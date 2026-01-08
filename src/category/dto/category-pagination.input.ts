@@ -1,5 +1,5 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsOptional, IsUUID } from 'class-validator';
+import { IsOptional, IsUUID, IsString } from 'class-validator';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 
 @InputType()
@@ -8,4 +8,9 @@ export class CategoryPaginationInput extends PaginationInput {
   @IsOptional()
   @IsUUID()
   parentId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  search?: string;
 }

@@ -1,5 +1,5 @@
 import { Field, InputType, registerEnumType } from '@nestjs/graphql';
-import { IsOptional, IsIn } from 'class-validator';
+import { IsOptional, IsIn, IsString } from 'class-validator';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 
 const CITY_SORTABLE_FIELDS = [
@@ -34,4 +34,9 @@ export class CityPaginationInput extends PaginationInput {
   @IsOptional()
   @IsIn(CITY_SORTABLE_FIELDS)
   sortBy?: CitySortField;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  search?: string;
 }
