@@ -21,7 +21,7 @@ export class City {
   @Column({ type: 'uuid' })
   countryId: string;
 
-  @Field(() => Country)
+  @Field(() => Country, { nullable: true })
   @ManyToOne(() => Country)
   @JoinColumn({ name: 'countryId' })
   country: Country;
