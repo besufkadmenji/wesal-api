@@ -47,9 +47,9 @@ export class FaqResolver {
     return this.faqService.update(updateFaqInput.id, updateFaqInput);
   }
 
-  @Mutation(() => Boolean, { description: 'Delete FAQ (admin only)' })
+  @Mutation(() => Boolean, { description: 'Remove FAQ (admin only)' })
   @UseGuards(AdminAuthGuard)
-  async deleteFaq(
+  async removeFaq(
     @CurrentAdmin() admin: JwtPayload,
     @Args('id', { type: () => ID }) id: string,
   ) {
