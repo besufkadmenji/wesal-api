@@ -2,6 +2,7 @@ import { UseGuards } from '@nestjs/common';
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
 import { AdminAuthGuard } from '../admin/guards/admin-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { CreateFaqInput } from './dto/create-faq.input';
 import { UpdateFaqInput } from './dto/update-faq.input';
@@ -17,8 +18,9 @@ export class FaqResolver {
     name: 'faqs',
     description: 'Get all active FAQs (or all if admin)',
   })
+  @UseGuards(OptionalJwtAuthGuard)
   findAll(@CurrentAdmin() admin?: JwtPayload) {
-    return this.faqService.findAll(admin?.sub ? true : false);
+    return this.faqService.findAll(!!admin?.sub);
   }
 
   @Query(() => Faq, { name: 'faq' })
