@@ -23,6 +23,7 @@ import { FileUploadModule } from '../lib/file-upload';
 import { AdminModule } from './admin/admin.module';
 import { PermissionModule } from './permission/permission.module';
 import { AdminPermissionModule } from './admin-permission/admin-permission.module';
+import { SettingModule } from './setting/setting.module';
 
 // Parse DATABASE_URL if available, otherwise use individual env variables
 function getDatabaseConfig() {
@@ -89,6 +90,7 @@ function getDatabaseConfig() {
     AdminModule,
     PermissionModule,
     AdminPermissionModule,
+    SettingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
