@@ -39,7 +39,7 @@ export class Setting {
   termsAr: string;
 
   @Field(() => [String])
-  @Column({ type: 'simple-array', default: [] })
+  @Column({ type: 'simple-array', default: '' })
   phones: string[];
 
   @Field()

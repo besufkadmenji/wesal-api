@@ -36,10 +36,11 @@ export class SettingService {
 
     if (setting) {
       // Update existing settings
-      return this.settingRepository.save({
+      await this.settingRepository.save({
         ...setting,
         ...input,
       });
+      return await this.getSetting();
     }
 
     // Create new settings with hardcoded ID
@@ -47,6 +48,7 @@ export class SettingService {
       id: SETTINGS_ID,
       ...input,
     });
-    return this.settingRepository.save(setting);
+    await this.settingRepository.save(setting);
+    return await this.getSetting();
   }
 }

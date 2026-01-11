@@ -22,7 +22,7 @@ export class SettingResolver {
     description: 'Create or update application settings (admin only)',
   })
   @UseGuards(AdminAuthGuard)
-  setSetting(
+  async setSetting(
     @CurrentAdmin() admin: JwtPayload,
     @Args('input') input: SettingInput,
   ) {
