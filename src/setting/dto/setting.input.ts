@@ -1,5 +1,12 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsOptional, IsString, IsEmail, IsArray } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsOptional,
+  IsString,
+  IsEmail,
+  IsArray,
+  ValidateNested,
+} from 'class-validator';
 
 @InputType()
 export class SettingInput {
@@ -50,7 +57,10 @@ export class SettingInput {
 
   @Field(() => [SocialMediaLinkInput], { nullable: true })
   @IsOptional()
-  socialMediaLinks?: Array<{ name: string; link: string }>;
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => SocialMediaLinkInput)
+  socialMediaLinks?: SocialMediaLinkInput[];
 }
 
 @InputType()

@@ -52,7 +52,7 @@ export class Setting {
 
   @Field(() => [SocialMediaLink])
   @Column({ type: 'jsonb', default: [] })
-  socialMediaLinks: Array<{ name: string; link: string }>;
+  socialMediaLinks: SocialMediaLink[];
 
   @CreateDateColumn()
   createdAt: Date;
