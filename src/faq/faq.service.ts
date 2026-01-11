@@ -26,12 +26,16 @@ export class FaqService {
   }
 
   async findOne(id: string): Promise<Faq> {
-    return this.faqRepository.findOneBy({ id });
+    const faq = await this.faqRepository.findOneBy({ id });
+    if (!faq) {
+      throw new Error('FAQ not found');
+    }
+    return faq;
   }
 
   async update(id: string, updateFaqInput: UpdateFaqInput): Promise<Faq> {
     await this.faqRepository.update(id, updateFaqInput);
-    return this.faqRepository.findOneBy({ id });
+    return this.findOne(id);
   }
 
   async remove(id: string): Promise<void> {
