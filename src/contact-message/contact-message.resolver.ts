@@ -4,6 +4,8 @@ import { ContactMessageService } from './contact-message.service';
 import { ContactMessage } from './entities/contact-message.entity';
 import { CreateContactMessageInput } from './dto/create-contact-message.input';
 import { UpdateContactMessageInput } from './dto/update-contact-message.input';
+import { ContactMessagePaginationInput } from './dto/contact-message-pagination.input';
+import { PaginatedContactMessageResponse } from './dto/paginated-contact-message.response';
 import { AdminAuthGuard } from '../admin/guards/admin-auth.guard';
 import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -22,16 +24,19 @@ export class ContactMessageResolver {
     return this.contactMessageService.create(createContactMessageInput);
   }
 
-  @Query(() => [ContactMessage], {
+  @Query(() => PaginatedContactMessageResponse, {
     name: 'contactMessages',
-    description: 'Get all contact messages (admin only)',
+    description: 'Get contact messages (admin only) with pagination',
   })
   @UseGuards(AdminAuthGuard)
-  findAll(@CurrentAdmin() admin: JwtPayload) {
+  findAll(
+    @CurrentAdmin() admin: JwtPayload,
+    @Args('input', { nullable: true }) input: ContactMessagePaginationInput,
+  ) {
     if (!admin?.sub) {
       throw new Error('Unauthorized');
     }
-    return this.contactMessageService.findAll();
+    return this.contactMessageService.findAll(input);
   }
 
   @Query(() => ContactMessage, {

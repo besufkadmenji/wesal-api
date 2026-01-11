@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { ContactMessage } from './entities/contact-message.entity';
 import { CreateContactMessageInput } from './dto/create-contact-message.input';
 import { UpdateContactMessageInput } from './dto/update-contact-message.input';
+import { ContactMessagePaginationInput } from './dto/contact-message-pagination.input';
+import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 
 @Injectable()
 export class ContactMessageService {
@@ -21,10 +23,50 @@ export class ContactMessageService {
     return this.contactMessageRepository.save(message);
   }
 
-  async findAll(): Promise<ContactMessage[]> {
-    return this.contactMessageRepository.find({
-      order: { createdAt: 'DESC' },
-    });
+  async findAll(
+    input: ContactMessagePaginationInput,
+  ): Promise<IPaginatedType<ContactMessage>> {
+    const page = input.page ?? 1;
+    const limit = input?.limit ?? 10;
+    const sortOrder = (input?.sortOrder ?? 'DESC') as 'ASC' | 'DESC';
+    const sortBy = input?.sortBy ?? 'createdAt';
+
+    const qb =
+      this.contactMessageRepository.createQueryBuilder('contactMessage');
+
+    if (typeof input?.isRead === 'boolean') {
+      qb.andWhere('contactMessage.isRead = :isRead', {
+        isRead: input.isRead,
+      });
+    }
+
+    if (input?.messageType) {
+      qb.andWhere('contactMessage.messageType = :messageType', {
+        messageType: input.messageType,
+      });
+    }
+
+    const skip = (page - 1) * limit;
+
+    qb.orderBy(`contactMessage.${sortBy}`, sortOrder)
+      .skip(skip)
+      .take(Number(limit));
+
+    const [items, total] = await qb.getManyAndCount();
+
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrevious: page > 1,
+      },
+    };
   }
 
   async findOne(id: string): Promise<ContactMessage> {
