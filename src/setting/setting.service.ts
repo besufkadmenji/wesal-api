@@ -34,11 +34,25 @@ export class SettingService {
       where: { id: SETTINGS_ID },
     });
 
+    // Convert null/undefined to empty string for text fields and empty array for array fields
+    const cleanedInput: SettingInput = {
+      aboutEn: input.aboutEn ?? '',
+      aboutAr: input.aboutAr ?? '',
+      privacyPolicyEn: input.privacyPolicyEn ?? '',
+      privacyPolicyAr: input.privacyPolicyAr ?? '',
+      termsEn: input.termsEn ?? '',
+      termsAr: input.termsAr ?? '',
+      phones: input.phones ?? [],
+      email: input.email ?? '',
+      whatsappNumber: input.whatsappNumber ?? '',
+      socialMediaLinks: input.socialMediaLinks ?? [],
+    };
+
     if (setting) {
       // Update existing settings
       await this.settingRepository.save({
         ...setting,
-        ...input,
+        ...cleanedInput,
       });
       return await this.getSetting();
     }
@@ -46,7 +60,7 @@ export class SettingService {
     // Create new settings with hardcoded ID
     setting = this.settingRepository.create({
       id: SETTINGS_ID,
-      ...input,
+      ...cleanedInput,
     });
     await this.settingRepository.save(setting);
     return await this.getSetting();
