@@ -1,8 +1,11 @@
+import { Field, InputType, PartialType } from '@nestjs/graphql';
+import { IsNotEmpty, IsUUID } from 'class-validator';
 import { CreateFaqInput } from './create-faq.input';
-import { InputType, Field, ID, PartialType } from '@nestjs/graphql';
 
 @InputType()
 export class UpdateFaqInput extends PartialType(CreateFaqInput) {
-  @Field(() => ID)
+  @Field()
+  @IsNotEmpty()
+  @IsUUID()
   id: string;
 }
