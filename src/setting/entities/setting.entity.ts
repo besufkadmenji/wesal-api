@@ -1,4 +1,4 @@
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, ObjectType } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
@@ -11,7 +11,6 @@ import { SocialMediaLink } from '../dto/social-media-link.type';
 @ObjectType()
 @Entity('settings')
 export class Setting {
-  @Field(() => ID)
   @PrimaryColumn('uuid')
   id: string;
 
@@ -55,11 +54,9 @@ export class Setting {
   @Column({ type: 'jsonb', default: [] })
   socialMediaLinks: Array<{ name: string; link: string }>;
 
-  @Field()
   @CreateDateColumn()
   createdAt: Date;
 
-  @Field()
   @UpdateDateColumn()
   updatedAt: Date;
 }
