@@ -24,25 +24,25 @@ export class ContactMessageService {
   }
 
   async findAll(
-    input: ContactMessagePaginationInput,
+    paginationInput: ContactMessagePaginationInput,
   ): Promise<IPaginatedType<ContactMessage>> {
-    const page = input.page ?? 1;
-    const limit = input?.limit ?? 10;
-    const sortOrder = (input?.sortOrder ?? 'DESC') as 'ASC' | 'DESC';
-    const sortBy = input?.sortBy ?? 'createdAt';
+    const page = paginationInput.page ?? 1;
+    const limit = paginationInput.limit ?? 10;
+    const sortOrder = (paginationInput.sortOrder ?? 'DESC') as 'ASC' | 'DESC';
+    const sortBy = paginationInput.sortBy ?? 'createdAt';
 
     const qb =
       this.contactMessageRepository.createQueryBuilder('contactMessage');
 
-    if (typeof input?.isRead === 'boolean') {
+    if (typeof paginationInput?.isRead === 'boolean') {
       qb.andWhere('contactMessage.isRead = :isRead', {
-        isRead: input.isRead,
+        isRead: paginationInput.isRead,
       });
     }
 
-    if (input?.messageType) {
+    if (paginationInput?.messageType) {
       qb.andWhere('contactMessage.messageType = :messageType', {
-        messageType: input.messageType,
+        messageType: paginationInput.messageType,
       });
     }
 

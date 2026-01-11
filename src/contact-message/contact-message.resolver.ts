@@ -31,12 +31,13 @@ export class ContactMessageResolver {
   @UseGuards(AdminAuthGuard)
   findAll(
     @CurrentAdmin() admin: JwtPayload,
-    @Args('input', { nullable: true }) input: ContactMessagePaginationInput,
+    @Args('paginationInput', { nullable: true })
+    paginationInput: ContactMessagePaginationInput,
   ) {
     if (!admin?.sub) {
       throw new Error('Unauthorized');
     }
-    return this.contactMessageService.findAll(input);
+    return this.contactMessageService.findAll(paginationInput);
   }
 
   @Query(() => ContactMessage, {
