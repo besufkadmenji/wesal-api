@@ -1,5 +1,12 @@
 import { Field, InputType, Int } from '@nestjs/graphql';
-import { IsInt, IsNotEmpty, IsUUID } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsInt,
+  IsNotEmpty,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
 
 @InputType()
 export class UpdateFaqOrderInput {
@@ -16,5 +23,8 @@ export class UpdateFaqOrderInput {
 @InputType()
 export class BulkUpdateFaqOrderInput {
   @Field(() => [UpdateFaqOrderInput])
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => UpdateFaqOrderInput)
   items: UpdateFaqOrderInput[];
 }
