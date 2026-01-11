@@ -97,11 +97,9 @@ export class UserService {
       .where('user.deletedAt IS NULL')
       .andWhere('user.role = :role', { role })
       .andWhere('user.status IN (:...statuses)', {
-        statuses: paginationInput.status ?? [
-          UserStatus.ACTIVE,
-          UserStatus.INACTIVE,
-          UserStatus.SUSPENDED,
-        ],
+        statuses: paginationInput.status
+          ? [paginationInput.status]
+          : [UserStatus.ACTIVE, UserStatus.INACTIVE, UserStatus.SUSPENDED],
       });
 
     // Add search filter if provided
