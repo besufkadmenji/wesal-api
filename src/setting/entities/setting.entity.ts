@@ -16,43 +16,43 @@ export class Setting {
   id: string;
 
   @Field()
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', default: '' })
   aboutEn: string;
 
   @Field()
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', default: '' })
   aboutAr: string;
 
   @Field()
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', default: '' })
   privacyPolicyEn: string;
 
   @Field()
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', default: '' })
   privacyPolicyAr: string;
 
   @Field()
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', default: '' })
   termsEn: string;
 
   @Field()
-  @Column({ type: 'text', nullable: true })
+  @Column({ type: 'text', default: '' })
   termsAr: string;
 
   @Field(() => [String])
-  @Column({ type: 'simple-array', nullable: true })
+  @Column({ type: 'simple-array', default: [] })
   phones: string[];
 
   @Field()
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, default: '' })
   email: string;
 
   @Field()
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar', length: 20, default: '' })
   whatsappNumber: string;
 
-  @Field(() => [SocialMediaLink], { nullable: true })
-  @Column({ type: 'jsonb', nullable: true, default: [] })
+  @Field(() => [SocialMediaLink])
+  @Column({ type: 'jsonb', default: [] })
   socialMediaLinks: Array<{ name: string; link: string }>;
 
   @Field()
