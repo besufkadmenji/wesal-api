@@ -18,9 +18,9 @@ export class FaqService {
     return this.faqRepository.save(faq);
   }
 
-  async findAll(): Promise<Faq[]> {
+  async findAll(isAdmin: boolean): Promise<Faq[]> {
     return this.faqRepository.find({
-      where: { isActive: true },
+      where: isAdmin ? {} : { isActive: true },
       order: { order: 'ASC' },
     });
   }

@@ -13,9 +13,12 @@ import { FaqService } from './faq.service';
 export class FaqResolver {
   constructor(private readonly faqService: FaqService) {}
 
-  @Query(() => [Faq], { name: 'faqs', description: 'Get all active FAQs' })
-  findAll() {
-    return this.faqService.findAll();
+  @Query(() => [Faq], {
+    name: 'faqs',
+    description: 'Get all active FAQs (or all if admin)',
+  })
+  findAll(@CurrentAdmin() admin?: JwtPayload) {
+    return this.faqService.findAll(admin?.sub ? true : false);
   }
 
   @Query(() => Faq, { name: 'faq' })
