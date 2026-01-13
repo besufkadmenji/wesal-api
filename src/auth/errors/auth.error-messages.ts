@@ -78,16 +78,8 @@ export const AUTH_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'You must provide bank name and IBAN number',
     ar: 'يجب تقديم اسم البنك ورقم الآيبان',
   },
-  COMMERCIAL_NAME_REQUIRED: {
-    en: 'Commercial name is required for providers',
-    ar: 'اسم العمل مطلوب للمزودين',
-  },
-  REGISTRATION_NUMBER_REQUIRED: {
-    en: 'Registration number is required for providers',
-    ar: 'رقم التسجيل مطلوب للمزودين',
-  },
-  PROVIDER_IMAGE_REQUIRED: {
-    en: 'Profile image is required for providers',
-    ar: 'صورة الملف الشخصي مطلوبة للمزودين',
+  [AUTH_ERROR_CODES.COMMERCIAL_REGISTRATION_FILE_REQUIRED]: {
+    en: 'Commercial registration file is required for providers',
+    ar: 'ملف السجل التجاري مطلوب لمقدمي الخدمات',
   },
 };

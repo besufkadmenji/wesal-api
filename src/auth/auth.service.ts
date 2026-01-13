@@ -73,9 +73,9 @@ export class AuthService {
         );
       }
 
-      if (!registerInput.avatarFilename) {
+      if (!registerInput.commercialRegistrationFilename) {
         const message = I18nService.translate(
-          AUTH_ERROR_MESSAGES['PROVIDER_IMAGE_REQUIRED'],
+          AUTH_ERROR_MESSAGES['COMMERCIAL_REGISTRATION_FILE_REQUIRED'],
           language,
         );
         throw new I18nBadRequestException(
