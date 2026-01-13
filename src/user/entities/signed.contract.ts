@@ -1,8 +1,7 @@
-import { Field, InputType, ObjectType } from '@nestjs/graphql';
+import { Field, Float, ObjectType } from '@nestjs/graphql';
 import { SignedContractStatus } from '../enums/contract.enum';
 
 @ObjectType()
-@InputType('SignedContractInput')
 export class SignedContract {
   @Field()
   serviceProviderName: string;
@@ -28,10 +27,10 @@ export class SignedContract {
   @Field()
   address: string;
 
-  @Field({ nullable: true })
+  @Field(() => Float, { nullable: true })
   latitude?: number;
 
-  @Field({ nullable: true })
+  @Field(() => Float, { nullable: true })
   longitude?: number;
 
   @Field()
@@ -49,7 +48,7 @@ export class SignedContract {
   @Field()
   contractSignedAt: Date;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   contractExpiresAt?: Date | null;
 
   @Field(() => SignedContractStatus)

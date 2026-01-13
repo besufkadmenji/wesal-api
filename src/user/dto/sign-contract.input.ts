@@ -1,5 +1,12 @@
-import { InputType, Field } from '@nestjs/graphql';
-import { IsString, IsNotEmpty, IsBoolean, IsOptional } from 'class-validator';
+import { Field, Float, InputType } from '@nestjs/graphql';
+import {
+  IsBoolean,
+  IsLatitude,
+  IsLongitude,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 @InputType()
 export class SignContractInput {
@@ -47,6 +54,16 @@ export class SignContractInput {
   @IsString()
   @IsNotEmpty()
   address: string;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  @IsLatitude()
+  latitude?: number;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  @IsLongitude()
+  longitude?: number;
 
   @Field()
   @IsString()
