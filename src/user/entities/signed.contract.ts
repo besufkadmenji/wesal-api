@@ -6,8 +6,8 @@ export class SignedContract {
   @Field()
   serviceProviderSignature: string;
 
-  @Field()
-  platformManagerSignature: string;
+  @Field(() => String, { nullable: true })
+  platformManagerSignature: string | null;
 
   @Field()
   contractSignedAt: Date;
