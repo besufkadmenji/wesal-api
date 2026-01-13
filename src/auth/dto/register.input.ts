@@ -108,4 +108,8 @@ export class RegisterInput {
   @IsArray()
   @IsUUID('4', { each: true })
   categoryIds?: string[];
+
+  @Field({ nullable: true })
+  @IsOptional()
+  withAbsher?: boolean;
 }
