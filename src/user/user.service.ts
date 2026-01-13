@@ -401,6 +401,7 @@ export class UserService {
       contractSignedAt: new Date(),
       contractExpiresAt: null,
       status: SignedContractStatus.ACTIVE,
+      terminationReason: null,
     };
 
     return this.userRepository.save(user);
@@ -408,6 +409,7 @@ export class UserService {
 
   async terminateContract(
     userId: string,
+    terminationReason: string,
     language: LanguageCode = 'en',
   ): Promise<User> {
     const user = await this.userRepository.findOne({
@@ -455,6 +457,7 @@ export class UserService {
 
     // Terminate contract
     user.signedContract.status = SignedContractStatus.TERMINATED_BY_USER;
+    user.signedContract.terminationReason = terminationReason;
 
     return this.userRepository.save(user);
   }

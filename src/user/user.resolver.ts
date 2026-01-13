@@ -112,7 +112,12 @@ export class UserResolver {
   terminateContract(
     @CurrentUser() user: JwtPayload,
     @GetLanguage() language: LanguageCode,
+    @Args('terminationReason') terminationReason: string,
   ) {
-    return this.userService.terminateContract(user.sub, language);
+    return this.userService.terminateContract(
+      user.sub,
+      terminationReason,
+      language,
+    );
   }
 }

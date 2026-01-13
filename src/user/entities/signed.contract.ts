@@ -53,4 +53,7 @@ export class SignedContract {
 
   @Field(() => SignedContractStatus)
   status: SignedContractStatus;
+
+  @Field(() => String, { nullable: true })
+  terminationReason: string | null;
 }
