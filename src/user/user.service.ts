@@ -15,11 +15,11 @@ import { SignContractInput } from './dto/sign-contract.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UserPaginationInput } from './dto/user-pagination.input';
 import { User } from './entities/user.entity';
+import { SignedContractStatus } from './enums/contract.enum';
 import { UserRole } from './enums/user-role.enum';
 import { UserStatus } from './enums/user-status.enum';
 import { USER_ERROR_CODES } from './errors/user.error-codes';
 import { USER_ERROR_MESSAGES } from './errors/user.error-messages';
-import { SignedContractStatus } from './enums/contract.enum';
 
 @Injectable()
 export class UserService {
@@ -386,18 +386,8 @@ export class UserService {
 
     // Create signed contract object
     user.signedContract = {
-      serviceProviderName: input.serviceProviderName,
-      commercialName: input.commercialName,
-      phoneNumber: input.phoneNumber,
-      dialCode: input.dialCode,
-      categoryId: input.categoryId,
-      categoryNameEn: input.categoryNameEn,
-      categoryNameAr: input.categoryNameAr,
-      address: input.address,
       serviceProviderSignature: input.serviceProviderSignature,
-      platformManagerName: input.platformManagerName,
       platformManagerSignature: input.platformManagerSignature,
-      verifiedWithAbsher: input.verifiedWithAbsher ?? false,
       contractSignedAt: new Date(),
       contractExpiresAt: null,
       status: SignedContractStatus.ACTIVE,
