@@ -9,7 +9,7 @@ export class SignedContract {
   @Field(() => String, { nullable: true })
   platformManagerSignature: string | null;
 
-  @Field()
+  @Field(() => String)
   contractSignedAt: Date;
 
   @Field(() => String, { nullable: true })
