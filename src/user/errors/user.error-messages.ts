@@ -131,6 +131,14 @@ export const USER_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Only service providers can sign contracts',
     ar: 'فقط مزودو الخدمات يمكنهم توقيع العقود',
   },
+  [USER_ERROR_CODES.CONTRACT_NOT_FOUND]: {
+    en: 'Signed contract not found for this user',
+    ar: 'لم يتم العثور على عقد موقع لهذا المستخدم',
+  },
+  [USER_ERROR_CODES.CONTRACT_ALREADY_TERMINATED]: {
+    en: 'Contract has already been terminated',
+    ar: 'تم إنهاء العقد بالفعل',
+  },
 };
 
 // Register user error messages in the central registry
