@@ -13,21 +13,21 @@ import { User } from 'src/user/entities/user.entity';
 import { UserRole } from 'src/user/enums/user-role.enum';
 import { UserService } from 'src/user/user.service';
 import { AuthResponse } from './dto/auth-response';
+import { ChangeEmailInput } from './dto/change-email.input';
+import { ChangeEmailResponse } from './dto/change-email.response';
+import { ChangePasswordInput } from './dto/change-password.input';
+import { ChangePhoneInput } from './dto/change-phone.input';
+import { ChangePhoneResponse } from './dto/change-phone.response';
 import { ForgotPasswordInput } from './dto/forgot-password.input';
 import { LoginInput } from './dto/login.input';
 import { RegisterInput } from './dto/register.input';
 import { ResendOtpInput } from './dto/resend-otp.input';
 import { ResetPasswordWithTokenInput } from './dto/reset-password-with-token.input';
+import { VerifyChangeEmailInput } from './dto/verify-change-email.input';
+import { VerifyChangePhoneInput } from './dto/verify-change-phone.input';
 import { VerifyOtpInput } from './dto/verify-otp.input';
 import { VerifyPasswordResetOtpInput } from './dto/verify-password-reset-otp.input';
 import { VerifyPasswordResetOtpResponse } from './dto/verify-password-reset-otp.response';
-import { ChangePasswordInput } from './dto/change-password.input';
-import { ChangeEmailInput } from './dto/change-email.input';
-import { ChangeEmailResponse } from './dto/change-email.response';
-import { ChangePhoneInput } from './dto/change-phone.input';
-import { ChangePhoneResponse } from './dto/change-phone.response';
-import { VerifyChangeEmailInput } from './dto/verify-change-email.input';
-import { VerifyChangePhoneInput } from './dto/verify-change-phone.input';
 import { Otp } from './entities/otp.entity';
 import { OtpType } from './enums/otp-type.enum';
 import { AUTH_ERROR_MESSAGES } from './errors/auth.error-messages';
@@ -49,16 +49,40 @@ export class AuthService {
     registerInput: RegisterInput,
     language: LanguageCode = 'en',
   ): Promise<User> {
-    // Validate that providers provide bank details
-    if (
-      registerInput.role === UserRole.USER &&
-      (!registerInput.bankName || !registerInput.ibanNumber)
-    ) {
-      const message = I18nService.translate(
-        AUTH_ERROR_MESSAGES['PROVIDER_BANK_DETAILS_REQUIRED'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    // Validate that providers provide required fields
+    if (registerInput.role === UserRole.PROVIDER) {
+      if (!registerInput.commercialName) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['COMMERCIAL_NAME_REQUIRED'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      if (!registerInput.commercialRegistrationNumber) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['REGISTRATION_NUMBER_REQUIRED'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      if (!registerInput.avatarFilename) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['PROVIDER_IMAGE_REQUIRED'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
     }
 
     // Create user using UserService (handles validation, hashing, and categories)

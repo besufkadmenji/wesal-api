@@ -10,11 +10,11 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Category } from '../../category/entities/category.entity';
+import { City } from '../../city/entities/city.entity';
+import { Country } from '../../country/entities/country.entity';
 import { UserRole } from '../enums/user-role.enum';
 import { UserStatus } from '../enums/user-status.enum';
-import { Category } from '../../category/entities/category.entity';
-import { Country } from '../../country/entities/country.entity';
-import { City } from '../../city/entities/city.entity';
 import { SignedContract } from './signed.contract';
 
 @ObjectType()
@@ -79,6 +79,13 @@ export class User {
   @Column({ type: 'varchar', length: 500, nullable: true })
   name?: string | null;
 
+  // Profile fields
+  @Field(() => String, {
+    nullable: true,
+  })
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  commercialName?: string | null;
+
   @Field(() => String, { nullable: true })
   @Column({ type: 'varchar', length: 500, nullable: true })
   avatarFilename?: string | null;
@@ -129,6 +136,10 @@ export class User {
   @Field({ nullable: true })
   @Column({ type: 'text', nullable: true })
   commercialRegistrationNumber?: string;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  commercialRegistrationFilename?: string | null;
 
   @Field({ nullable: true })
   @Column({ type: 'boolean', default: false })

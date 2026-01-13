@@ -50,6 +50,10 @@ export class CreateUserInput {
   })
   name: string;
 
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  commercialName?: string | null;
+
   @Field({ nullable: true })
   @IsOptional()
   @Matches(/^\+?[1-9]\d{1,3}$/, {
@@ -63,6 +67,13 @@ export class CreateUserInput {
     message: USER_ERROR_CODES.INVALID_AVATAR_URL_LENGTH,
   })
   avatarFilename?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @MaxLength(500, {
+    message: USER_ERROR_CODES.INVALID_AVATAR_URL_LENGTH,
+  })
+  commercialRegistrationFilename?: string;
 
   @Field({ nullable: true })
   @IsOptional()

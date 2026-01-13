@@ -84,10 +84,24 @@ export class RegisterInput {
   @Field({ nullable: true })
   @IsOptional()
   @IsString()
-  @Matches(/^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/, {
-    message: 'Invalid IBAN format',
-  })
+  @MaxLength(255)
   ibanNumber?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  commercialName?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  commercialRegistrationNumber?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  commercialRegistrationFilename?: string;
 
   @Field(() => [String], { nullable: true })
   @IsOptional()
