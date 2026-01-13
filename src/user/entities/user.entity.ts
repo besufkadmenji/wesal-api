@@ -15,6 +15,7 @@ import { UserStatus } from '../enums/user-status.enum';
 import { Category } from '../../category/entities/category.entity';
 import { Country } from '../../country/entities/country.entity';
 import { City } from '../../city/entities/city.entity';
+import { SignedContract } from './signed.contract';
 
 @ObjectType()
 @Entity('users')
@@ -157,4 +158,8 @@ export class User {
   @Field()
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Field(() => SignedContract, { nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
+  signedContract?: SignedContract | null;
 }

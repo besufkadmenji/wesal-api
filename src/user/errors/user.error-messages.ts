@@ -123,6 +123,14 @@ export const USER_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Cannot deactivate the last active provider',
     ar: 'لا يمكن تعطيل آخر مزود نشط',
   },
+  [USER_ERROR_CODES.CONTRACT_ALREADY_SIGNED]: {
+    en: 'Contract is already signed. Cannot sign a contract twice.',
+    ar: 'تم توقيع العقد بالفعل. لا يمكن توقيع العقد مرتين.',
+  },
+  [USER_ERROR_CODES.NOT_A_PROVIDER]: {
+    en: 'Only service providers can sign contracts',
+    ar: 'فقط مزودو الخدمات يمكنهم توقيع العقود',
+  },
 };
 
 // Register user error messages in the central registry

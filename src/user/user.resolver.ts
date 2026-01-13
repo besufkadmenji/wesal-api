@@ -5,6 +5,7 @@ import { User } from './entities/user.entity';
 import { UpdateUserInput } from './dto/update-user.input';
 import { DeactivateUserInput } from './dto/deactivate-user.input';
 import { DeleteUserInput } from './dto/delete-user.input';
+import { SignContractInput } from './dto/sign-contract.input';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { UserPaginationInput } from './dto/user-pagination.input';
@@ -92,5 +93,26 @@ export class UserResolver {
     @GetLanguage() language: LanguageCode,
   ) {
     return this.userService.deactivate(id, input.reason, language);
+  }
+
+  @Mutation(() => User, { description: 'Sign contract as service provider' })
+  @UseGuards(JwtAuthGuard)
+  signContract(
+    @Args('input') input: SignContractInput,
+    @CurrentUser() user: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.userService.signContract(user.sub, input, language);
+  }
+
+  @Mutation(() => User, {
+    description: 'Terminate contract as service provider',
+  })
+  @UseGuards(JwtAuthGuard)
+  terminateContract(
+    @CurrentUser() user: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.userService.terminateContract(user.sub, language);
   }
 }

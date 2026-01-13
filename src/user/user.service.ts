@@ -1,23 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User } from './entities/user.entity';
-import { UserStatus } from './enums/user-status.enum';
-import { UserRole } from './enums/user-role.enum';
-import { Category } from '../category/entities/category.entity';
-import { CreateUserInput } from './dto/create-user.input';
-import { UpdateUserInput } from './dto/update-user.input';
-import type { LanguageCode } from '../../lib/i18n/language.types';
+import { In, Repository } from 'typeorm';
+import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import {
   I18nBadRequestException,
   I18nNotFoundException,
 } from '../../lib/errors/i18n.exceptions';
 import { I18nService } from '../../lib/i18n/i18n.service';
+import type { LanguageCode } from '../../lib/i18n/language.types';
+import { Category } from '../category/entities/category.entity';
+import { CreateUserInput } from './dto/create-user.input';
+import { SignContractInput } from './dto/sign-contract.input';
+import { UpdateUserInput } from './dto/update-user.input';
+import { UserPaginationInput } from './dto/user-pagination.input';
+import { User } from './entities/user.entity';
+import { UserRole } from './enums/user-role.enum';
+import { UserStatus } from './enums/user-status.enum';
 import { USER_ERROR_CODES } from './errors/user.error-codes';
 import { USER_ERROR_MESSAGES } from './errors/user.error-messages';
-import { UserPaginationInput } from './dto/user-pagination.input';
-import { IPaginatedType } from '../../lib/common/dto/paginated-response';
+import { SignedContractStatus } from './enums/contract.enum';
 
 @Injectable()
 export class UserService {
@@ -340,30 +342,120 @@ export class UserService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    // // Prevent deactivation of last active provider
-    // if (user.role === UserRole.PROVIDER) {
-    //   const activeProviderCount = await this.userRepository.count({
-    //     where: { role: UserRole.PROVIDER, status: UserStatus.ACTIVE },
-    //   });
-
-    //   if (activeProviderCount === 1) {
-    //     const message = I18nService.translate(
-    //       USER_ERROR_MESSAGES[
-    //         USER_ERROR_CODES.CANNOT_DEACTIVATE_LAST_ACTIVE_PROVIDER
-    //       ],
-    //       language,
-    //     );
-    //     throw new I18nBadRequestException(
-    //       { en: message, ar: message },
-    //       language,
-    //     );
-    //   }
-    // }
-
     user.status = UserStatus.INACTIVE;
     if (reason) {
       user.deactivationReason = reason;
     }
+    return this.userRepository.save(user);
+  }
+
+  async signContract(
+    userId: string,
+    input: SignContractInput,
+    language: LanguageCode = 'en',
+  ): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    // Check if user is a provider
+    if (user.role !== UserRole.PROVIDER) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.NOT_A_PROVIDER],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Check if contract is already signed
+    if (user.signedContract) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.CONTRACT_ALREADY_SIGNED],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Create signed contract object
+    user.signedContract = {
+      serviceProviderName: input.serviceProviderName,
+      commercialName: input.commercialName,
+      phoneNumber: input.phoneNumber,
+      dialCode: input.dialCode,
+      categoryId: input.categoryId,
+      categoryNameEn: input.categoryNameEn,
+      categoryNameAr: input.categoryNameAr,
+      address: input.address,
+      serviceProviderSignature: input.serviceProviderSignature,
+      platformManagerName: input.platformManagerName,
+      platformManagerSignature: input.platformManagerSignature,
+      verifiedWithAbsher: input.verifiedWithAbsher ?? false,
+      contractSignedAt: new Date(),
+      contractExpiresAt: null,
+      status: SignedContractStatus.ACTIVE,
+    };
+
+    return this.userRepository.save(user);
+  }
+
+  async terminateContract(
+    userId: string,
+    language: LanguageCode = 'en',
+  ): Promise<User> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    // Check if user is a provider
+    if (user.role !== UserRole.PROVIDER) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.NOT_A_PROVIDER],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Check if contract exists
+    if (!user.signedContract) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES['CONTRACT_NOT_FOUND'],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    // Check if contract is already terminated or expired
+    if (
+      user.signedContract.status === SignedContractStatus.TERMINATED_BY_USER ||
+      user.signedContract.status === SignedContractStatus.TERMINATED_BY_ADMIN ||
+      user.signedContract.status === SignedContractStatus.EXPIRED
+    ) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES['CONTRACT_ALREADY_TERMINATED'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Terminate contract
+    user.signedContract.status = SignedContractStatus.TERMINATED_BY_USER;
+
     return this.userRepository.save(user);
   }
 }
