@@ -146,6 +146,10 @@ export class AuthService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
+    if (user.role === UserRole.PROVIDER && !user.isActive) {
+      return { accessToken: '', user };
+    }
+
     // Generate JWT token
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken: string = this.jwtService.sign(payload);
