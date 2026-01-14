@@ -31,6 +31,7 @@ import { VerifyPasswordResetOtpResponse } from './dto/verify-password-reset-otp.
 import { Otp } from './entities/otp.entity';
 import { OtpType } from './enums/otp-type.enum';
 import { AUTH_ERROR_MESSAGES } from './errors/auth.error-messages';
+import { UserStatus } from 'src/user/enums/user-status.enum';
 
 @Injectable()
 export class AuthService {
@@ -146,7 +147,7 @@ export class AuthService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    if (user.role === UserRole.PROVIDER && !user.isActive) {
+    if (user.role === UserRole.PROVIDER && user.status !== UserStatus.ACTIVE) {
       return { accessToken: '', user };
     }
 
