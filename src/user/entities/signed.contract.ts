@@ -7,6 +7,9 @@ export class SignedContract {
   serviceProviderSignature: string;
 
   @Field(() => String, { nullable: true })
+  platformManagerName: string | null;
+
+  @Field(() => String, { nullable: true })
   platformManagerSignature: string | null;
 
   @Field(() => String)

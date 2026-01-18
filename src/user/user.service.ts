@@ -400,6 +400,7 @@ export class UserService {
     user.signedContract = {
       serviceProviderSignature: input.serviceProviderSignature,
       platformManagerSignature: null,
+      platformManagerName: null,
       contractSignedAt: new Date(),
       contractExpiresAt: null,
       status: SignedContractStatus.ACTIVE,
@@ -460,6 +461,7 @@ export class UserService {
     // Create signed contract object
     user.signedContract = {
       ...user.signedContract,
+      platformManagerName: admin.fullName,
       platformManagerSignature: input.platformManagerSignature,
     };
 

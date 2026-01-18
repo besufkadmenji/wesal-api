@@ -29,5 +29,10 @@ export class AdminSignContractInput {
   @Field(() => String)
   @IsString()
   @IsNotEmpty()
+  platformManagerName: string;
+
+  @Field(() => String)
+  @IsString()
+  @IsNotEmpty()
   platformManagerSignature: string;
 }
