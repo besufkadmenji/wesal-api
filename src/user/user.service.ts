@@ -404,6 +404,8 @@ export class UserService {
       contractExpiresAt: null,
       status: SignedContractStatus.ACTIVE,
       terminationReason: null,
+      acceptedRulesAr: input.acceptedRulesAr,
+      acceptedRulesEn: input.acceptedRulesEn,
     };
 
     return this.userRepository.save(user);

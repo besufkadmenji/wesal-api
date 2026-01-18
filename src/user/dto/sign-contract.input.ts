@@ -7,6 +7,16 @@ export class SignContractInput {
   @IsString()
   @IsNotEmpty()
   serviceProviderSignature: string;
+
+  @Field(() => String, { nullable: true })
+  @IsString()
+  @IsNotEmpty()
+  acceptedRulesEn: string | null;
+
+  @Field(() => String, { nullable: true })
+  @IsString()
+  @IsNotEmpty()
+  acceptedRulesAr: string | null;
 }
 
 @InputType()

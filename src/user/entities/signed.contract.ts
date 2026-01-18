@@ -20,4 +20,10 @@ export class SignedContract {
 
   @Field(() => String, { nullable: true })
   terminationReason: string | null;
+
+  @Field(() => String, { nullable: true })
+  acceptedRulesEn: string | null;
+
+  @Field(() => String, { nullable: true })
+  acceptedRulesAr: string | null;
 }
