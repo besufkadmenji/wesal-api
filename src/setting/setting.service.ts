@@ -44,9 +44,12 @@ export class SettingService {
     }
 
     // Create new settings with hardcoded ID
+    const cleanInput = Object.fromEntries(
+      Object.entries(input).filter(([, value]) => value !== null),
+    );
     setting = this.settingRepository.create({
       id: SETTINGS_ID,
-      ...input,
+      ...cleanInput,
     });
     await this.settingRepository.save(setting);
     return await this.getSetting();

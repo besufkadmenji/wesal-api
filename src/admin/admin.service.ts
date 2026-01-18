@@ -39,6 +39,24 @@ export class AdminService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
+    // Check if trying to create a super admin and one already exists
+    if (createAdminInput.permissionType === AdminPermissionType.SUPER_ADMIN) {
+      const existingSuperAdmin = await this.adminRepository.findOne({
+        where: { permissionType: AdminPermissionType.SUPER_ADMIN },
+      });
+
+      if (existingSuperAdmin) {
+        const message = I18nService.translate(
+          ADMIN_ERROR_MESSAGES.SUPER_ADMIN_ALREADY_EXISTS,
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(createAdminInput.password, 10);
 
@@ -142,6 +160,50 @@ export class AdminService {
       if (existingAdmin) {
         const message = I18nService.translate(
           ADMIN_ERROR_MESSAGES['EMAIL_ALREADY_IN_USE'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+    }
+
+    // Check if trying to assign super admin role and one already exists
+    if (
+      updateAdminInput.permissionType &&
+      updateAdminInput.permissionType === AdminPermissionType.SUPER_ADMIN &&
+      admin.permissionType !== AdminPermissionType.SUPER_ADMIN
+    ) {
+      const existingSuperAdmin = await this.adminRepository.findOne({
+        where: { permissionType: AdminPermissionType.SUPER_ADMIN },
+      });
+
+      if (existingSuperAdmin) {
+        const message = I18nService.translate(
+          ADMIN_ERROR_MESSAGES.SUPER_ADMIN_ALREADY_EXISTS,
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+    }
+
+    // Check if trying to remove super admin role and this is the only one
+    if (
+      updateAdminInput.permissionType &&
+      updateAdminInput.permissionType !== AdminPermissionType.SUPER_ADMIN &&
+      admin.permissionType === AdminPermissionType.SUPER_ADMIN
+    ) {
+      const superAdminCount = await this.adminRepository.count({
+        where: { permissionType: AdminPermissionType.SUPER_ADMIN },
+      });
+
+      if (superAdminCount === 1) {
+        const message = I18nService.translate(
+          ADMIN_ERROR_MESSAGES.CANNOT_REMOVE_SUPER_ADMIN,
           language,
         );
         throw new I18nBadRequestException(

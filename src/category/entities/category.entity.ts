@@ -49,6 +49,14 @@ export class Category {
   descriptionAr: string;
 
   @Field()
+  @Column({ type: 'text', default: '' })
+  rulesAr: string;
+
+  @Field()
+  @Column({ type: 'text', default: '' })
+  rulesEn: string;
+
+  @Field()
   @CreateDateColumn()
   createdAt: Date;
 

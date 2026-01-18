@@ -69,4 +69,12 @@ export const ADMIN_ERROR_MESSAGES: Record<
     en: 'Current password is incorrect',
     ar: 'كلمة المرور الحالية غير صحيحة',
   },
+  SUPER_ADMIN_ALREADY_EXISTS: {
+    en: 'A super admin already exists. Only one super admin is allowed',
+    ar: 'يوجد مسؤول فائق بالفعل. يُسمح بمسؤول فائق واحد فقط',
+  },
+  CANNOT_REMOVE_SUPER_ADMIN: {
+    en: 'Cannot remove super admin role. At least one super admin must exist',
+    ar: 'لا يمكن إزالة دور المسؤول الفائق. يجب أن يكون هناك مسؤول فائق واحد على الأقل',
+  },
 } as const;
