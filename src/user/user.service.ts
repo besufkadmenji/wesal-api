@@ -82,6 +82,7 @@ export class UserService {
 
   async findAll(
     paginationInput: UserPaginationInput,
+    withContracts?: boolean,
   ): Promise<IPaginatedType<User>> {
     const {
       page = 1,
@@ -111,6 +112,10 @@ export class UserService {
         '(user.name ILIKE :search OR user.email ILIKE :search OR user.phone ILIKE :search)',
         { search: searchTerm },
       );
+    }
+
+    if (withContracts) {
+      queryBuilder.andWhere('user.signedContract IS NOT NULL');
     }
 
     const [items, total] = await queryBuilder

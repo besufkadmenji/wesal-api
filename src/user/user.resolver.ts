@@ -1,18 +1,18 @@
-import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
-import { UserService } from './user.service';
-import { User } from './entities/user.entity';
-import { UpdateUserInput } from './dto/update-user.input';
-import { DeactivateUserInput } from './dto/deactivate-user.input';
-import { DeleteUserInput } from './dto/delete-user.input';
-import { SignContractInput } from './dto/sign-contract.input';
+import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
-import { UserPaginationInput } from './dto/user-pagination.input';
-import { PaginatedUserResponse } from './dto/paginated-user.response';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { DeactivateUserInput } from './dto/deactivate-user.input';
+import { DeleteUserInput } from './dto/delete-user.input';
+import { PaginatedUserResponse } from './dto/paginated-user.response';
+import { SignContractInput } from './dto/sign-contract.input';
+import { UpdateUserInput } from './dto/update-user.input';
+import { UserPaginationInput } from './dto/user-pagination.input';
+import { User } from './entities/user.entity';
+import { UserService } from './user.service';
 
 @Resolver(() => User)
 export class UserResolver {
@@ -34,8 +34,11 @@ export class UserResolver {
     name: 'users',
     description: 'Get all users with pagination by role',
   })
-  findAll(@Args('pagination') pagination: UserPaginationInput) {
-    return this.userService.findAll(pagination);
+  findAll(
+    @Args('pagination') pagination: UserPaginationInput,
+    @Args('withContracts', { type: () => Boolean }) withContracts?: boolean,
+  ) {
+    return this.userService.findAll(pagination, withContracts);
   }
 
   @Query(() => User, { name: 'user', description: 'Get user by ID' })
