@@ -81,4 +81,12 @@ export const ADMIN_ERROR_MESSAGES: Record<
     en: 'Platform manager signature is only allowed for super admin users',
     ar: 'توقيع مدير المنصة مسموح فقط لمستخدمي المسؤول الفائق',
   },
+  CANNOT_DELETE_SUPER_ADMIN: {
+    en: 'Super admin cannot be deleted',
+    ar: 'لا يمكن حذف المسؤول الفائق',
+  },
+  CANNOT_DEACTIVATE_SUPER_ADMIN: {
+    en: 'Super admin cannot be deactivated',
+    ar: 'لا يمكن تعطيل المسؤول الفائق',
+  },
 } as const;

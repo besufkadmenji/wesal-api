@@ -235,22 +235,13 @@ export class AdminService {
   async remove(id: string, language: LanguageCode = 'en'): Promise<boolean> {
     const admin = await this.findOne(id, language);
 
-    // Prevent deletion of last administrator
-    if (admin.permissionType === AdminPermissionType.ADMINISTRATOR) {
-      const administratorCount = await this.adminRepository.count({
-        where: { permissionType: AdminPermissionType.ADMINISTRATOR },
-      });
-
-      if (administratorCount === 1) {
-        const message = I18nService.translate(
-          ADMIN_ERROR_MESSAGES['CANNOT_DELETE_LAST_ADMINISTRATOR'],
-          language,
-        );
-        throw new I18nBadRequestException(
-          { en: message, ar: message },
-          language,
-        );
-      }
+    // Prevent deletion of super admin
+    if (admin.permissionType === AdminPermissionType.SUPER_ADMIN) {
+      const message = I18nService.translate(
+        ADMIN_ERROR_MESSAGES.CANNOT_DELETE_SUPER_ADMIN,
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
     await this.adminRepository.remove(admin);
@@ -279,6 +270,15 @@ export class AdminService {
     language: LanguageCode = 'en',
   ): Promise<Admin> {
     const admin = await this.findOne(id, language);
+
+    // Prevent deactivation of super admin
+    if (admin.permissionType === AdminPermissionType.SUPER_ADMIN) {
+      const message = I18nService.translate(
+        ADMIN_ERROR_MESSAGES.CANNOT_DEACTIVATE_SUPER_ADMIN,
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
 
     // Check if already inactive
     if (admin.status === AdminStatus.INACTIVE) {
