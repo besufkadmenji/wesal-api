@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { Admin } from 'src/admin/entities/admin.entity';
 import { In, Repository } from 'typeorm';
 import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import {
@@ -11,7 +12,10 @@ import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Category } from '../category/entities/category.entity';
 import { CreateUserInput } from './dto/create-user.input';
-import { SignContractInput } from './dto/sign-contract.input';
+import {
+  AdminSignContractInput,
+  SignContractInput,
+} from './dto/sign-contract.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UserPaginationInput } from './dto/user-pagination.input';
 import { User } from './entities/user.entity';
@@ -20,12 +24,15 @@ import { UserRole } from './enums/user-role.enum';
 import { UserStatus } from './enums/user-status.enum';
 import { USER_ERROR_CODES } from './errors/user.error-codes';
 import { USER_ERROR_MESSAGES } from './errors/user.error-messages';
+import { AdminPermissionType } from 'src/admin/enums/admin-permission-type.enum';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Admin)
+    private readonly adminRepository: Repository<Admin>,
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
   ) {}
@@ -169,7 +176,7 @@ export class UserService {
     // Phone and email cannot be changed
     if (updateUserInput.email || updateUserInput.phone) {
       const message = I18nService.translate(
-        USER_ERROR_MESSAGES['EMAIL_PHONE_IMMUTABLE'],
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.EMAIL_PHONE_IMMUTABLE],
         language,
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);
@@ -179,7 +186,7 @@ export class UserService {
     if (updateUserInput.name === null || updateUserInput.name === '') {
       if (user.name) {
         const message = I18nService.translate(
-          USER_ERROR_MESSAGES['NAME_CANNOT_BE_REMOVED'],
+          USER_ERROR_MESSAGES[USER_ERROR_CODES.NAME_CANNOT_BE_REMOVED],
           language,
         );
         throw new I18nBadRequestException(
@@ -192,7 +199,7 @@ export class UserService {
     if (updateUserInput.bankName === null || updateUserInput.bankName === '') {
       if (user.bankName) {
         const message = I18nService.translate(
-          USER_ERROR_MESSAGES['BANK_NAME_CANNOT_BE_REMOVED'],
+          USER_ERROR_MESSAGES[USER_ERROR_CODES.BANK_NAME_CANNOT_BE_REMOVED],
           language,
         );
         throw new I18nBadRequestException(
@@ -208,7 +215,7 @@ export class UserService {
     ) {
       if (user.ibanNumber) {
         const message = I18nService.translate(
-          USER_ERROR_MESSAGES['IBAN_CANNOT_BE_REMOVED'],
+          USER_ERROR_MESSAGES[USER_ERROR_CODES.IBAN_CANNOT_BE_REMOVED],
           language,
         );
         throw new I18nBadRequestException(
@@ -221,7 +228,7 @@ export class UserService {
     if (updateUserInput.address === null || updateUserInput.address === '') {
       if (user.address) {
         const message = I18nService.translate(
-          USER_ERROR_MESSAGES['ADDRESS_CANNOT_BE_REMOVED'],
+          USER_ERROR_MESSAGES[USER_ERROR_CODES.ADDRESS_CANNOT_BE_REMOVED],
           language,
         );
         throw new I18nBadRequestException(
@@ -234,7 +241,7 @@ export class UserService {
     if (updateUserInput.latitude === null) {
       if (user.latitude !== null && user.latitude !== undefined) {
         const message = I18nService.translate(
-          USER_ERROR_MESSAGES['LATITUDE_CANNOT_BE_REMOVED'],
+          USER_ERROR_MESSAGES[USER_ERROR_CODES.LATITUDE_CANNOT_BE_REMOVED],
           language,
         );
         throw new I18nBadRequestException(
@@ -247,7 +254,7 @@ export class UserService {
     if (updateUserInput.longitude === null) {
       if (user.longitude !== null && user.longitude !== undefined) {
         const message = I18nService.translate(
-          USER_ERROR_MESSAGES['LONGITUDE_CANNOT_BE_REMOVED'],
+          USER_ERROR_MESSAGES[USER_ERROR_CODES.LONGITUDE_CANNOT_BE_REMOVED],
           language,
         );
         throw new I18nBadRequestException(
@@ -268,7 +275,7 @@ export class UserService {
         updateUserInput.categoryIds.length === 0
       ) {
         const message = I18nService.translate(
-          USER_ERROR_MESSAGES['CATEGORIES_CANNOT_BE_REMOVED'],
+          USER_ERROR_MESSAGES[USER_ERROR_CODES.CATEGORIES_CANNOT_BE_REMOVED],
           language,
         );
         throw new I18nBadRequestException(
@@ -392,11 +399,66 @@ export class UserService {
     // Create signed contract object
     user.signedContract = {
       serviceProviderSignature: input.serviceProviderSignature,
-      platformManagerSignature: input.platformManagerSignature,
+      platformManagerSignature: null,
       contractSignedAt: new Date(),
       contractExpiresAt: null,
       status: SignedContractStatus.ACTIVE,
       terminationReason: null,
+    };
+
+    return this.userRepository.save(user);
+  }
+  async adminSignContract(
+    adminId: string,
+    input: AdminSignContractInput,
+    language: LanguageCode = 'en',
+  ): Promise<User> {
+    const admin = await this.adminRepository.findOne({
+      where: { id: adminId, permissionType: AdminPermissionType.SUPER_ADMIN },
+    });
+
+    if (!admin) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.ADMIN_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: input.userId },
+    });
+
+    if (!user) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    // Check if user is a provider
+    if (user.role !== UserRole.PROVIDER) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.NOT_A_PROVIDER],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Check if contract is already signed
+    if (!user.signedContract) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.CONTRACT_NOT_SIGNED],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Create signed contract object
+    user.signedContract = {
+      ...user.signedContract,
+      platformManagerSignature: input.platformManagerSignature,
     };
 
     return this.userRepository.save(user);
@@ -431,7 +493,7 @@ export class UserService {
     // Check if contract exists
     if (!user.signedContract) {
       const message = I18nService.translate(
-        USER_ERROR_MESSAGES['CONTRACT_NOT_FOUND'],
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.CONTRACT_NOT_FOUND],
         language,
       );
       throw new I18nNotFoundException({ en: message, ar: message }, language);
@@ -444,7 +506,7 @@ export class UserService {
       user.signedContract.status === SignedContractStatus.EXPIRED
     ) {
       const message = I18nService.translate(
-        USER_ERROR_MESSAGES['CONTRACT_ALREADY_TERMINATED'],
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.CONTRACT_ALREADY_TERMINATED],
         language,
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);
@@ -452,6 +514,81 @@ export class UserService {
 
     // Terminate contract
     user.signedContract.status = SignedContractStatus.TERMINATED_BY_USER;
+    user.signedContract.terminationReason = terminationReason;
+
+    return this.userRepository.save(user);
+  }
+  async adminTerminateContract(
+    adminId: string,
+    userId: string,
+    terminationReason: string,
+    language: LanguageCode = 'en',
+  ): Promise<User> {
+    const admin = await this.adminRepository.findOne({
+      where: { id: adminId },
+    });
+
+    if (!admin) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.ADMIN_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    if (admin.permissionType !== AdminPermissionType.SUPER_ADMIN) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.NOT_AUTHORIZED],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    // Check if user is a provider
+    if (user.role !== UserRole.PROVIDER) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.NOT_A_PROVIDER],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Check if contract exists
+    if (!user.signedContract) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.CONTRACT_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    // Check if contract is already terminated or expired
+    if (
+      user.signedContract.status === SignedContractStatus.TERMINATED_BY_USER ||
+      user.signedContract.status === SignedContractStatus.TERMINATED_BY_ADMIN ||
+      user.signedContract.status === SignedContractStatus.EXPIRED
+    ) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.CONTRACT_ALREADY_TERMINATED],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Terminate contract
+    user.signedContract.status = SignedContractStatus.TERMINATED_BY_ADMIN;
     user.signedContract.terminationReason = terminationReason;
 
     return this.userRepository.save(user);

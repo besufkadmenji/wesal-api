@@ -1,5 +1,5 @@
-import { Field, InputType } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Field, ID, InputType } from '@nestjs/graphql';
+import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
 
 @InputType()
 export class SignContractInput {
@@ -7,8 +7,17 @@ export class SignContractInput {
   @IsString()
   @IsNotEmpty()
   serviceProviderSignature: string;
+}
 
-  @Field(() => String, { nullable: true })
-  @IsOptional()
-  platformManagerSignature: string | null;
+@InputType()
+export class AdminSignContractInput {
+  @Field(() => ID)
+  @IsUUID()
+  @IsNotEmpty()
+  userId: string;
+
+  @Field(() => String)
+  @IsString()
+  @IsNotEmpty()
+  platformManagerSignature: string;
 }

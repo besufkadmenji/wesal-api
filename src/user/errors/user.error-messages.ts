@@ -139,6 +139,18 @@ export const USER_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Contract has already been terminated',
     ar: 'تم إنهاء العقد بالفعل',
   },
+  [USER_ERROR_CODES.ADMIN_NOT_FOUND]: {
+    en: 'Admin not found',
+    ar: 'لم يتم العثور على المسؤول',
+  },
+  [USER_ERROR_CODES.NOT_AUTHORIZED]: {
+    en: 'You are not authorized to perform this action',
+    ar: 'أنت غير مصرح بإجراء هذا الإجراء',
+  },
+  [USER_ERROR_CODES.CONTRACT_NOT_SIGNED]: {
+    en: 'Contract is not signed yet',
+    ar: 'لم يتم توقيع العقد بعد',
+  },
 };
 
 // Register user error messages in the central registry
