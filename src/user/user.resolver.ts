@@ -36,7 +36,8 @@ export class UserResolver {
   })
   findAll(
     @Args('pagination') pagination: UserPaginationInput,
-    @Args('withContracts', { type: () => Boolean }) withContracts?: boolean,
+    @Args('withContracts', { type: () => Boolean, nullable: true })
+    withContracts?: boolean,
   ) {
     return this.userService.findAll(pagination, withContracts);
   }
