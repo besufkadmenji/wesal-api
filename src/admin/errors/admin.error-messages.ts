@@ -77,4 +77,8 @@ export const ADMIN_ERROR_MESSAGES: Record<
     en: 'Cannot remove super admin role. At least one super admin must exist',
     ar: 'لا يمكن إزالة دور المسؤول الفائق. يجب أن يكون هناك مسؤول فائق واحد على الأقل',
   },
+  SIGNATURE_ONLY_FOR_SUPER_ADMIN: {
+    en: 'Platform manager signature is only allowed for super admin users',
+    ar: 'توقيع مدير المنصة مسموح فقط لمستخدمي المسؤول الفائق',
+  },
 } as const;

@@ -50,4 +50,9 @@ export class UpdateAdminInput {
   @IsOptional()
   @IsString()
   avatarFilename: string;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  platformManagerSignature: string | null;
 }

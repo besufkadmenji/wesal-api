@@ -213,6 +213,20 @@ export class AdminService {
       }
     }
 
+    // Check if trying to set signature on non-super-admin
+    const finalPermissionType =
+      updateAdminInput.permissionType || admin.permissionType;
+    if (
+      updateAdminInput.platformManagerSignature &&
+      finalPermissionType !== AdminPermissionType.SUPER_ADMIN
+    ) {
+      const message = I18nService.translate(
+        ADMIN_ERROR_MESSAGES.SIGNATURE_ONLY_FOR_SUPER_ADMIN,
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
     // Update admin
     Object.assign(admin, updateAdminInput);
     return this.adminRepository.save(admin);

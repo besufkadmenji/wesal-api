@@ -1,14 +1,14 @@
+import { Field, ID, ObjectType } from '@nestjs/graphql';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  ManyToOne,
+  Entity,
   JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
-import { ObjectType, Field, ID } from '@nestjs/graphql';
-import { Admin } from './admin.entity';
 import { OtpType } from '../../auth/enums/otp-type.enum';
+import { Admin } from './admin.entity';
 
 @ObjectType()
 @Entity('admin_otps')
@@ -56,6 +56,10 @@ export class AdminOtp {
 
   @Column({ type: 'int', default: 0 })
   attemptCount: number;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  platformManagerSignature: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
   lastAttemptAt?: Date;
