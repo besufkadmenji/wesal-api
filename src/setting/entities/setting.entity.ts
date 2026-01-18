@@ -62,10 +62,6 @@ export class Setting {
   @Column({ type: 'text', default: '' })
   rulesEn: string;
 
-  @Field(() => String, { nullable: true })
-  @Column({ type: 'text', nullable: true })
-  platformManagerSignature: string;
-
   @CreateDateColumn()
   createdAt: Date;
 

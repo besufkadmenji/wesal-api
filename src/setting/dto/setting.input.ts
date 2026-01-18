@@ -71,11 +71,6 @@ export class SettingInput {
   @IsOptional()
   @IsString()
   rulesEn?: string | null;
-
-  @Field(() => String, { nullable: true })
-  @IsOptional()
-  @IsString()
-  platformManagerSignature?: string | null;
 }
 
 @InputType()
