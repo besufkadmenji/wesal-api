@@ -1,4 +1,4 @@
-import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { Field, ID, ObjectType } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
@@ -7,10 +7,10 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { AdminPermission } from '../../admin-permission/entities/admin-permission.entity';
 import { AdminPermissionType } from '../enums/admin-permission-type.enum';
 import { AdminStatus } from '../enums/admin-status.enum';
 import { AdminUserType } from '../enums/admin-user-type.enum';
-import { AdminPermission } from '../../admin-permission/entities/admin-permission.entity';
 
 @ObjectType()
 @Entity('admins')
@@ -73,6 +73,10 @@ export class Admin {
   @Field(() => String, { nullable: true })
   @Column({ type: 'varchar', length: 500, nullable: true })
   deactivationReason?: string | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  platformManagerSignature: string | null;
 
   @Field()
   @CreateDateColumn()

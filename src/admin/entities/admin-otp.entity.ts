@@ -57,10 +57,6 @@ export class AdminOtp {
   @Column({ type: 'int', default: 0 })
   attemptCount: number;
 
-  @Field(() => String, { nullable: true })
-  @Column({ type: 'text', nullable: true })
-  platformManagerSignature: string | null;
-
   @Column({ type: 'timestamp', nullable: true })
   lastAttemptAt?: Date;
 
