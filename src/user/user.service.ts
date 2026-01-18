@@ -458,11 +458,21 @@ export class UserService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
+    if (!admin.platformManagerSignature) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[
+          USER_ERROR_CODES.PLATFORM_MANAGER_SIGNATURE_NOT_FOUND
+        ],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
     // Create signed contract object
     user.signedContract = {
       ...user.signedContract,
       platformManagerName: admin.fullName,
-      platformManagerSignature: input.platformManagerSignature,
+      platformManagerSignature: admin.platformManagerSignature,
     };
 
     return this.userRepository.save(user);

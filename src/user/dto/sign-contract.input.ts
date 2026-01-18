@@ -25,14 +25,4 @@ export class AdminSignContractInput {
   @IsUUID()
   @IsNotEmpty()
   userId: string;
-
-  @Field(() => String)
-  @IsString()
-  @IsNotEmpty()
-  platformManagerName: string;
-
-  @Field(() => String)
-  @IsString()
-  @IsNotEmpty()
-  platformManagerSignature: string;
 }

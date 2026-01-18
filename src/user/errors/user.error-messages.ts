@@ -151,6 +151,10 @@ export const USER_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Contract is not signed yet',
     ar: 'لم يتم توقيع العقد بعد',
   },
+  [USER_ERROR_CODES.PLATFORM_MANAGER_SIGNATURE_NOT_FOUND]: {
+    en: 'Platform manager signature not found',
+    ar: 'توقيع مدير المنصة غير موجود',
+  },
 };
 
 // Register user error messages in the central registry
