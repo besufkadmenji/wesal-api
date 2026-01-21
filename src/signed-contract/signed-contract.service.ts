@@ -74,14 +74,14 @@ export class SignedContractService {
   async findByUserId(userId: string): Promise<SignedContract | null> {
     return this.signedContractRepository.findOne({
       where: { userId },
-      relations: ['user'],
+      relations: ['user', 'user.categories', 'user.city', 'user.country'],
     });
   }
 
   async findById(id: string): Promise<SignedContract | null> {
     return this.signedContractRepository.findOne({
       where: { id },
-      relations: ['user'],
+      relations: ['user', 'user.categories', 'user.city', 'user.country'],
     });
   }
 
