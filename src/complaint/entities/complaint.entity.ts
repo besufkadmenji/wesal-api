@@ -21,7 +21,12 @@ export class Complaint {
   id: string;
 
   @Field(() => Int, { nullable: true })
-  @Column({ type: 'bigint', unique: true, nullable: true })
+  @Column({
+    type: 'bigint',
+    unique: true,
+    nullable: true,
+    default: () => "nextval('public_id_seq')",
+  })
   publicId: number | null;
 
   @Field()
