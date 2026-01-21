@@ -24,8 +24,8 @@ export class Advertisement {
   id: string;
 
   @Field()
-  @Column({ type: 'bigint', unique: true })
-  publicId: number;
+  @Column({ type: 'bigint', unique: true, nullable: true })
+  publicId: number | null;
 
   @Field()
   @Column({ type: 'uuid' })

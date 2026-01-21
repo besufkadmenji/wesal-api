@@ -26,8 +26,8 @@ export class User {
   id: string;
 
   @Field()
-  @Column({ type: 'bigint', unique: true })
-  publicId: number;
+  @Column({ type: 'bigint', unique: true, nullable: true })
+  publicId: number | null;
 
   @Field({ nullable: true })
   @Column({ type: 'varchar', length: 10, nullable: true })

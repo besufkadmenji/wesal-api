@@ -18,8 +18,8 @@ export class Category {
   id: string;
 
   @Field()
-  @Column({ type: 'bigint', unique: true })
-  publicId: number;
+  @Column({ type: 'bigint', unique: true, nullable: true })
+  publicId: number | null;
 
   @Field(() => String, { nullable: true })
   @Column({ type: 'uuid', nullable: true })

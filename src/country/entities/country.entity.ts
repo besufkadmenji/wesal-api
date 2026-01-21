@@ -15,8 +15,8 @@ export class Country {
   id: string;
 
   @Field()
-  @Column({ type: 'bigint', unique: true })
-  publicId: number;
+  @Column({ type: 'bigint', unique: true, nullable: true })
+  publicId: number | null;
 
   @Field()
   @Column({ type: 'varchar', length: 500, unique: true })
