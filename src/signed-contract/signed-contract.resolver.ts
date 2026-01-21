@@ -1,9 +1,9 @@
-import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
+import { PaginatedSignedContractResponse } from './dto/paginated-signed-contract.response';
+import { SignedContractPaginationInput } from './dto/signed-contract-pagination.input';
 import { SignedContract } from './signed-contract.entity';
 import { SignedContractService } from './signed-contract.service';
-import { SignedContractPaginationInput } from './dto/signed-contract-pagination.input';
-import { PaginatedSignedContractResponse } from './dto/paginated-signed-contract.response';
-import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 
 @Resolver(() => SignedContract)
 export class SignedContractResolver {
@@ -20,6 +20,11 @@ export class SignedContractResolver {
   @Query(() => SignedContract, { nullable: true })
   async signedContractByUserId(@Args('userId') userId: string) {
     return this.signedContractService.findByUserId(userId);
+  }
+
+  @Query(() => SignedContract, { nullable: true })
+  async signedContractById(@Args('id') id: string) {
+    return this.signedContractService.findById(id);
   }
 
   @Mutation(() => SignedContract)

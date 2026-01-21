@@ -78,6 +78,13 @@ export class SignedContractService {
     });
   }
 
+  async findById(id: string): Promise<SignedContract | null> {
+    return this.signedContractRepository.findOne({
+      where: { id },
+      relations: ['user'],
+    });
+  }
+
   async create(
     signedContract: Partial<SignedContract>,
   ): Promise<SignedContract> {
