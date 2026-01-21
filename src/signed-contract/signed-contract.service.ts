@@ -28,7 +28,8 @@ export class SignedContractService {
 
     const queryBuilder = this.signedContractRepository
       .createQueryBuilder('signedContract')
-      .leftJoinAndSelect('signedContract.user', 'user');
+      .leftJoinAndSelect('signedContract.user', 'user')
+      .where('1 = 1');
 
     if (userId) {
       queryBuilder.andWhere('signedContract.userId = :userId', { userId });
@@ -39,7 +40,7 @@ export class SignedContractService {
     if (search && search.trim()) {
       const searchTerm = `%${search.trim()}%`;
       queryBuilder.andWhere(
-        '(user.name ILIKE :search OR user.commercialName ILIKE :search OR user.phone ILIKE :search OR signedContract.publicId::text ILIKE :search)',
+        '(user.name ILIKE :search OR user.commercialName ILIKE :search OR user.phone ILIKE :search OR "signedContract"."publicId"::text ILIKE :search)',
         { search: searchTerm },
       );
     }
