@@ -154,6 +154,7 @@ export class UserService {
       .leftJoinAndSelect('user.categories', 'categories')
       .leftJoinAndSelect('user.country', 'country')
       .leftJoinAndSelect('user.city', 'city')
+      .leftJoinAndSelect('user.signedContract', 'signedContract')
       .where('user.id = :id', { id })
       .andWhere('user.deletedAt IS NULL')
       .getOne();
