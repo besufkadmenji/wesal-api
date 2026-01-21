@@ -117,7 +117,7 @@ export class UserService {
     if (search && search.trim()) {
       const searchTerm = `%${search.trim()}%`;
       queryBuilder.andWhere(
-        '(user.name ILIKE :search OR user.email ILIKE :search OR user.phone ILIKE :search)',
+        '(user.name ILIKE :search OR user.email ILIKE :search OR user.phone ILIKE :search OR user.publicId::text ILIKE :search)',
         { search: searchTerm },
       );
     }
