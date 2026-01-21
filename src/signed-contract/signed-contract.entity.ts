@@ -31,7 +31,7 @@ export class SignedContract {
   @Column({ type: 'uuid' })
   userId: string;
 
-  @Field(() => User)
+  @Field(() => User, { nullable: true })
   @OneToOne(() => User, (user) => user.signedContract, {
     onDelete: 'CASCADE',
   })
