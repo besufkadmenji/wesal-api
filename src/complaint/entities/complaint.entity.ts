@@ -7,7 +7,7 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
 import { User } from '../../user/entities/user.entity';
 import { Advertisement } from '../../advertisement/entities/advertisement.entity';
 import { ComplaintStatus } from '../enums/complaint-status.enum';
@@ -20,7 +20,7 @@ export class Complaint {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Field()
+  @Field(() => Int, { nullable: true })
   @Column({ type: 'bigint', unique: true, nullable: true })
   publicId: number | null;
 

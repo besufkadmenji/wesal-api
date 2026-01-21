@@ -1,14 +1,14 @@
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
+  Entity,
+  JoinColumn,
   ManyToOne,
   OneToMany,
-  JoinColumn,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
-import { ObjectType, Field, ID } from '@nestjs/graphql';
 
 @ObjectType()
 @Entity('categories')
@@ -17,7 +17,7 @@ export class Category {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Field()
+  @Field(() => Int, { nullable: true })
   @Column({ type: 'bigint', unique: true, nullable: true })
   publicId: number | null;
 

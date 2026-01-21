@@ -1,20 +1,20 @@
+import { Field, Float, ID, Int, ObjectType } from '@nestjs/graphql';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
+  Entity,
+  JoinColumn,
   ManyToOne,
   OneToMany,
-  JoinColumn,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
-import { ObjectType, Field, ID, Float } from '@nestjs/graphql';
-import { User } from '../../user/entities/user.entity';
 import { Category } from '../../category/entities/category.entity';
 import { City } from '../../city/entities/city.entity';
+import { User } from '../../user/entities/user.entity';
 import { AdvertisementStatus } from '../enums/advertisement-status.enum';
-import { AdvertisementMedia } from './advertisement-media.entity';
 import { AdvertisementAttributes } from './advertisement-attributes.entity';
+import { AdvertisementMedia } from './advertisement-media.entity';
 
 @ObjectType()
 @Entity('advertisements')
@@ -23,7 +23,7 @@ export class Advertisement {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Field()
+  @Field(() => Int, { nullable: true })
   @Column({ type: 'bigint', unique: true, nullable: true })
   publicId: number | null;
 

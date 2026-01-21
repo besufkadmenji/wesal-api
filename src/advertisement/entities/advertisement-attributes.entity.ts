@@ -1,11 +1,11 @@
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
-  ManyToOne,
+  Entity,
   JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
-import { ObjectType, Field, ID } from '@nestjs/graphql';
 import { Advertisement } from './advertisement.entity';
 
 @ObjectType()
@@ -15,7 +15,7 @@ export class AdvertisementAttributes {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Field()
+  @Field(() => Int, { nullable: true })
   @Column({ type: 'bigint', unique: true, nullable: true })
   publicId: number | null;
 

@@ -1,4 +1,4 @@
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, ID, ObjectType, Int } from '@nestjs/graphql';
 import { User } from 'src/user/entities/user.entity';
 import {
   Column,
@@ -18,7 +18,7 @@ export class Message {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Field()
+  @Field(() => Int, { nullable: true })
   @Column({ type: 'bigint', unique: true, nullable: true })
   publicId: number | null;
 

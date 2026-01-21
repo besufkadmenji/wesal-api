@@ -8,7 +8,7 @@ import {
   OneToMany,
   JoinColumn,
 } from 'typeorm';
-import { ObjectType, Field, ID, Float } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Float, Int } from '@nestjs/graphql';
 import { Conversation } from '../../conversation/entities/conversation.entity';
 import { User } from '../../user/entities/user.entity';
 import { ContractStatus } from '../enums/contract-status.enum';
@@ -21,7 +21,7 @@ export class Contract {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Field()
+  @Field(() => Int, { nullable: true })
   @Column({ type: 'bigint', unique: true, nullable: true })
   publicId: number | null;
 
