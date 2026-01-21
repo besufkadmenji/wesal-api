@@ -36,11 +36,11 @@ export class SignedContractService {
     }
 
     // Add search filter if provided
-    // Search by: Service Provider Name, Trade Name, Service Provider Mobile Number, Contract Number
+    // Search by: Service Provider Name, Trade Name, Service Provider Mobile Number, Email, Contract Number
     if (search && search.trim()) {
       const searchTerm = `%${search.trim()}%`;
       queryBuilder.andWhere(
-        '(user.name ILIKE :search OR user.commercialName ILIKE :search OR user.phone ILIKE :search OR "signedContract"."publicId"::text ILIKE :search)',
+        '(user.name ILIKE :search OR user.commercialName ILIKE :search OR user.phone ILIKE :search OR user.email ILIKE :search OR "signedContract"."publicId"::text ILIKE :search)',
         { search: searchTerm },
       );
     }
