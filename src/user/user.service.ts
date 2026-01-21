@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Admin } from 'src/admin/entities/admin.entity';
+import { AdminPermissionType } from 'src/admin/enums/admin-permission-type.enum';
 import { In, Repository } from 'typeorm';
 import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import {
@@ -11,6 +12,7 @@ import {
 import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Category } from '../category/entities/category.entity';
+import { SignedContractService } from '../signed-contract/signed-contract.service';
 import { CreateUserInput } from './dto/create-user.input';
 import {
   AdminSignContractInput,
@@ -24,8 +26,6 @@ import { UserRole } from './enums/user-role.enum';
 import { UserStatus } from './enums/user-status.enum';
 import { USER_ERROR_CODES } from './errors/user.error-codes';
 import { USER_ERROR_MESSAGES } from './errors/user.error-messages';
-import { AdminPermissionType } from 'src/admin/enums/admin-permission-type.enum';
-import { SignedContractService } from '../signed-contract/signed-contract.service';
 
 @Injectable()
 export class UserService {
@@ -91,7 +91,6 @@ export class UserService {
 
   async findAll(
     paginationInput: UserPaginationInput,
-    withContracts?: boolean,
   ): Promise<IPaginatedType<User>> {
     const {
       page = 1,
@@ -121,10 +120,6 @@ export class UserService {
         '(user.name ILIKE :search OR user.email ILIKE :search OR user.phone ILIKE :search)',
         { search: searchTerm },
       );
-    }
-
-    if (withContracts) {
-      queryBuilder.andWhere('user.signedContract IS NOT NULL');
     }
 
     const [items, total] = await queryBuilder

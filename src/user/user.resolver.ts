@@ -38,12 +38,8 @@ export class UserResolver {
     name: 'users',
     description: 'Get all users with pagination by role',
   })
-  findAll(
-    @Args('pagination') pagination: UserPaginationInput,
-    @Args('withContracts', { type: () => Boolean, nullable: true })
-    withContracts?: boolean,
-  ) {
-    return this.userService.findAll(pagination, withContracts);
+  findAll(@Args('pagination') pagination: UserPaginationInput) {
+    return this.userService.findAll(pagination);
   }
 
   @Query(() => User, { name: 'user', description: 'Get user by ID' })
