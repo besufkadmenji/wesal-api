@@ -16,6 +16,10 @@ export class AdvertisementMedia {
   id: string;
 
   @Field()
+  @Column({ type: 'bigint', unique: true })
+  publicId: number;
+
+  @Field()
   @Column({ type: 'uuid' })
   advertisementId: string;
 

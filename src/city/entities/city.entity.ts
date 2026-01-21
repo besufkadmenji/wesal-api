@@ -18,6 +18,10 @@ export class City {
   id: string;
 
   @Field()
+  @Column({ type: 'bigint', unique: true })
+  publicId: number;
+
+  @Field()
   @Column({ type: 'uuid' })
   countryId: string;
 

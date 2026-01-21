@@ -25,6 +25,7 @@ import { UserStatus } from './enums/user-status.enum';
 import { USER_ERROR_CODES } from './errors/user.error-codes';
 import { USER_ERROR_MESSAGES } from './errors/user.error-messages';
 import { AdminPermissionType } from 'src/admin/enums/admin-permission-type.enum';
+import { SignedContractService } from '../signed-contract/signed-contract.service';
 
 @Injectable()
 export class UserService {
@@ -35,6 +36,7 @@ export class UserService {
     private readonly adminRepository: Repository<Admin>,
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
+    private readonly signedContractService: SignedContractService,
   ) {}
 
   async create(
@@ -397,7 +399,9 @@ export class UserService {
     }
 
     // Create signed contract object
-    user.signedContract = {
+    const signedContract = await this.signedContractService.create({
+      userId: user.id,
+      user,
       serviceProviderSignature: input.serviceProviderSignature,
       platformManagerSignature: null,
       platformManagerName: null,
@@ -407,8 +411,9 @@ export class UserService {
       terminationReason: null,
       acceptedRulesAr: input.acceptedRulesAr,
       acceptedRulesEn: input.acceptedRulesEn,
-    };
+    });
 
+    user.signedContract = signedContract;
     return this.userRepository.save(user);
   }
   async adminSignContract(
@@ -469,12 +474,15 @@ export class UserService {
     }
 
     // Create signed contract object
-    user.signedContract = {
-      ...user.signedContract,
-      platformManagerName: admin.fullName,
-      platformManagerSignature: admin.platformManagerSignature,
-    };
+    const updatedContract = await this.signedContractService.update(
+      user.signedContract.id,
+      {
+        platformManagerName: admin.fullName,
+        platformManagerSignature: admin.platformManagerSignature,
+      },
+    );
 
+    user.signedContract = updatedContract;
     return this.userRepository.save(user);
   }
 
@@ -527,9 +535,15 @@ export class UserService {
     }
 
     // Terminate contract
-    user.signedContract.status = SignedContractStatus.TERMINATED_BY_USER;
-    user.signedContract.terminationReason = terminationReason;
+    const updatedContract = await this.signedContractService.update(
+      user.signedContract.id,
+      {
+        status: SignedContractStatus.TERMINATED_BY_USER,
+        terminationReason,
+      },
+    );
 
+    user.signedContract = updatedContract;
     return this.userRepository.save(user);
   }
   async adminTerminateContract(
@@ -602,9 +616,15 @@ export class UserService {
     }
 
     // Terminate contract
-    user.signedContract.status = SignedContractStatus.TERMINATED_BY_ADMIN;
-    user.signedContract.terminationReason = terminationReason;
+    const updatedContract = await this.signedContractService.update(
+      user.signedContract.id,
+      {
+        status: SignedContractStatus.TERMINATED_BY_ADMIN,
+        terminationReason,
+      },
+    );
 
+    user.signedContract = updatedContract;
     return this.userRepository.save(user);
   }
 }

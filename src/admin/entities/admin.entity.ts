@@ -20,6 +20,10 @@ export class Admin {
   id: string;
 
   @Field()
+  @Column({ type: 'bigint', unique: true })
+  publicId: number;
+
+  @Field()
   @Column({ type: 'varchar', length: 255, unique: true })
   email: string;
 

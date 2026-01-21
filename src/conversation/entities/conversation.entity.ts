@@ -21,6 +21,10 @@ export class Conversation {
   id: string;
 
   @Field()
+  @Column({ type: 'bigint', unique: true })
+  publicId: number;
+
+  @Field()
   @Column({ type: 'uuid' })
   advertisementId: string;
 

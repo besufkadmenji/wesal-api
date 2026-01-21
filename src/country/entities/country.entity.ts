@@ -15,6 +15,10 @@ export class Country {
   id: string;
 
   @Field()
+  @Column({ type: 'bigint', unique: true })
+  publicId: number;
+
+  @Field()
   @Column({ type: 'varchar', length: 500, unique: true })
   nameEn: string;
 

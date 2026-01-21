@@ -15,6 +15,10 @@ export class Setting {
   id: string;
 
   @Field()
+  @Column({ type: 'bigint', unique: true })
+  publicId: number;
+
+  @Field()
   @Column({ type: 'text', default: '' })
   aboutEn: string;
 

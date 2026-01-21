@@ -26,6 +26,7 @@ import { AdminPermissionModule } from './admin-permission/admin-permission.modul
 import { SettingModule } from './setting/setting.module';
 import { FaqModule } from './faq/faq.module';
 import { ContactMessageModule } from './contact-message/contact-message.module';
+import { SignedContractModule } from './signed-contract/signed-contract.module';
 
 // Parse DATABASE_URL if available, otherwise use individual env variables
 function getDatabaseConfig() {
@@ -95,6 +96,7 @@ function getDatabaseConfig() {
     SettingModule,
     FaqModule,
     ContactMessageModule,
+    SignedContractModule,
   ],
   controllers: [AppController],
   providers: [AppService],

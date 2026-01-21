@@ -7,6 +7,7 @@ import {
   JoinTable,
   ManyToMany,
   ManyToOne,
+  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -15,7 +16,7 @@ import { City } from '../../city/entities/city.entity';
 import { Country } from '../../country/entities/country.entity';
 import { UserRole } from '../enums/user-role.enum';
 import { UserStatus } from '../enums/user-status.enum';
-import { SignedContract } from './signed.contract';
+import { SignedContract } from '../../signed-contract/signed-contract.entity';
 
 @ObjectType()
 @Entity('users')
@@ -23,6 +24,10 @@ export class User {
   @Field(() => ID)
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Field()
+  @Column({ type: 'bigint', unique: true })
+  publicId: number;
 
   @Field({ nullable: true })
   @Column({ type: 'varchar', length: 10, nullable: true })
@@ -171,6 +176,9 @@ export class User {
   updatedAt: Date;
 
   @Field(() => SignedContract, { nullable: true })
-  @Column({ type: 'jsonb', nullable: true })
+  @OneToOne(() => SignedContract, (contract) => contract.user, {
+    nullable: true,
+    eager: true,
+  })
   signedContract?: SignedContract | null;
 }

@@ -20,6 +20,10 @@ export class Favorite {
   id: string;
 
   @Field()
+  @Column({ type: 'bigint', unique: true })
+  publicId: number;
+
+  @Field()
   @Column({ type: 'uuid' })
   userId: string;
 

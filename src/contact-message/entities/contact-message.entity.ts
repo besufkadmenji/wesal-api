@@ -15,6 +15,10 @@ export class ContactMessage {
   id: string;
 
   @Field()
+  @Column({ type: 'bigint', unique: true })
+  publicId: number;
+
+  @Field()
   @Column({ type: 'varchar', length: 255 })
   name: string;
 

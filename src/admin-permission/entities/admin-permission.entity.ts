@@ -18,6 +18,10 @@ export class AdminPermission {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Field()
+  @Column({ type: 'bigint', unique: true })
+  publicId: number;
+
   @Field(() => ID)
   @Column({ type: 'uuid' })
   adminId: string;

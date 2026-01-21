@@ -17,6 +17,10 @@ export class Category {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Field()
+  @Column({ type: 'bigint', unique: true })
+  publicId: number;
+
   @Field(() => String, { nullable: true })
   @Column({ type: 'uuid', nullable: true })
   parentId: string | null;

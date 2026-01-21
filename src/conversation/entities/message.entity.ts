@@ -19,6 +19,10 @@ export class Message {
   id: string;
 
   @Field()
+  @Column({ type: 'bigint', unique: true })
+  publicId: number;
+
+  @Field()
   @Column({ type: 'uuid' })
   conversationId: string;
 
