@@ -35,7 +35,7 @@ export const ADMIN_ERROR_MESSAGES: Record<
   },
   INVALID_OTP: {
     en: 'Invalid or expired OTP code',
-    ar: 'كود OTP غير صحيح أو منتهي الصلاحية',
+    ar: 'كود التحقق غير صحيح، يرجى المحاولة مرة أخرى',
   },
   TOO_MANY_OTP_ATTEMPTS: {
     en: 'Too many OTP verification attempts',
