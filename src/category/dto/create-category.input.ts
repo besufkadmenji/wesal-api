@@ -1,12 +1,12 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
 @InputType()
 export class CreateCategoryInput {
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsUUID()
-  parentId?: string;
+  @Field()
+  @IsNotEmpty()
+  @IsString()
+  image: string;
 
   @Field()
   @IsNotEmpty()

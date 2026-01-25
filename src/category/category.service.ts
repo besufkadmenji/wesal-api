@@ -2,10 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
-import {
-  I18nBadRequestException,
-  I18nNotFoundException,
-} from '../../lib/errors';
+import { I18nNotFoundException } from '../../lib/errors';
 import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CategoryPaginationInput } from './dto/category-pagination.input';
@@ -21,25 +18,7 @@ export class CategoryService {
     private readonly categoryRepository: Repository<Category>,
   ) {}
 
-  async create(
-    createCategoryInput: CreateCategoryInput,
-    language: LanguageCode = 'en',
-  ): Promise<Category> {
-    // If parentId is provided, verify it exists
-    if (createCategoryInput.parentId) {
-      const parentCategory = await this.categoryRepository.findOne({
-        where: { id: createCategoryInput.parentId },
-      });
-
-      if (!parentCategory) {
-        const message = I18nService.translate(
-          CATEGORY_ERROR_MESSAGES['PARENT_CATEGORY_NOT_FOUND'],
-          language,
-        );
-        throw new I18nNotFoundException({ en: message, ar: message }, language);
-      }
-    }
-
+  async create(createCategoryInput: CreateCategoryInput): Promise<Category> {
     const category = this.categoryRepository.create(createCategoryInput);
     return await this.categoryRepository.save(category);
   }
@@ -47,22 +26,10 @@ export class CategoryService {
   async findAll(
     paginationInput: CategoryPaginationInput,
   ): Promise<IPaginatedType<Category>> {
-    const { page = 1, limit = 10, parentId, search } = paginationInput;
+    const { page = 1, limit = 10, search } = paginationInput;
     const skip = (page - 1) * limit;
 
-    const queryBuilder = this.categoryRepository
-      .createQueryBuilder('category')
-      .leftJoinAndSelect('category.parent', 'parent')
-      .leftJoinAndSelect('category.children', 'children');
-
-    // Filter by parentId if provided, or get root categories
-    if (parentId !== undefined) {
-      if (parentId === null) {
-        queryBuilder.where('category.parentId IS NULL');
-      } else {
-        queryBuilder.where('category.parentId = :parentId', { parentId });
-      }
-    }
+    const queryBuilder = this.categoryRepository.createQueryBuilder('category');
 
     // Add search filter if provided
     if (search && search.trim()) {
@@ -97,7 +64,6 @@ export class CategoryService {
   async findOne(id: string, language: LanguageCode = 'en'): Promise<Category> {
     const category = await this.categoryRepository.findOne({
       where: { id },
-      relations: ['parent', 'children'],
     });
 
     if (!category) {
@@ -126,39 +92,6 @@ export class CategoryService {
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
 
-    // Validate parentId if provided
-    if (updateCategoryInput.parentId !== undefined) {
-      // Check if trying to set itself as parent
-      if (updateCategoryInput.parentId === updateCategoryInput.id) {
-        const message = I18nService.translate(
-          CATEGORY_ERROR_MESSAGES['INVALID_PARENT_CATEGORY'],
-          language,
-        );
-        throw new I18nBadRequestException(
-          { en: message, ar: message },
-          language,
-        );
-      }
-
-      // If parentId is not null, verify it exists
-      if (updateCategoryInput.parentId !== null) {
-        const parentCategory = await this.categoryRepository.findOne({
-          where: { id: updateCategoryInput.parentId },
-        });
-
-        if (!parentCategory) {
-          const message = I18nService.translate(
-            CATEGORY_ERROR_MESSAGES['PARENT_CATEGORY_NOT_FOUND'],
-            language,
-          );
-          throw new I18nNotFoundException(
-            { en: message, ar: message },
-            language,
-          );
-        }
-      }
-    }
-
     Object.assign(category, updateCategoryInput);
     return await this.categoryRepository.save(category);
   }
@@ -166,16 +99,6 @@ export class CategoryService {
   async remove(id: string, language: LanguageCode = 'en'): Promise<Category> {
     const category = await this.findOne(id, language);
 
-    // Check if category has children
-    if (category.children && category.children.length > 0) {
-      const message = I18nService.translate(
-        CATEGORY_ERROR_MESSAGES['CATEGORY_HAS_CHILDREN'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    // Remove this category from all users' categories list
     await this.categoryRepository
       .createQueryBuilder()
       .delete()

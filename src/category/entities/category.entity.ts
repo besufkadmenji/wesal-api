@@ -3,9 +3,6 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  JoinColumn,
-  ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -26,20 +23,9 @@ export class Category {
   })
   publicId: number | null;
 
-  @Field(() => String, { nullable: true })
-  @Column({ type: 'uuid', nullable: true })
-  parentId: string | null;
-
-  @Field(() => Category, { nullable: true })
-  @ManyToOne(() => Category, (category) => category.children, {
-    nullable: true,
-  })
-  @JoinColumn({ name: 'parentId' })
-  parent: Category | null;
-
-  @Field(() => [Category], { nullable: true })
-  @OneToMany(() => Category, (category) => category.parent)
-  children: Category[];
+  @Field()
+  @Column({ type: 'text' })
+  image: string;
 
   @Field()
   @Column({ type: 'varchar', length: 500 })
