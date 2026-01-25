@@ -1,13 +1,13 @@
-import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
-import { CategoryService } from './category.service';
-import { Category } from './entities/category.entity';
-import { CreateCategoryInput } from './dto/create-category.input';
-import { UpdateCategoryInput } from './dto/update-category.input';
-import { CategoryPaginationInput } from './dto/category-pagination.input';
-import { PaginatedCategoryResponse } from './dto/paginated-category.response';
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { GetLanguage } from '../../lib/i18n';
 import type { LanguageCode } from '../../lib/i18n/language.types';
-import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
+import { CategoryService } from './category.service';
+import { CategoryPaginationInput } from './dto/category-pagination.input';
+import { CreateCategoryInput } from './dto/create-category.input';
+import { PaginatedCategoryResponse } from './dto/paginated-category.response';
+import { UpdateCategoryInput } from './dto/update-category.input';
+import { Category } from './entities/category.entity';
 
 @Resolver(() => Category)
 export class CategoryResolver {
@@ -16,9 +16,8 @@ export class CategoryResolver {
   @Mutation(() => Category)
   async createCategory(
     @Args('input') createCategoryInput: CreateCategoryInput,
-    @GetLanguage() language: LanguageCode,
   ): Promise<Category> {
-    return this.categoryService.create(createCategoryInput, language);
+    return this.categoryService.create(createCategoryInput);
   }
 
   @Query(() => PaginatedCategoryResponse, { name: 'categories' })
