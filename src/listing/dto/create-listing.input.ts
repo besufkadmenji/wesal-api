@@ -1,0 +1,69 @@
+import { Field, InputType } from '@nestjs/graphql';
+import {
+  IsArray,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
+import { ListingStatus, ListingType } from '../enums/listing.enum';
+import { CreateListingMediaInput } from './create-listing-media.input';
+
+@InputType()
+export class CreateListingInput {
+  @Field()
+  @IsUUID('4', { message: 'categoryId must be a valid UUID' })
+  @IsNotEmpty({ message: 'categoryId is required' })
+  categoryId: string;
+
+  @Field()
+  @IsString({ message: 'name must be a string' })
+  @MinLength(3, { message: 'name must be at least 3 characters long' })
+  @MaxLength(200, { message: 'name must not exceed 200 characters' })
+  @IsNotEmpty({ message: 'name is required' })
+  name: string;
+
+  @Field()
+  @IsString({ message: 'description must be a string' })
+  @MinLength(10, { message: 'description must be at least 10 characters long' })
+  @MaxLength(5000, { message: 'description must not exceed 5000 characters' })
+  @IsNotEmpty({ message: 'description is required' })
+  description: string;
+
+  @Field()
+  @IsNumber(
+    { allowInfinity: false, allowNaN: false },
+    { message: 'price must be a valid number' },
+  )
+  @Min(0, { message: 'price must be greater than or equal to 0' })
+  @Max(999999.99, { message: 'price must not exceed 999999.99' })
+  @IsNotEmpty({ message: 'price is required' })
+  price: number;
+
+  @Field()
+  @IsUUID('4', { message: 'cityId must be a valid UUID' })
+  @IsNotEmpty({ message: 'cityId is required' })
+  cityId: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  status?: ListingStatus;
+
+  @Field()
+  @IsNotEmpty({ message: 'type is required' })
+  type: ListingType;
+
+  @Field(() => CreateListingMediaInput, { nullable: true })
+  @IsOptional()
+  story: CreateListingMediaInput;
+
+  @Field(() => [CreateListingMediaInput], { nullable: true })
+  @IsOptional()
+  @IsArray({ message: 'photos must be an array' })
+  photos: CreateListingMediaInput[];
+}

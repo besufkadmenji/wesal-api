@@ -10,7 +10,6 @@ import { UserModule } from './user/user.module';
 import { CountryModule } from './country/country.module';
 import { CityModule } from './city/city.module';
 import { CategoryModule } from './category/category.module';
-import { AdvertisementModule } from './advertisement/advertisement.module';
 import { ConversationModule } from './conversation/conversation.module';
 import { ContractModule } from './contract/contract.module';
 import { PaymentModule } from './payment/payment.module';
@@ -27,6 +26,7 @@ import { SettingModule } from './setting/setting.module';
 import { FaqModule } from './faq/faq.module';
 import { ContactMessageModule } from './contact-message/contact-message.module';
 import { SignedContractModule } from './signed-contract/signed-contract.module';
+import { ListingModule } from './listing/listing.module';
 
 // Parse DATABASE_URL if available, otherwise use individual env variables
 function getDatabaseConfig() {
@@ -81,7 +81,6 @@ function getDatabaseConfig() {
     CountryModule,
     CityModule,
     CategoryModule,
-    AdvertisementModule,
     ConversationModule,
     ContractModule,
     PaymentModule,
@@ -97,6 +96,7 @@ function getDatabaseConfig() {
     FaqModule,
     ContactMessageModule,
     SignedContractModule,
+    ListingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
