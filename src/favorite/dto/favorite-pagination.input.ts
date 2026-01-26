@@ -26,7 +26,7 @@ export class FavoritePaginationInput extends PaginationInput {
   @Field({ nullable: true })
   @IsOptional()
   @IsUUID()
-  advertisementId?: string;
+  listingId?: string;
 
   @Field(() => FavoriteSortFieldEnum, {
     nullable: true,

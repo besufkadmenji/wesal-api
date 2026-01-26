@@ -19,7 +19,7 @@ export class CreateRatingInput {
   @Field()
   @IsNotEmpty()
   @IsUUID()
-  advertisementId: string;
+  listingId: string;
 
   @Field(() => Int)
   @IsNotEmpty()

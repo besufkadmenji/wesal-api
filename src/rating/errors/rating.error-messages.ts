@@ -10,12 +10,12 @@ export const RATING_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'User not found',
     ar: 'المستخدم غير موجود',
   },
-  [RATING_ERROR_CODES.ADVERTISEMENT_NOT_FOUND]: {
-    en: 'Advertisement not found',
-    ar: 'الإعلان غير موجود',
+  [RATING_ERROR_CODES.LISTING_NOT_FOUND]: {
+    en: 'Listing not found',
+    ar: 'القائمة غير موجودة',
   },
   [RATING_ERROR_CODES.DUPLICATE_RATING]: {
-    en: 'You have already rated this advertisement',
+    en: 'You have already rated this listing',
     ar: 'لقد قمت بتقييم هذا الإعلان بالفعل',
   },
   [RATING_ERROR_CODES.INVALID_RATING_VALUE]: {

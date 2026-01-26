@@ -6,8 +6,8 @@ export const CONVERSATION_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Conversation not found',
     ar: 'المحادثة غير موجودة',
   },
-  [CONVERSATION_ERROR_CODES.ADVERTISEMENT_NOT_FOUND]: {
-    en: 'Advertisement not found',
+  [CONVERSATION_ERROR_CODES.LISTING_NOT_FOUND]: {
+    en: 'Listing not found',
     ar: 'الإعلان غير موجود',
   },
   [CONVERSATION_ERROR_CODES.USER_NOT_FOUND]: {
@@ -23,7 +23,7 @@ export const CONVERSATION_ERROR_MESSAGES: Record<string, TranslatedError> = {
     ar: 'ليس لديك صلاحية للوصول إلى هذه المحادثة',
   },
   [CONVERSATION_ERROR_CODES.DUPLICATE_CONVERSATION]: {
-    en: 'A conversation already exists for this advertisement between these users',
+    en: 'A conversation already exists for this listing between these users',
     ar: 'توجد محادثة بالفعل لهذا الإعلان بين هؤلاء المستخدمين',
   },
 };

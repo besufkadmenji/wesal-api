@@ -1,20 +1,20 @@
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
+import { Listing } from 'src/listing/entities/listing.entity';
+import { User } from 'src/user/entities/user.entity';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
-  ManyToOne,
+  Entity,
   JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
   Unique,
+  UpdateDateColumn,
 } from 'typeorm';
-import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
-import { User } from 'src/user/entities/user.entity';
-import { Advertisement } from 'src/advertisement/entities/advertisement.entity';
 
 @ObjectType()
 @Entity('ratings')
-@Unique(['userId', 'advertisementId'])
+@Unique(['userId', 'listingId'])
 export class Rating {
   @Field(() => ID)
   @PrimaryGeneratedColumn('uuid')
@@ -40,12 +40,12 @@ export class Rating {
 
   @Field()
   @Column({ type: 'uuid' })
-  advertisementId: string;
+  listingId: string;
 
-  @Field(() => Advertisement)
-  @ManyToOne(() => Advertisement)
-  @JoinColumn({ name: 'advertisementId' })
-  advertisement: Advertisement;
+  @Field(() => Listing)
+  @ManyToOne(() => Listing)
+  @JoinColumn({ name: 'listingId' })
+  listing: Listing;
 
   @Field(() => Int)
   @Column({ type: 'int' })

@@ -20,7 +20,7 @@ export class CreateComplaintInput {
   @Field()
   @IsNotEmpty()
   @IsUUID()
-  advertisementId: string;
+  listingId: string;
 
   @Field(() => ComplaintReason)
   @IsNotEmpty()

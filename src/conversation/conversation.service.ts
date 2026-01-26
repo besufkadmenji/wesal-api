@@ -13,7 +13,7 @@ import { CreateConversationInput } from './dto/create-conversation.input';
 import { UpdateConversationInput } from './dto/update-conversation.input';
 import { ConversationPaginationInput } from './dto/conversation-pagination.input';
 import { Conversation } from './entities/conversation.entity';
-import { Advertisement } from '../advertisement/entities/advertisement.entity';
+import { Listing } from '../listing/entities/listing.entity';
 import { User } from '../user/entities/user.entity';
 import { CONVERSATION_ERROR_MESSAGES } from './errors/conversation.error-messages';
 
@@ -22,8 +22,8 @@ export class ConversationService {
   constructor(
     @InjectRepository(Conversation)
     private readonly conversationRepository: Repository<Conversation>,
-    @InjectRepository(Advertisement)
-    private readonly advertisementRepository: Repository<Advertisement>,
+    @InjectRepository(Listing)
+    private readonly listingRepository: Repository<Listing>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {}
@@ -32,13 +32,13 @@ export class ConversationService {
     createConversationInput: CreateConversationInput,
     language: LanguageCode = 'en',
   ): Promise<Conversation> {
-    // Validate advertisement exists
-    const advertisement = await this.advertisementRepository.findOne({
-      where: { id: createConversationInput.advertisementId },
+    // Validate listing exists
+    const listing = await this.listingRepository.findOne({
+      where: { id: createConversationInput.listingId },
     });
-    if (!advertisement) {
+    if (!listing) {
       const message = I18nService.translate(
-        CONVERSATION_ERROR_MESSAGES['ADVERTISEMENT_NOT_FOUND'],
+        CONVERSATION_ERROR_MESSAGES['LISTING_NOT_FOUND'],
         language,
       );
       throw new I18nNotFoundException({ en: message, ar: message }, language);
@@ -71,7 +71,7 @@ export class ConversationService {
     // Check for duplicate conversation
     const existingConversation = await this.conversationRepository.findOne({
       where: {
-        advertisementId: createConversationInput.advertisementId,
+        listingId: createConversationInput.listingId,
         userId: createConversationInput.userId,
         providerId: createConversationInput.providerId,
       },
@@ -97,7 +97,7 @@ export class ConversationService {
     const {
       page = 1,
       limit = 10,
-      advertisementId,
+      listingId,
       userId,
       providerId,
       isPaid,
@@ -108,14 +108,14 @@ export class ConversationService {
 
     const queryBuilder = this.conversationRepository
       .createQueryBuilder('conversation')
-      .leftJoinAndSelect('conversation.advertisement', 'advertisement')
+      .leftJoinAndSelect('conversation.listing', 'listing')
       .leftJoinAndSelect('conversation.user', 'user')
       .leftJoinAndSelect('conversation.provider', 'provider')
       .leftJoinAndSelect('conversation.messages', 'messages');
 
-    if (advertisementId) {
-      queryBuilder.andWhere('conversation.advertisementId = :advertisementId', {
-        advertisementId,
+    if (listingId) {
+      queryBuilder.andWhere('conversation.listingId = :listingId', {
+        listingId,
       });
     }
 
@@ -165,7 +165,7 @@ export class ConversationService {
   ): Promise<Conversation> {
     const conversation = await this.conversationRepository.findOne({
       where: { id },
-      relations: ['advertisement', 'user', 'provider', 'messages'],
+      relations: ['listing', 'user', 'provider', 'messages'],
     });
 
     if (!conversation) {

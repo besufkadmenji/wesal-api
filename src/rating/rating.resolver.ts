@@ -55,11 +55,11 @@ export class RatingResolver {
 
   @Query(() => RatingStatistics, {
     name: 'ratingStatistics',
-    description: 'Get rating statistics for an advertisement',
+    description: 'Get rating statistics for an listing',
   })
   async getStatistics(
-    @Args('advertisementId') advertisementId: string,
+    @Args('listingId') listingId: string,
   ): Promise<RatingStatistics> {
-    return this.ratingService.getStatistics(advertisementId);
+    return this.ratingService.getStatistics(listingId);
   }
 }

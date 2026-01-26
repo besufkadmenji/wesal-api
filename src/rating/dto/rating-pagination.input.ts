@@ -33,7 +33,7 @@ export class RatingPaginationInput extends PaginationInput {
   @Field({ nullable: true })
   @IsOptional()
   @IsUUID()
-  advertisementId?: string;
+  listingId?: string;
 
   @Field(() => Int, { nullable: true })
   @IsOptional()

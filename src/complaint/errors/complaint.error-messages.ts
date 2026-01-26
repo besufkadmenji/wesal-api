@@ -10,8 +10,8 @@ export const COMPLAINT_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'User not found',
     ar: 'المستخدم غير موجود',
   },
-  [COMPLAINT_ERROR_CODES.ADVERTISEMENT_NOT_FOUND]: {
-    en: 'Advertisement not found',
+  [COMPLAINT_ERROR_CODES.LISTING_NOT_FOUND]: {
+    en: 'Listing not found',
     ar: 'الإعلان غير موجود',
   },
   [COMPLAINT_ERROR_CODES.REVIEWER_NOT_FOUND]: {

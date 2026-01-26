@@ -29,7 +29,7 @@ export class ConversationPaginationInput extends PaginationInput {
   @Field({ nullable: true })
   @IsOptional()
   @IsUUID()
-  advertisementId?: string;
+  listingId?: string;
 
   @Field({ nullable: true })
   @IsOptional()

@@ -9,7 +9,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
-import { Advertisement } from '../../advertisement/entities/advertisement.entity';
+import { Listing } from '../../listing/entities/listing.entity';
 import { User } from '../../user/entities/user.entity';
 import { Message } from './message.entity';
 
@@ -31,12 +31,12 @@ export class Conversation {
 
   @Field()
   @Column({ type: 'uuid' })
-  advertisementId: string;
+  listingId: string;
 
-  @Field(() => Advertisement)
-  @ManyToOne(() => Advertisement)
-  @JoinColumn({ name: 'advertisementId' })
-  advertisement: Advertisement;
+  @Field(() => Listing)
+  @ManyToOne(() => Listing)
+  @JoinColumn({ name: 'listingId' })
+  listing: Listing;
 
   @Field()
   @Column({ type: 'uuid' })

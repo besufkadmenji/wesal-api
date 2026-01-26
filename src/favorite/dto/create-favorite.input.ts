@@ -11,5 +11,5 @@ export class CreateFavoriteInput {
   @Field()
   @IsNotEmpty()
   @IsUUID()
-  advertisementId: string;
+  listingId: string;
 }

@@ -10,12 +10,12 @@ export const FAVORITE_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'User not found',
     ar: 'المستخدم غير موجود',
   },
-  [FAVORITE_ERROR_CODES.ADVERTISEMENT_NOT_FOUND]: {
-    en: 'Advertisement not found',
+  [FAVORITE_ERROR_CODES.LISTING_NOT_FOUND]: {
+    en: 'Listing not found',
     ar: 'الإعلان غير موجود',
   },
   [FAVORITE_ERROR_CODES.DUPLICATE_FAVORITE]: {
-    en: 'This advertisement is already in your favorites',
+    en: 'This listing is already in your favorites',
     ar: 'هذا الإعلان موجود بالفعل في المفضلة',
   },
   [FAVORITE_ERROR_CODES.UNAUTHORIZED_ACCESS]: {

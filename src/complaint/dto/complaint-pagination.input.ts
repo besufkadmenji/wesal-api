@@ -37,7 +37,7 @@ export class ComplaintPaginationInput extends PaginationInput {
   @Field({ nullable: true })
   @IsOptional()
   @IsUUID()
-  advertisementId?: string;
+  listingId?: string;
 
   @Field(() => ComplaintStatus, { nullable: true })
   @IsOptional()

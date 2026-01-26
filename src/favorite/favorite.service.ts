@@ -13,7 +13,7 @@ import { CreateFavoriteInput } from './dto/create-favorite.input';
 import { FavoritePaginationInput } from './dto/favorite-pagination.input';
 import { Favorite } from './entities/favorite.entity';
 import { User } from '../user/entities/user.entity';
-import { Advertisement } from '../advertisement/entities/advertisement.entity';
+import { Listing } from '../listing/entities/listing.entity';
 import { FAVORITE_ERROR_MESSAGES } from './errors/favorite.error-messages';
 
 @Injectable()
@@ -23,8 +23,8 @@ export class FavoriteService {
     private readonly favoriteRepository: Repository<Favorite>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(Advertisement)
-    private readonly advertisementRepository: Repository<Advertisement>,
+    @InjectRepository(Listing)
+    private readonly listingRepository: Repository<Listing>,
   ) {}
 
   async create(
@@ -43,13 +43,13 @@ export class FavoriteService {
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
 
-    // Validate advertisement exists
-    const advertisement = await this.advertisementRepository.findOne({
-      where: { id: createFavoriteInput.advertisementId },
+    // Validate listing exists
+    const listing = await this.listingRepository.findOne({
+      where: { id: createFavoriteInput.listingId },
     });
-    if (!advertisement) {
+    if (!listing) {
       const message = I18nService.translate(
-        FAVORITE_ERROR_MESSAGES['ADVERTISEMENT_NOT_FOUND'],
+        FAVORITE_ERROR_MESSAGES['LISTING_NOT_FOUND'],
         language,
       );
       throw new I18nNotFoundException({ en: message, ar: message }, language);
@@ -59,7 +59,7 @@ export class FavoriteService {
     const existingFavorite = await this.favoriteRepository.findOne({
       where: {
         userId: createFavoriteInput.userId,
-        advertisementId: createFavoriteInput.advertisementId,
+        listingId: createFavoriteInput.listingId,
       },
     });
 
@@ -82,7 +82,7 @@ export class FavoriteService {
       page = 1,
       limit = 10,
       userId,
-      advertisementId,
+      listingId,
       sortBy,
       sortOrder = SortOrder.ASC,
     } = paginationInput;
@@ -91,15 +91,15 @@ export class FavoriteService {
     const queryBuilder = this.favoriteRepository
       .createQueryBuilder('favorite')
       .leftJoinAndSelect('favorite.user', 'user')
-      .leftJoinAndSelect('favorite.advertisement', 'advertisement');
+      .leftJoinAndSelect('favorite.listing', 'listing');
 
     if (userId) {
       queryBuilder.andWhere('favorite.userId = :userId', { userId });
     }
 
-    if (advertisementId) {
-      queryBuilder.andWhere('favorite.advertisementId = :advertisementId', {
-        advertisementId,
+    if (listingId) {
+      queryBuilder.andWhere('favorite.listingId = :listingId', {
+        listingId,
       });
     }
 
@@ -130,7 +130,7 @@ export class FavoriteService {
   async findOne(id: string, language: LanguageCode = 'en'): Promise<Favorite> {
     const favorite = await this.favoriteRepository.findOne({
       where: { id },
-      relations: ['user', 'advertisement'],
+      relations: ['user', 'listing'],
     });
 
     if (!favorite) {
@@ -150,17 +150,17 @@ export class FavoriteService {
     return favorite;
   }
 
-  async removeByUserAndAdvertisement(
+  async removeByUserAndListing(
     userId: string,
-    advertisementId: string,
+    listingId: string,
     language: LanguageCode = 'en',
   ): Promise<Favorite> {
     const favorite = await this.favoriteRepository.findOne({
       where: {
         userId,
-        advertisementId,
+        listingId,
       },
-      relations: ['user', 'advertisement'],
+      relations: ['user', 'listing'],
     });
 
     if (!favorite) {
@@ -175,11 +175,11 @@ export class FavoriteService {
     return favorite;
   }
 
-  async isFavorite(userId: string, advertisementId: string): Promise<boolean> {
+  async isFavorite(userId: string, listingId: string): Promise<boolean> {
     const count = await this.favoriteRepository.count({
       where: {
         userId,
-        advertisementId,
+        listingId,
       },
     });
     return count > 0;

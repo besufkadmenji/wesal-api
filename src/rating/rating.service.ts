@@ -15,8 +15,8 @@ import { RatingPaginationInput } from './dto/rating-pagination.input';
 import { RatingStatistics } from './dto/rating-statistics.response';
 import { Rating } from './entities/rating.entity';
 import { User } from '../user/entities/user.entity';
-import { Advertisement } from '../advertisement/entities/advertisement.entity';
 import { RATING_ERROR_MESSAGES } from './errors/rating.error-messages';
+import { Listing } from 'src/listing/entities/listing.entity';
 
 @Injectable()
 export class RatingService {
@@ -25,8 +25,8 @@ export class RatingService {
     private readonly ratingRepository: Repository<Rating>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(Advertisement)
-    private readonly advertisementRepository: Repository<Advertisement>,
+    @InjectRepository(Listing)
+    private readonly listingRepository: Repository<Listing>,
   ) {}
 
   async create(
@@ -54,13 +54,13 @@ export class RatingService {
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
 
-    // Validate advertisement exists
-    const advertisement = await this.advertisementRepository.findOne({
-      where: { id: createRatingInput.advertisementId },
+    // Validate listing exists
+    const listing = await this.listingRepository.findOne({
+      where: { id: createRatingInput.listingId },
     });
-    if (!advertisement) {
+    if (!listing) {
       const message = I18nService.translate(
-        RATING_ERROR_MESSAGES['ADVERTISEMENT_NOT_FOUND'],
+        RATING_ERROR_MESSAGES['LISTING_NOT_FOUND'],
         language,
       );
       throw new I18nNotFoundException({ en: message, ar: message }, language);
@@ -70,7 +70,7 @@ export class RatingService {
     const existingRating = await this.ratingRepository.findOne({
       where: {
         userId: createRatingInput.userId,
-        advertisementId: createRatingInput.advertisementId,
+        listingId: createRatingInput.listingId,
       },
     });
 
@@ -93,7 +93,7 @@ export class RatingService {
       page = 1,
       limit = 10,
       userId,
-      advertisementId,
+      listingId,
       minRating,
       maxRating,
       sortBy,
@@ -104,15 +104,15 @@ export class RatingService {
     const queryBuilder = this.ratingRepository
       .createQueryBuilder('rating')
       .leftJoinAndSelect('rating.user', 'user')
-      .leftJoinAndSelect('rating.advertisement', 'advertisement');
+      .leftJoinAndSelect('rating.listing', 'listing');
 
     if (userId) {
       queryBuilder.andWhere('rating.userId = :userId', { userId });
     }
 
-    if (advertisementId) {
-      queryBuilder.andWhere('rating.advertisementId = :advertisementId', {
-        advertisementId,
+    if (listingId) {
+      queryBuilder.andWhere('rating.listingId = :listingId', {
+        listingId,
       });
     }
 
@@ -151,7 +151,7 @@ export class RatingService {
   async findOne(id: string, language: LanguageCode = 'en'): Promise<Rating> {
     const rating = await this.ratingRepository.findOne({
       where: { id },
-      relations: ['user', 'advertisement'],
+      relations: ['user', 'listing'],
     });
 
     if (!rating) {
@@ -193,9 +193,9 @@ export class RatingService {
     return rating;
   }
 
-  async getStatistics(advertisementId: string): Promise<RatingStatistics> {
+  async getStatistics(listingId: string): Promise<RatingStatistics> {
     const ratings = await this.ratingRepository.find({
-      where: { advertisementId },
+      where: { listingId },
     });
 
     const totalRatings = ratings.length;

@@ -6,7 +6,7 @@ export class CreateConversationInput {
   @Field()
   @IsNotEmpty()
   @IsUUID()
-  advertisementId: string;
+  listingId: string;
 
   @Field()
   @IsNotEmpty()

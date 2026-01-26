@@ -15,7 +15,7 @@ import { ReviewComplaintInput } from './dto/review-complaint.input';
 import { ComplaintPaginationInput } from './dto/complaint-pagination.input';
 import { Complaint } from './entities/complaint.entity';
 import { User } from '../user/entities/user.entity';
-import { Advertisement } from '../advertisement/entities/advertisement.entity';
+import { Listing } from '../listing/entities/listing.entity';
 import { ComplaintStatus } from './enums/complaint-status.enum';
 import { COMPLAINT_ERROR_MESSAGES } from './errors/complaint.error-messages';
 
@@ -26,8 +26,8 @@ export class ComplaintService {
     private readonly complaintRepository: Repository<Complaint>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(Advertisement)
-    private readonly advertisementRepository: Repository<Advertisement>,
+    @InjectRepository(Listing)
+    private readonly listingRepository: Repository<Listing>,
   ) {}
 
   async create(
@@ -55,13 +55,13 @@ export class ComplaintService {
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
 
-    // Validate advertisement exists
-    const advertisement = await this.advertisementRepository.findOne({
-      where: { id: createComplaintInput.advertisementId },
+    // Validate listing exists
+    const listing = await this.listingRepository.findOne({
+      where: { id: createComplaintInput.listingId },
     });
-    if (!advertisement) {
+    if (!listing) {
       const message = I18nService.translate(
-        COMPLAINT_ERROR_MESSAGES['ADVERTISEMENT_NOT_FOUND'],
+        COMPLAINT_ERROR_MESSAGES['LISTING_NOT_FOUND'],
         language,
       );
       throw new I18nNotFoundException({ en: message, ar: message }, language);
@@ -78,7 +78,7 @@ export class ComplaintService {
       page = 1,
       limit = 10,
       userId,
-      advertisementId,
+      listingId,
       status,
       reason,
       reviewedBy,
@@ -90,16 +90,16 @@ export class ComplaintService {
     const queryBuilder = this.complaintRepository
       .createQueryBuilder('complaint')
       .leftJoinAndSelect('complaint.user', 'user')
-      .leftJoinAndSelect('complaint.advertisement', 'advertisement')
+      .leftJoinAndSelect('complaint.listing', 'listing')
       .leftJoinAndSelect('complaint.reviewer', 'reviewer');
 
     if (userId) {
       queryBuilder.andWhere('complaint.userId = :userId', { userId });
     }
 
-    if (advertisementId) {
-      queryBuilder.andWhere('complaint.advertisementId = :advertisementId', {
-        advertisementId,
+    if (listingId) {
+      queryBuilder.andWhere('complaint.listingId = :listingId', {
+        listingId,
       });
     }
 
@@ -144,7 +144,7 @@ export class ComplaintService {
   async findOne(id: string, language: LanguageCode = 'en'): Promise<Complaint> {
     const complaint = await this.complaintRepository.findOne({
       where: { id },
-      relations: ['user', 'advertisement', 'reviewer'],
+      relations: ['user', 'listing', 'reviewer'],
     });
 
     if (!complaint) {

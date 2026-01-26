@@ -4,10 +4,10 @@ import { ComplaintService } from './complaint.service';
 import { ComplaintResolver } from './complaint.resolver';
 import { Complaint } from './entities/complaint.entity';
 import { User } from '../user/entities/user.entity';
-import { Advertisement } from '../advertisement/entities/advertisement.entity';
+import { Listing } from '../listing/entities/listing.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Complaint, User, Advertisement])],
+  imports: [TypeOrmModule.forFeature([Complaint, User, Listing])],
   providers: [ComplaintResolver, ComplaintService],
   exports: [ComplaintService],
 })

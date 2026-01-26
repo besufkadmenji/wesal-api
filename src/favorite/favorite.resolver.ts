@@ -44,28 +44,28 @@ export class FavoriteResolver {
   }
 
   @Mutation(() => Favorite, {
-    description: 'Remove favorite by user and advertisement IDs',
+    description: 'Remove favorite by user and listing IDs',
   })
-  async removeFavoriteByUserAndAdvertisement(
+  async removeFavoriteByUserAndListing(
     @Args('userId') userId: string,
-    @Args('advertisementId') advertisementId: string,
+    @Args('listingId') listingId: string,
     @GetLanguage() language: LanguageCode,
   ): Promise<Favorite> {
-    return this.favoriteService.removeByUserAndAdvertisement(
+    return this.favoriteService.removeByUserAndListing(
       userId,
-      advertisementId,
+      listingId,
       language,
     );
   }
 
   @Query(() => Boolean, {
     name: 'isFavorite',
-    description: 'Check if advertisement is favorited by user',
+    description: 'Check if listing is favorited by user',
   })
   async isFavorite(
     @Args('userId') userId: string,
-    @Args('advertisementId') advertisementId: string,
+    @Args('listingId') listingId: string,
   ): Promise<boolean> {
-    return this.favoriteService.isFavorite(userId, advertisementId);
+    return this.favoriteService.isFavorite(userId, listingId);
   }
 }

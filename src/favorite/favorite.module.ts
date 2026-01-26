@@ -4,10 +4,10 @@ import { FavoriteService } from './favorite.service';
 import { FavoriteResolver } from './favorite.resolver';
 import { Favorite } from './entities/favorite.entity';
 import { User } from '../user/entities/user.entity';
-import { Advertisement } from '../advertisement/entities/advertisement.entity';
+import { Listing } from '../listing/entities/listing.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Favorite, User, Advertisement])],
+  imports: [TypeOrmModule.forFeature([Favorite, User, Listing])],
   providers: [FavoriteResolver, FavoriteService],
   exports: [FavoriteService],
 })
