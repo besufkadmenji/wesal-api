@@ -12,10 +12,12 @@ import { User } from '../user/entities/user.entity';
 import { UserRole } from '../user/enums/user-role.enum';
 import { CreateListingInput } from './dto/create-listing.input';
 import { UpdateListingInput } from './dto/update-listing.input';
+import { ListingPaginationInput } from './dto/listing-pagination.input';
 import { Listing } from './entities/listing.entity';
 import { ListingStatus } from './enums/listing.enum';
 import { LISTING_ERROR_CODES } from './errors/listing.error-codes';
 import { LISTING_ERROR_MESSAGES } from './errors/listing.error-messages';
+import { PaginatedListingResponse } from './dto/paginated-listings.response';
 
 @Injectable()
 export class ListingService {
@@ -86,18 +88,47 @@ export class ListingService {
   }
 
   async findAll(
-    skip = 0,
-    take = 10,
-  ): Promise<{ data: Listing[]; total: number }> {
-    const [data, total] = await this.listingRepository.findAndCount({
-      where: { status: ListingStatus.PUBLISHED },
+    paginationInput: ListingPaginationInput,
+  ): Promise<PaginatedListingResponse> {
+    const page = paginationInput.page ?? 1;
+    const limit = paginationInput.limit ?? 10;
+    const skip = (page - 1) * limit;
+    const {
+      status,
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      search,
+    } = paginationInput;
+
+    const where: Record<string, any> = {
+      status: status || ListingStatus.PUBLISHED,
+    };
+
+    if (search) {
+      where.name = { ILike: `%${search}%` };
+    }
+
+    const [items, total] = await this.listingRepository.findAndCount({
+      where,
       skip,
-      take,
+      take: limit,
       relations: ['user', 'category', 'city'],
-      order: { createdAt: 'DESC' },
+      order: { [sortBy]: sortOrder },
     });
 
-    return { data, total };
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrevious: page > 1,
+      },
+    };
   }
 
   async findOne(id: string, language: LanguageCode = 'en'): Promise<Listing> {
@@ -118,18 +149,44 @@ export class ListingService {
 
   async findByUser(
     userId: string,
-    skip = 0,
-    take = 10,
-  ): Promise<{ data: Listing[]; total: number }> {
-    const [data, total] = await this.listingRepository.findAndCount({
-      where: { userId },
+    paginationInput: ListingPaginationInput,
+  ): Promise<PaginatedListingResponse> {
+    const page = paginationInput.page ?? 1;
+    const limit = paginationInput.limit ?? 10;
+    const skip = (page - 1) * limit;
+    const {
+      sortBy = 'createdAt',
+      sortOrder = 'DESC',
+      search,
+    } = paginationInput;
+
+    const where: Record<string, any> = { userId };
+
+    if (search) {
+      where.name = { ILike: `%${search}%` };
+    }
+
+    const [items, total] = await this.listingRepository.findAndCount({
+      where,
       skip,
-      take,
+      take: limit,
       relations: ['category', 'city'],
-      order: { createdAt: 'DESC' },
+      order: { [sortBy]: sortOrder },
     });
 
-    return { data, total };
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrevious: page > 1,
+      },
+    };
   }
 
   async update(

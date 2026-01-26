@@ -1,16 +1,17 @@
-import { Resolver, Query, Mutation, Args, Int } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
-import { ListingService } from './listing.service';
-import { Listing } from './entities/listing.entity';
-import { CreateListingInput } from './dto/create-listing.input';
-import { UpdateListingInput } from './dto/update-listing.input';
-import { RemoveListingResponse } from './dto/remove-listing.response';
-import { PaginatedListingsResponse } from './dto/paginated-listings.response';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
-import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import type { LanguageCode } from '../../lib/i18n/language.types';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { CreateListingInput } from './dto/create-listing.input';
+import { PaginatedListingResponse } from './dto/paginated-listings.response';
+import { RemoveListingResponse } from './dto/remove-listing.response';
+import { UpdateListingInput } from './dto/update-listing.input';
+import { ListingPaginationInput } from './dto/listing-pagination.input';
+import { Listing } from './entities/listing.entity';
+import { ListingService } from './listing.service';
 
 @Resolver(() => Listing)
 export class ListingResolver {
@@ -26,12 +27,11 @@ export class ListingResolver {
     return this.listingService.create(createListingInput, user.sub, language);
   }
 
-  @Query(() => PaginatedListingsResponse, { name: 'listings' })
+  @Query(() => PaginatedListingResponse, { name: 'listings' })
   async findAll(
-    @Args('skip', { type: () => Int, nullable: true }) skip = 0,
-    @Args('take', { type: () => Int, nullable: true }) take = 10,
+    @Args('paginationInput') paginationInput: ListingPaginationInput,
   ) {
-    return this.listingService.findAll(skip, take);
+    return this.listingService.findAll(paginationInput);
   }
 
   @Query(() => Listing, { name: 'listing', nullable: true })
@@ -42,14 +42,13 @@ export class ListingResolver {
     return this.listingService.findOne(id, language);
   }
 
-  @Query(() => PaginatedListingsResponse, { name: 'myListings' })
+  @Query(() => PaginatedListingResponse, { name: 'myListings' })
   @UseGuards(JwtAuthGuard)
   async findByUser(
     @CurrentUser() user: JwtPayload,
-    @Args('skip', { type: () => Int, nullable: true }) skip = 0,
-    @Args('take', { type: () => Int, nullable: true }) take = 10,
+    @Args('paginationInput') paginationInput: ListingPaginationInput,
   ) {
-    return this.listingService.findByUser(user.sub, skip, take);
+    return this.listingService.findByUser(user.sub, paginationInput);
   }
 
   @Mutation(() => Listing)
