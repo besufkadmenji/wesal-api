@@ -50,11 +50,11 @@ export class CreateListingInput {
   @IsNotEmpty({ message: 'cityId is required' })
   cityId: string;
 
-  @Field({ nullable: true })
+  @Field(() => ListingStatus, { nullable: true })
   @IsOptional()
   status?: ListingStatus;
 
-  @Field()
+  @Field(() => ListingType)
   @IsNotEmpty({ message: 'type is required' })
   type: ListingType;
 
