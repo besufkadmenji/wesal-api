@@ -1,5 +1,5 @@
-import { InputType, Field } from '@nestjs/graphql';
-import { IsString, IsUUID, IsNotEmpty, IsNumber, Min } from 'class-validator';
+import { Field, InputType } from '@nestjs/graphql';
+import { IsNotEmpty, IsNumber, IsString, IsUUID, Min } from 'class-validator';
 import { MediaType } from '../enums/media.enum';
 
 @InputType()
@@ -14,7 +14,7 @@ export class CreateListingMediaInput {
   @IsNotEmpty({ message: 'filename is required' })
   filename: string;
 
-  @Field()
+  @Field(() => MediaType)
   @IsNotEmpty({ message: 'type is required' })
   type: MediaType;
 

@@ -9,7 +9,7 @@ export class ListingMedia {
   @Field()
   filename: string;
 
-  @Field()
+  @Field(() => MediaType)
   type: MediaType;
 
   @Field()
