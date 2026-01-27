@@ -9,9 +9,11 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { ListingStatus, ListingType } from '../enums/listing.enum';
 import { CreateListingMediaInput } from './create-listing-media.input';
+import { Type } from 'class-transformer';
 
 @InputType()
 export class CreateListingInput {
@@ -58,8 +60,12 @@ export class CreateListingInput {
   type: ListingType;
 
   @Field(() => CreateListingMediaInput, { nullable: true })
+  @ValidateNested()
+  @Type(() => CreateListingMediaInput)
   story: CreateListingMediaInput;
 
   @Field(() => [CreateListingMediaInput], { nullable: true })
+  @ValidateNested({ each: true })
+  @Type(() => CreateListingMediaInput)
   photos: CreateListingMediaInput[];
 }
