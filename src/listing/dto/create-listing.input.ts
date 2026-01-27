@@ -1,6 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql';
 import {
-  IsArray,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -59,11 +58,8 @@ export class CreateListingInput {
   type: ListingType;
 
   @Field(() => CreateListingMediaInput, { nullable: true })
-  @IsOptional()
   story: CreateListingMediaInput;
 
   @Field(() => [CreateListingMediaInput], { nullable: true })
-  @IsOptional()
-  @IsArray({ message: 'photos must be an array' })
   photos: CreateListingMediaInput[];
 }
