@@ -77,7 +77,7 @@ export class Listing {
   story: ListingMedia;
 
   @Field(() => [ListingMedia])
-  @Column('jsonb', { default: '[]' })
+  @Column('jsonb')
   photos: ListingMedia[];
 
   @Field()
