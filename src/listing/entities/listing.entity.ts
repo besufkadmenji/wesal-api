@@ -57,7 +57,7 @@ export class Listing {
   @JoinColumn({ name: 'cityId' })
   city: City;
 
-  @Field()
+  @Field(() => ListingStatus)
   @Column({
     type: 'enum',
     enum: ListingStatus,
@@ -65,7 +65,7 @@ export class Listing {
   })
   status: ListingStatus;
 
-  @Field()
+  @Field(() => ListingType)
   @Column({
     type: 'enum',
     enum: ListingType,
