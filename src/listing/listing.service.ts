@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import {
   I18nBadRequestException,
   I18nNotFoundException,
@@ -11,13 +11,13 @@ import { City } from '../city/entities/city.entity';
 import { User } from '../user/entities/user.entity';
 import { UserRole } from '../user/enums/user-role.enum';
 import { CreateListingInput } from './dto/create-listing.input';
-import { UpdateListingInput } from './dto/update-listing.input';
 import { ListingPaginationInput } from './dto/listing-pagination.input';
+import { PaginatedListingResponse } from './dto/paginated-listings.response';
+import { UpdateListingInput } from './dto/update-listing.input';
 import { Listing } from './entities/listing.entity';
 import { ListingStatus } from './enums/listing.enum';
 import { LISTING_ERROR_CODES } from './errors/listing.error-codes';
 import { LISTING_ERROR_MESSAGES } from './errors/listing.error-messages';
-import { PaginatedListingResponse } from './dto/paginated-listings.response';
 
 @Injectable()
 export class ListingService {
@@ -100,16 +100,11 @@ export class ListingService {
       search,
     } = paginationInput;
 
-    const where: Record<string, any> = {
-      status: status || ListingStatus.PUBLISHED,
-    };
-
-    if (search) {
-      where.name = { ILike: `%${search}%` };
-    }
-
     const [items, total] = await this.listingRepository.findAndCount({
-      where,
+      where: {
+        status: status || ListingStatus.PUBLISHED,
+        ...(search ? { name: ILike(`%${search}%`) } : {}),
+      },
       skip,
       take: limit,
       relations: ['user', 'category', 'city'],
@@ -160,14 +155,11 @@ export class ListingService {
       search,
     } = paginationInput;
 
-    const where: Record<string, any> = { userId };
-
-    if (search) {
-      where.name = { ILike: `%${search}%` };
-    }
-
     const [items, total] = await this.listingRepository.findAndCount({
-      where,
+      where: {
+        userId,
+        ...(search ? { name: ILike(`%${search}%`) } : {}),
+      },
       skip,
       take: limit,
       relations: ['category', 'city'],
