@@ -1,16 +1,16 @@
-import { ObjectType, Field } from '@nestjs/graphql';
+import { Field, ObjectType } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-  ManyToOne,
-  JoinColumn,
 } from 'typeorm';
-import { User } from '../../user/entities/user.entity';
 import { Category } from '../../category/entities/category.entity';
 import { City } from '../../city/entities/city.entity';
+import { User } from '../../user/entities/user.entity';
 import { ListingStatus, ListingType } from '../enums/listing.enum';
 import { ListingMedia } from './listing-media';
 
@@ -25,6 +25,7 @@ export class Listing {
   @Column('uuid')
   userId: string;
 
+  @Field(() => User, { nullable: true })
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   provider: User;
