@@ -127,11 +127,11 @@ export class ListingService {
       query = query.andWhere('listing.cityId = :cityId', { cityId });
     }
 
-    if (minPrice !== undefined) {
+    if (minPrice) {
       query = query.andWhere('listing.price >= :minPrice', { minPrice });
     }
 
-    if (maxPrice !== undefined) {
+    if (maxPrice) {
       query = query.andWhere('listing.price <= :maxPrice', { maxPrice });
     }
 
