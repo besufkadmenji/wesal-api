@@ -137,7 +137,7 @@ export class ListingService {
 
     // Load relations and apply sorting
     query = query
-      .leftJoinAndSelect('listing.user', 'user')
+      .leftJoinAndSelect('listing.provider', 'provider')
       .leftJoinAndSelect('listing.category', 'category')
       .leftJoinAndSelect('listing.city', 'city')
       .orderBy(`listing.${sortBy}`, sortOrder)
@@ -163,7 +163,7 @@ export class ListingService {
   async findOne(id: string, language: LanguageCode = 'en'): Promise<Listing> {
     const listing = await this.listingRepository.findOne({
       where: { id },
-      relations: ['user', 'category', 'city'],
+      relations: ['provider', 'category', 'city'],
     });
 
     if (!listing) {

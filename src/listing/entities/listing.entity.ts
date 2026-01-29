@@ -27,7 +27,7 @@ export class Listing {
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
-  user: User;
+  provider: User;
 
   @Field()
   @Column('uuid')
