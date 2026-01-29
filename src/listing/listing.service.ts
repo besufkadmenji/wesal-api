@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import {
   I18nBadRequestException,
   I18nNotFoundException,
@@ -98,19 +98,53 @@ export class ListingService {
       sortBy = 'createdAt',
       sortOrder = 'DESC',
       search,
+      categoryId,
+      cityId,
+      minPrice,
+      maxPrice,
     } = paginationInput;
 
-    const [items, total] = await this.listingRepository.findAndCount({
-      where: {
-        status: status || ListingStatus.PUBLISHED,
-        ...(search ? { name: ILike(`%${search}%`) } : {}),
-      },
-      skip,
-      take: limit,
-      relations: ['user', 'category', 'city'],
-      order: { [sortBy]: sortOrder },
+    let query = this.listingRepository.createQueryBuilder('listing');
+
+    // Apply filters
+    query = query.where('listing.status = :status', {
+      status: status || ListingStatus.PUBLISHED,
     });
 
+    if (search) {
+      query = query.andWhere('listing.name ILIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
+    if (categoryId) {
+      query = query.andWhere('listing.categoryId = :categoryId', {
+        categoryId,
+      });
+    }
+
+    if (cityId) {
+      query = query.andWhere('listing.cityId = :cityId', { cityId });
+    }
+
+    if (minPrice !== undefined) {
+      query = query.andWhere('listing.price >= :minPrice', { minPrice });
+    }
+
+    if (maxPrice !== undefined) {
+      query = query.andWhere('listing.price <= :maxPrice', { maxPrice });
+    }
+
+    // Load relations and apply sorting
+    query = query
+      .leftJoinAndSelect('listing.user', 'user')
+      .leftJoinAndSelect('listing.category', 'category')
+      .leftJoinAndSelect('listing.city', 'city')
+      .orderBy(`listing.${sortBy}`, sortOrder)
+      .skip(skip)
+      .take(limit);
+
+    const [items, total] = await query.getManyAndCount();
     const totalPages = Math.ceil(total / limit);
 
     return {
@@ -155,17 +189,24 @@ export class ListingService {
       search,
     } = paginationInput;
 
-    const [items, total] = await this.listingRepository.findAndCount({
-      where: {
-        userId,
-        ...(search ? { name: ILike(`%${search}%`) } : {}),
-      },
-      skip,
-      take: limit,
-      relations: ['category', 'city'],
-      order: { [sortBy]: sortOrder },
-    });
+    let query = this.listingRepository.createQueryBuilder('listing');
 
+    query = query.where('listing.userId = :userId', { userId });
+
+    if (search) {
+      query = query.andWhere('listing.name ILIKE :search', {
+        search: `%${search}%`,
+      });
+    }
+
+    query = query
+      .leftJoinAndSelect('listing.category', 'category')
+      .leftJoinAndSelect('listing.city', 'city')
+      .orderBy(`listing.${sortBy}`, sortOrder)
+      .skip(skip)
+      .take(limit);
+
+    const [items, total] = await query.getManyAndCount();
     const totalPages = Math.ceil(total / limit);
 
     return {

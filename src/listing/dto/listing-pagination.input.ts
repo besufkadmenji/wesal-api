@@ -1,5 +1,5 @@
 import { Field, InputType, registerEnumType } from '@nestjs/graphql';
-import { IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsIn, IsInt, IsOptional, IsString } from 'class-validator';
 import { PaginationInput } from 'lib/common/dto/pagination.input';
 import { ListingStatus } from '../enums/listing.enum';
 
@@ -47,4 +47,24 @@ export class ListingPaginationInput extends PaginationInput {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  cityId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsInt()
+  minPrice?: number;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsInt()
+  maxPrice?: number;
 }
