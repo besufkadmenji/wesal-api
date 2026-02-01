@@ -34,6 +34,7 @@ export class Listing {
   @Column('uuid')
   categoryId: string;
 
+  @Field(() => Category, { nullable: true })
   @ManyToOne(() => Category, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'categoryId' })
   category: Category;
@@ -54,6 +55,7 @@ export class Listing {
   @Column('uuid')
   cityId: string;
 
+  @Field(() => City, { nullable: true })
   @ManyToOne(() => City, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'cityId' })
   city: City;
