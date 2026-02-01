@@ -36,7 +36,7 @@ export class ListingResolver {
 
   @Query(() => Listing, { name: 'listing', nullable: true })
   async findOne(
-    @Args('id', { type: () => String }) id: string,
+    @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
   ) {
     return this.listingService.findOne(id, language);
