@@ -79,7 +79,7 @@ export class ListingService {
     const listing = this.listingRepository.create({
       ...createListingInput,
       userId,
-      status: createListingInput.status || ListingStatus.DRAFT,
+      status: createListingInput.status || ListingStatus.ACTIVE,
       story: createListingInput.story,
       photos: createListingInput.photos,
       tags: '',
@@ -108,9 +108,11 @@ export class ListingService {
     let query = this.listingRepository.createQueryBuilder('listing');
 
     // Apply filters
-    query = query.where('listing.status = :status', {
-      status: status || ListingStatus.PUBLISHED,
-    });
+    if (status) {
+      query = query.where('listing.status = :status', {
+        status: status,
+      });
+    }
 
     if (search) {
       query = query.andWhere('listing.name ILIKE :search', {
