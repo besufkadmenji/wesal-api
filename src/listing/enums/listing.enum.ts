@@ -5,6 +5,8 @@ export enum ListingStatus {
   PUBLISHED = 'PUBLISHED',
   SUSPENDED = 'SUSPENDED',
   EXPIRED = 'EXPIRED',
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
 }
 
 registerEnumType(ListingStatus, {

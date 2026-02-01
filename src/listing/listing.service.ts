@@ -5,6 +5,7 @@ import {
   I18nBadRequestException,
   I18nNotFoundException,
 } from '../../lib/errors/i18n.exceptions';
+import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Category } from '../category/entities/category.entity';
 import { City } from '../city/entities/city.entity';
@@ -309,5 +310,77 @@ export class ListingService {
       success: true,
       message: successMessage[language],
     };
+  }
+
+  async activate(
+    id: string,
+    userId: string,
+    language: LanguageCode = 'en',
+  ): Promise<Listing> {
+    const listing = await this.listingRepository.findOne({ where: { id } });
+
+    if (!listing) {
+      throw new I18nNotFoundException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_NOT_FOUND],
+        language,
+      );
+    }
+
+    // Check authorization
+    if (listing.userId !== userId) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.UNAUTHORIZED],
+        language,
+      );
+    }
+
+    // Check if already active
+    if (listing.status === ListingStatus.ACTIVE) {
+      const message = I18nService.translate(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_ALREADY_ACTIVE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    listing.status = ListingStatus.ACTIVE;
+    return await this.listingRepository.save(listing);
+  }
+
+  async deactivate(
+    id: string,
+    reason: string,
+    userId: string,
+    language: LanguageCode = 'en',
+  ): Promise<Listing> {
+    const listing = await this.listingRepository.findOne({ where: { id } });
+
+    if (!listing) {
+      throw new I18nNotFoundException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_NOT_FOUND],
+        language,
+      );
+    }
+
+    // Check authorization
+    if (listing.userId !== userId) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.UNAUTHORIZED],
+        language,
+      );
+    }
+
+    // Check if already inactive
+    if (listing.status === ListingStatus.INACTIVE) {
+      const message = I18nService.translate(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_ALREADY_INACTIVE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    listing.status = ListingStatus.INACTIVE;
+    listing.deactivationReason = reason;
+    return await this.listingRepository.save(listing);
   }
 }

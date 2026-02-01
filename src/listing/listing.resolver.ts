@@ -75,4 +75,25 @@ export class ListingResolver {
   ) {
     return this.listingService.remove(id, user.sub, language);
   }
+
+  @Mutation(() => Listing)
+  @UseGuards(JwtAuthGuard)
+  async activateListing(
+    @Args('id', { type: () => String }) id: string,
+    @CurrentUser() user: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Listing> {
+    return await this.listingService.activate(id, user.sub, language);
+  }
+
+  @Mutation(() => Listing)
+  @UseGuards(JwtAuthGuard)
+  async deactivateListing(
+    @Args('id', { type: () => String }) id: string,
+    @Args('reason', { type: () => String }) reason: string,
+    @CurrentUser() user: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Listing> {
+    return await this.listingService.deactivate(id, reason, user.sub, language);
+  }
 }

@@ -31,4 +31,12 @@ export const LISTING_ERROR_MESSAGES: Record<ListingErrorCode, TranslatedError> =
       en: 'Listing deleted successfully',
       ar: 'تم حذف الإعلان',
     },
+    [LISTING_ERROR_CODES.LISTING_ALREADY_ACTIVE]: {
+      en: 'Listing is already active',
+      ar: 'الإعلان نشط بالفعل',
+    },
+    [LISTING_ERROR_CODES.LISTING_ALREADY_INACTIVE]: {
+      en: 'Listing is already inactive',
+      ar: 'الإعلان غير نشط بالفعل',
+    },
   };

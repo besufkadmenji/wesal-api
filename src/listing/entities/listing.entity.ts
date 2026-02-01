@@ -85,6 +85,10 @@ export class Listing {
   @Column('text')
   tags: string;
 
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  deactivationReason?: string;
+
   @Field()
   @CreateDateColumn()
   createdAt: Date;
