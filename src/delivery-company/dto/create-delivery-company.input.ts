@@ -1,5 +1,6 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { DeliveryCompanyStatus } from '../enums/delivery-company-status.enum';
 
 @InputType()
 export class CreateDeliveryCompanyInput {
@@ -12,4 +13,9 @@ export class CreateDeliveryCompanyInput {
   @IsNotEmpty()
   @IsString()
   nameAr: string;
+
+  @Field(() => DeliveryCompanyStatus)
+  @IsNotEmpty()
+  @IsEnum(DeliveryCompanyStatus)
+  status: DeliveryCompanyStatus;
 }

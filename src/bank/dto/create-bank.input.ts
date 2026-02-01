@@ -1,5 +1,6 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsString } from 'class-validator';
+import { BankStatus } from '../enums/bank-status.enum';
 
 @InputType()
 export class CreateBankInput {
@@ -12,4 +13,9 @@ export class CreateBankInput {
   @IsNotEmpty()
   @IsString()
   nameAr: string;
+
+  @Field(() => BankStatus)
+  @IsNotEmpty()
+  @IsEnum(BankStatus)
+  status: BankStatus;
 }
