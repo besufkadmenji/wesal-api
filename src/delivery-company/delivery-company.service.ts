@@ -163,7 +163,7 @@ export class DeliveryCompanyService {
     language: LanguageCode = 'en',
   ): Promise<DeliveryCompany> {
     const deliveryCompany = await this.findOne(id, language);
-    await this.deliveryCompanyRepository.remove(deliveryCompany);
+    await this.deliveryCompanyRepository.delete({ id });
     return deliveryCompany;
   }
 

@@ -140,7 +140,7 @@ export class BankService {
 
   async remove(id: string, language: LanguageCode = 'en'): Promise<Bank> {
     const bank = await this.findOne(id, language);
-    await this.bankRepository.remove(bank);
+    await this.bankRepository.delete({ id });
     return bank;
   }
 
