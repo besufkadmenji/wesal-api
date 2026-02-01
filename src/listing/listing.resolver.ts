@@ -1,15 +1,15 @@
 import { UseGuards } from '@nestjs/common';
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { CreateListingInput } from './dto/create-listing.input';
+import { ListingPaginationInput } from './dto/listing-pagination.input';
 import { PaginatedListingResponse } from './dto/paginated-listings.response';
 import { RemoveListingResponse } from './dto/remove-listing.response';
 import { UpdateListingInput } from './dto/update-listing.input';
-import { ListingPaginationInput } from './dto/listing-pagination.input';
 import { Listing } from './entities/listing.entity';
 import { ListingService } from './listing.service';
 
@@ -69,7 +69,7 @@ export class ListingResolver {
   @Mutation(() => RemoveListingResponse)
   @UseGuards(JwtAuthGuard)
   async removeListing(
-    @Args('id', { type: () => String }) id: string,
+    @Args('id', { type: () => ID }) id: string,
     @CurrentUser() user: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ) {
@@ -79,7 +79,7 @@ export class ListingResolver {
   @Mutation(() => Listing)
   @UseGuards(JwtAuthGuard)
   async activateListing(
-    @Args('id', { type: () => String }) id: string,
+    @Args('id', { type: () => ID }) id: string,
     @CurrentUser() user: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ): Promise<Listing> {
@@ -89,7 +89,7 @@ export class ListingResolver {
   @Mutation(() => Listing)
   @UseGuards(JwtAuthGuard)
   async deactivateListing(
-    @Args('id', { type: () => String }) id: string,
+    @Args('id', { type: () => ID }) id: string,
     @Args('reason', { type: () => String }) reason: string,
     @CurrentUser() user: JwtPayload,
     @GetLanguage() language: LanguageCode,
