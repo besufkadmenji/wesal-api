@@ -27,6 +27,8 @@ import { FaqModule } from './faq/faq.module';
 import { ContactMessageModule } from './contact-message/contact-message.module';
 import { SignedContractModule } from './signed-contract/signed-contract.module';
 import { ListingModule } from './listing/listing.module';
+import { BankModule } from './bank/bank.module';
+import { DeliveryCompanyModule } from './delivery-company/delivery-company.module';
 
 // Parse DATABASE_URL if available, otherwise use individual env variables
 function getDatabaseConfig() {
@@ -97,6 +99,8 @@ function getDatabaseConfig() {
     ContactMessageModule,
     SignedContractModule,
     ListingModule,
+    BankModule,
+    DeliveryCompanyModule,
   ],
   controllers: [AppController],
   providers: [AppService],
