@@ -75,7 +75,7 @@ export class ListingResolver {
     @CurrentAdmin() admin: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.listingService.remove(id, language, user?.sub ?? admin.sub);
+    return this.listingService.remove(id, language, user?.sub, admin.sub);
   }
 
   @Mutation(() => Listing)
