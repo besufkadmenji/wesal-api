@@ -15,7 +15,7 @@ import { ListingStatus, ListingType } from '../enums/listing.enum';
 import { ListingMedia } from './listing-media';
 
 @ObjectType()
-@Entity('listing')
+@Entity('listings')
 export class Listing {
   @Field()
   @PrimaryGeneratedColumn('uuid')
@@ -64,7 +64,7 @@ export class Listing {
   @Column({
     type: 'enum',
     enum: ListingStatus,
-    default: ListingStatus.DRAFT,
+    default: ListingStatus.ACTIVE,
   })
   status: ListingStatus;
 

@@ -1,10 +1,6 @@
 import { registerEnumType } from '@nestjs/graphql';
 
 export enum ListingStatus {
-  DRAFT = 'DRAFT',
-  PUBLISHED = 'PUBLISHED',
-  SUSPENDED = 'SUSPENDED',
-  EXPIRED = 'EXPIRED',
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
 }
