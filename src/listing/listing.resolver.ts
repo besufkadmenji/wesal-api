@@ -1,5 +1,6 @@
 import { UseGuards } from '@nestjs/common';
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { CurrentAdmin } from 'src/admin/decorators/current-admin.decorator';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -71,19 +72,20 @@ export class ListingResolver {
   async removeListing(
     @Args('id', { type: () => ID }) id: string,
     @CurrentUser() user: JwtPayload,
+    @CurrentAdmin() admin: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.listingService.remove(id, user.sub, language);
+    return this.listingService.remove(id, language, user?.sub ?? admin.sub);
   }
 
   @Mutation(() => Listing)
   @UseGuards(JwtAuthGuard)
   async activateListing(
     @Args('id', { type: () => ID }) id: string,
-    @CurrentUser() user: JwtPayload,
+    @CurrentAdmin() admin: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ): Promise<Listing> {
-    return await this.listingService.activate(id, user.sub, language);
+    return await this.listingService.activate(id, language, admin.sub);
   }
 
   @Mutation(() => Listing)
@@ -91,9 +93,14 @@ export class ListingResolver {
   async deactivateListing(
     @Args('id', { type: () => ID }) id: string,
     @Args('reason', { type: () => String }) reason: string,
-    @CurrentUser() user: JwtPayload,
+    @CurrentAdmin() admin: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ): Promise<Listing> {
-    return await this.listingService.deactivate(id, reason, user.sub, language);
+    return await this.listingService.deactivate(
+      id,
+      reason,
+      language,
+      admin.sub,
+    );
   }
 }

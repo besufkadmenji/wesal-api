@@ -284,8 +284,9 @@ export class ListingService {
 
   async remove(
     id: string,
-    userId: string,
     language: LanguageCode = 'en',
+    userId?: string,
+    adminId?: string,
   ): Promise<{ success: boolean; message: string }> {
     const listing = await this.listingRepository.findOne({ where: { id } });
 
@@ -297,7 +298,7 @@ export class ListingService {
     }
 
     // Check authorization
-    if (listing.userId !== userId) {
+    if (listing.userId !== userId && !adminId) {
       throw new I18nBadRequestException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.UNAUTHORIZED],
         language,
@@ -316,8 +317,8 @@ export class ListingService {
 
   async activate(
     id: string,
-    userId: string,
     language: LanguageCode = 'en',
+    adminId: string,
   ): Promise<Listing> {
     const listing = await this.listingRepository.findOne({ where: { id } });
 
@@ -329,7 +330,7 @@ export class ListingService {
     }
 
     // Check authorization
-    if (listing.userId !== userId) {
+    if (!adminId) {
       throw new I18nBadRequestException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.UNAUTHORIZED],
         language,
@@ -352,8 +353,8 @@ export class ListingService {
   async deactivate(
     id: string,
     reason: string,
-    userId: string,
     language: LanguageCode = 'en',
+    adminId: string,
   ): Promise<Listing> {
     const listing = await this.listingRepository.findOne({ where: { id } });
 
@@ -365,7 +366,7 @@ export class ListingService {
     }
 
     // Check authorization
-    if (listing.userId !== userId) {
+    if (!adminId) {
       throw new I18nBadRequestException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.UNAUTHORIZED],
         language,
