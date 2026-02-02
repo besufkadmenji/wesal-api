@@ -264,7 +264,7 @@ export class ProviderService {
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
 
-    provider.status = ProviderStatus.DEACTIVATED;
+    provider.status = ProviderStatus.INACTIVE;
     if (reason) {
       provider.deactivationReason = reason;
     }
@@ -507,7 +507,11 @@ export class ProviderService {
     return this.providerRepository.save(provider);
   }
 
-  async remove(id: string, language: LanguageCode = 'en'): Promise<Provider> {
+  async remove(
+    id: string,
+    reason?: string,
+    language: LanguageCode = 'en',
+  ): Promise<Provider> {
     const provider = await this.providerRepository.findOne({
       where: { id },
     });
@@ -520,7 +524,12 @@ export class ProviderService {
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
 
-    await this.providerRepository.remove(provider);
+    provider.deletedAt = new Date();
+    if (reason) {
+      provider.deleteReason = reason;
+      provider.status = ProviderStatus.DELETED;
+    }
+    await this.providerRepository.save(provider);
     return provider;
   }
 

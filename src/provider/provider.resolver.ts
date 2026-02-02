@@ -17,6 +17,7 @@ import {
 import { AdminTerminateContractInput } from './dto/terminate-contract.input';
 import { UpdateProviderInput } from './dto/update-provider.input';
 import { ProviderService } from './provider.service';
+import { DeleteProviderInput } from './dto/delete-provider.input';
 
 @Resolver(() => Provider)
 export class ProviderResolver {
@@ -169,9 +170,10 @@ export class ProviderResolver {
   @UseGuards(JwtAuthGuard)
   removeProvider(
     @Args('id', { type: () => ID }) id: string,
+    @Args('input') input: DeleteProviderInput,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.providerService.remove(id, language);
+    return this.providerService.remove(id, input.reason, language);
   }
 
   @Mutation(() => Boolean, { description: 'Delete provider avatar by ID' })

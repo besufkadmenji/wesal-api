@@ -5,6 +5,7 @@ export enum UserStatus {
   INACTIVE = 'INACTIVE',
   SUSPENDED = 'SUSPENDED',
   PENDING_APPROVAL = 'PENDING_APPROVAL',
+  DELETED = 'DELETED',
 }
 
 registerEnumType(UserStatus, {

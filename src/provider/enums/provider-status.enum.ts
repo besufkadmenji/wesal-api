@@ -1,11 +1,11 @@
 import { registerEnumType } from '@nestjs/graphql';
 
 export enum ProviderStatus {
-  PENDING_APPROVAL = 'PENDING_APPROVAL',
   ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
   SUSPENDED = 'SUSPENDED',
-  REJECTED = 'REJECTED',
-  DEACTIVATED = 'DEACTIVATED',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  DELETED = 'DELETED',
 }
 
 // Register enum for GraphQL
