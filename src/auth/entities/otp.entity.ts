@@ -1,30 +1,44 @@
+import { Field, ID, ObjectType } from '@nestjs/graphql';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
+  Check,
   Column,
   CreateDateColumn,
-  ManyToOne,
+  Entity,
   JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
-import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { Provider } from '../../provider/entities/provider.entity';
 import { User } from '../../user/entities/user.entity';
 import { OtpType } from '../enums/otp-type.enum';
 
 @ObjectType()
 @Entity('otps')
+@Check(
+  `("userId" IS NOT NULL AND "providerId" IS NULL) OR ("providerId" IS NOT NULL AND "userId" IS NULL)`,
+)
 export class Otp {
   @Field(() => ID)
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Field()
-  @Column({ type: 'uuid' })
-  userId: string;
+  @Field({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  userId?: string;
 
-  @Field(() => User)
-  @ManyToOne(() => User)
+  @Field(() => User, { nullable: true })
+  @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'userId' })
-  user: User;
+  user?: User;
+
+  @Field({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  providerId?: string;
+
+  @Field(() => Provider, { nullable: true })
+  @ManyToOne(() => Provider, { nullable: true })
+  @JoinColumn({ name: 'providerId' })
+  provider?: Provider;
 
   @Field(() => OtpType)
   @Column({

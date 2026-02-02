@@ -223,7 +223,7 @@ export class ProviderAuthService {
 
     // Update provider verification status
     const provider = await this.providerRepository.findOne({
-      where: { id: otp.userId },
+      where: { id: otp.providerId },
     });
 
     if (provider) {
@@ -366,7 +366,7 @@ export class ProviderAuthService {
     await this.otpRepository.save(otp);
 
     // Issue a temporary reset token
-    const payload = { sub: otp.userId, type: 'password_reset_provider' };
+    const payload = { sub: otp.providerId, type: 'password_reset_provider' };
     const resetToken: string = this.jwtService.sign(payload, {
       expiresIn: '15m',
     });
@@ -848,7 +848,7 @@ export class ProviderAuthService {
 
     // Create OTP with 10 minutes expiration
     const otp = this.otpRepository.create({
-      userId: providerId,
+      providerId,
       target,
       type,
       code,
