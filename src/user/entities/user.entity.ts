@@ -121,6 +121,10 @@ export class User {
   @Column({ type: 'varchar', length: 500, default: 'en' })
   languageCode?: string;
 
+  @Field({ nullable: true })
+  @Column({ type: 'boolean', default: false })
+  withAbsher?: boolean;
+
   @Field(() => String, { nullable: true })
   @Column({ type: 'timestamp', nullable: true })
   deletedAt?: Date | null;

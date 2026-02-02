@@ -1,5 +1,6 @@
 import { Field, InputType } from '@nestjs/graphql';
 import {
+  IsBoolean,
   IsEmail,
   IsNotEmpty,
   IsOptional,
@@ -70,4 +71,9 @@ export class CreateUserInput {
   @IsOptional()
   @IsString()
   ibanNumber?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  withAbsher?: boolean;
 }
