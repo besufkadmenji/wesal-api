@@ -1,5 +1,6 @@
 import { UseGuards } from '@nestjs/common';
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { CurrentProvider } from 'src/auth/decorators/current-provider.decorator';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
@@ -18,7 +19,6 @@ import { UpdateProviderInput } from './dto/update-provider.input';
 import { Provider } from './entities/provider.entity';
 import { ProviderStatus } from './enums/provider-status.enum';
 import { ProviderService } from './provider.service';
-import { CurrentProvider } from 'src/auth/decorators/current-provider.decorator';
 
 @Resolver(() => Provider)
 export class ProviderResolver {
@@ -175,5 +175,13 @@ export class ProviderResolver {
     @GetLanguage() language: LanguageCode,
   ) {
     return this.providerService.remove(id, language);
+  }
+
+  @Mutation(() => Boolean, { description: 'Delete provider avatar by ID' })
+  removeProviderAvatar(
+    @Args('id', { type: () => ID }) id: string,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.providerService.removeAvatar(id, language);
   }
 }

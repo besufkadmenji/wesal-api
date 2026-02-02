@@ -528,4 +528,13 @@ export class ProviderService {
     await this.providerRepository.remove(provider);
     return provider;
   }
+
+  async removeAvatar(
+    id: string,
+    language: LanguageCode = 'en',
+  ): Promise<boolean> {
+    await this.findOne(id, language);
+    await this.providerRepository.update(id, { avatarFilename: null });
+    return true;
+  }
 }
