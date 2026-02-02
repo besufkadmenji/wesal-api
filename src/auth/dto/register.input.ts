@@ -54,4 +54,8 @@ export class RegisterInput {
   @IsOptional()
   @IsUUID()
   countryId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  withAbsher?: boolean;
 }
