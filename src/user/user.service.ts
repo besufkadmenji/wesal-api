@@ -73,7 +73,6 @@ export class UserService {
       limit = 10,
       sortBy,
       sortOrder = 'ASC',
-      role,
       search,
     } = paginationInput;
 
@@ -82,7 +81,6 @@ export class UserService {
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
       .where('user.deletedAt IS NULL')
-      .andWhere('user.role = :role', { role })
       .andWhere('user.status IN (:...statuses)', {
         statuses: paginationInput.status
           ? [paginationInput.status]
