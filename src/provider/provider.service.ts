@@ -12,8 +12,11 @@ import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Admin } from '../admin/entities/admin.entity';
 import { AdminPermissionType } from '../admin/enums/admin-permission-type.enum';
 import { Category } from '../category/entities/category.entity';
+import { Provider } from '../provider/entities/provider.entity';
+import { ProviderStatus } from '../provider/enums/provider-status.enum';
+import { PROVIDER_ERROR_CODES } from '../provider/errors/provider.error-codes';
+import { PROVIDER_ERROR_MESSAGES } from '../provider/errors/provider.error-messages';
 import { SignedContractService } from '../signed-contract/signed-contract.service';
-import { SignedContractStatus } from '../user/enums/contract.enum';
 import { CreateProviderInput } from './dto/create-provider.input';
 import { ProviderPaginationInput } from './dto/provider-pagination.input';
 import {
@@ -22,10 +25,7 @@ import {
 } from './dto/sign-contract.input';
 import { AdminTerminateContractInput } from './dto/terminate-contract.input';
 import { UpdateProviderInput } from './dto/update-provider.input';
-import { Provider } from './entities/provider.entity';
-import { ProviderStatus } from './enums/provider-status.enum';
-import { PROVIDER_ERROR_CODES } from './errors/provider.error-codes';
-import { PROVIDER_ERROR_MESSAGES } from './errors/provider.error-messages';
+import { SignedContractStatus } from './enums/contract.enum';
 
 @Injectable()
 export class ProviderService {
@@ -231,24 +231,19 @@ export class ProviderService {
     return this.providerRepository.save(provider);
   }
 
-  async updateStatus(
-    id: string,
-    status: ProviderStatus,
-    language: LanguageCode = 'en',
-  ): Promise<Provider> {
-    const provider = await this.providerRepository.findOne({
-      where: { id },
-    });
+  async activate(id: string, language: LanguageCode = 'en'): Promise<Provider> {
+    const provider = await this.findOne(id, language);
 
-    if (!provider) {
+    // Check if already active
+    if (provider.status === ProviderStatus.ACTIVE) {
       const message = I18nService.translate(
-        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND],
+        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_ALREADY_ACTIVE],
         language,
       );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    provider.status = status;
+    provider.status = ProviderStatus.ACTIVE;
     return this.providerRepository.save(provider);
   }
 
@@ -409,7 +404,7 @@ export class ProviderService {
     // Check if contract is already terminated or expired
     if (
       provider.signedContract.status ===
-        SignedContractStatus.TERMINATED_BY_USER ||
+        SignedContractStatus.TERMINATED_BY_PROVIDER ||
       provider.signedContract.status ===
         SignedContractStatus.TERMINATED_BY_ADMIN ||
       provider.signedContract.status === SignedContractStatus.EXPIRED
@@ -427,7 +422,7 @@ export class ProviderService {
     const updatedContract = await this.signedContractService.update(
       provider.signedContract.id,
       {
-        status: SignedContractStatus.TERMINATED_BY_USER,
+        status: SignedContractStatus.TERMINATED_BY_PROVIDER,
         terminationReason,
       },
     );
@@ -485,7 +480,7 @@ export class ProviderService {
     // Check if contract is already terminated or expired
     if (
       provider.signedContract.status ===
-        SignedContractStatus.TERMINATED_BY_USER ||
+        SignedContractStatus.TERMINATED_BY_PROVIDER ||
       provider.signedContract.status ===
         SignedContractStatus.TERMINATED_BY_ADMIN ||
       provider.signedContract.status === SignedContractStatus.EXPIRED

@@ -56,4 +56,8 @@ export const PROVIDER_ERROR_MESSAGES: Record<
     en: 'Invalid status transition',
     ar: 'تغيير الحالة غير صالح',
   },
+  [PROVIDER_ERROR_CODES.PROVIDER_ALREADY_ACTIVE]: {
+    en: 'Provider account is already active',
+    ar: 'حساب مقدم الخدمة نشط بالفعل',
+  },
 };

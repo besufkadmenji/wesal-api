@@ -4,9 +4,9 @@ import { CurrentProvider } from 'src/auth/decorators/current-provider.decorator'
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { Provider } from '../provider/entities/provider.entity';
 import { CreateProviderInput } from './dto/create-provider.input';
 import { PaginatedProviderResponse } from './dto/paginated-provider.response';
 import { ProviderPaginationInput } from './dto/provider-pagination.input';
@@ -16,8 +16,6 @@ import {
 } from './dto/sign-contract.input';
 import { AdminTerminateContractInput } from './dto/terminate-contract.input';
 import { UpdateProviderInput } from './dto/update-provider.input';
-import { Provider } from './entities/provider.entity';
-import { ProviderStatus } from './enums/provider-status.enum';
 import { ProviderService } from './provider.service';
 
 @Resolver(() => Provider)
@@ -94,14 +92,13 @@ export class ProviderResolver {
     return this.providerService.update(updateProviderInput, language);
   }
 
-  @Mutation(() => Provider, { description: 'Update provider status' })
+  @Mutation(() => Provider, { description: 'Activate provider by ID' })
   @UseGuards(JwtAuthGuard)
-  updateProviderStatus(
+  activateProvider(
     @Args('id', { type: () => ID }) id: string,
-    @Args('status', { type: () => ProviderStatus }) status: ProviderStatus,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.providerService.updateStatus(id, status, language);
+    return this.providerService.activate(id, language);
   }
 
   @Mutation(() => Provider, { description: 'Deactivate provider' })
@@ -118,10 +115,10 @@ export class ProviderResolver {
   @UseGuards(JwtAuthGuard)
   signProviderContract(
     @Args('input') input: SignContractInput,
-    @CurrentUser() user: JwtPayload,
+    @CurrentProvider() provider: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.providerService.signContract(user.sub, input, language);
+    return this.providerService.signContract(provider.sub, input, language);
   }
 
   @Mutation(() => Provider, {
@@ -142,11 +139,11 @@ export class ProviderResolver {
   @UseGuards(JwtAuthGuard)
   terminateProviderContract(
     @Args('terminationReason') terminationReason: string,
-    @CurrentUser() user: JwtPayload,
+    @CurrentProvider() provider: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ) {
     return this.providerService.terminateContract(
-      user.sub,
+      provider.sub,
       terminationReason,
       language,
     );

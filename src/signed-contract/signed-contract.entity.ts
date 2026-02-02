@@ -9,7 +9,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Provider } from '../provider/entities/provider.entity';
-import { SignedContractStatus } from '../user/enums/contract.enum';
+import { SignedContractStatus } from '../provider/enums/contract.enum';
 
 @ObjectType()
 @Entity('signed_contracts')
