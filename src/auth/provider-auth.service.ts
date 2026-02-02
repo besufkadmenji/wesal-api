@@ -1,37 +1,39 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
-import { Repository, LessThan, MoreThan } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { Provider } from '../provider/entities/provider.entity';
-import { Otp } from './entities/otp.entity';
-import { ProviderService } from '../provider/provider.service';
+import { LessThan, MoreThan, Repository } from 'typeorm';
 import { EmailService } from '../../lib/email/email.service';
-import { SmsService } from '../../lib/sms/sms.service';
-import { I18nService } from '../../lib/i18n/i18n.service';
-import type { LanguageCode } from '../../lib/i18n/language.types';
 import {
   I18nBadRequestException,
   I18nNotFoundException,
 } from '../../lib/errors/i18n.exceptions';
-import { AUTH_ERROR_MESSAGES } from './errors/auth.error-messages';
-import { OtpType } from './enums/otp-type.enum';
-import { RegisterProviderInput } from './dto/register-provider.input';
-import { LoginProviderInput } from './dto/login-provider.input';
-import { ProviderAuthResponse } from './dto/provider-auth-response';
-import { VerifyOtpInput } from './dto/verify-otp.input';
-import { ResendOtpInput } from './dto/resend-otp.input';
-import { ChangePasswordInput } from './dto/change-password.input';
-import { ForgotPasswordInput } from './dto/forgot-password.input';
-import { VerifyPasswordResetOtpInput } from './dto/verify-password-reset-otp.input';
-import { VerifyPasswordResetOtpResponse } from './dto/verify-password-reset-otp.response';
-import { ResetPasswordWithTokenInput } from './dto/reset-password-with-token.input';
+import { I18nService } from '../../lib/i18n/i18n.service';
+import type { LanguageCode } from '../../lib/i18n/language.types';
+import { SmsService } from '../../lib/sms/sms.service';
+import { Provider } from '../provider/entities/provider.entity';
+import { ProviderService } from '../provider/provider.service';
 import { ChangeEmailInput } from './dto/change-email.input';
 import { ChangeEmailResponse } from './dto/change-email.response';
+import { ChangePasswordInput } from './dto/change-password.input';
 import { ChangePhoneInput } from './dto/change-phone.input';
 import { ChangePhoneResponse } from './dto/change-phone.response';
+import { ForgotPasswordInput } from './dto/forgot-password.input';
+import { LoginProviderInput } from './dto/login-provider.input';
+import { ProviderAuthResponse } from './dto/provider-auth-response';
+import { RegisterProviderInput } from './dto/register-provider.input';
+import { ResendOtpInput } from './dto/resend-otp.input';
+import { ResetPasswordWithTokenInput } from './dto/reset-password-with-token.input';
+import { VerifyOtpInput } from './dto/verify-otp.input';
+import { VerifyPasswordResetOtpInput } from './dto/verify-password-reset-otp.input';
+import { VerifyPasswordResetOtpResponse } from './dto/verify-password-reset-otp.response';
+import { Otp } from './entities/otp.entity';
+import { OtpType } from './enums/otp-type.enum';
+import { AUTH_ERROR_MESSAGES } from './errors/auth.error-messages';
 
 import { ProviderStatus } from '../provider/enums/provider-status.enum';
+import { VerifyChangeEmailInput } from './dto/verify-change-email.input';
+import { VerifyChangePhoneInput } from './dto/verify-change-phone.input';
 
 @Injectable()
 export class ProviderAuthService {
@@ -543,6 +545,296 @@ export class ProviderAuthService {
     });
 
     return { changeToken };
+  }
+
+  async verifyEmailChange(
+    verifyChangeEmailInput: VerifyChangeEmailInput,
+    language: LanguageCode = 'en',
+    ipAddress?: string,
+  ): Promise<boolean> {
+    try {
+      // Verify and decode the change token
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const payload: any = this.jwtService.verify(
+        verifyChangeEmailInput.changeToken,
+      );
+
+      // Ensure token is an email change token
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (payload.type !== 'email_change') {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['INVALID_OTP'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Find valid OTP
+      const otp = await this.otpRepository.findOne({
+        where: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+          target: payload.newEmail,
+          type: OtpType.EMAIL_VERIFICATION,
+          isUsed: false,
+          expiresAt: MoreThan(new Date()),
+        },
+      });
+
+      if (!otp) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['INVALID_OTP'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Check attempt rate limiting (max 5 failed attempts per OTP)
+      if (otp.attemptCount >= 5) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['TOO_MANY_OTP_ATTEMPTS'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Check if last attempt was less than 30 seconds ago (prevent brute force)
+      if (otp.lastAttemptAt && otp.lastAttemptAt instanceof Date) {
+        const timeSinceLastAttempt = Date.now() - otp.lastAttemptAt.getTime();
+        if (timeSinceLastAttempt < 30000) {
+          // 30 seconds
+          const message = I18nService.translate(
+            AUTH_ERROR_MESSAGES['OTP_VERIFICATION_THROTTLED'],
+            language,
+          );
+          throw new I18nBadRequestException(
+            { en: message, ar: message },
+            language,
+          );
+        }
+      }
+
+      // Verify OTP code
+      if (otp.code !== verifyChangeEmailInput.code) {
+        otp.attemptCount += 1;
+        otp.lastAttemptAt = new Date();
+        await this.otpRepository.save(otp);
+
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['INVALID_OTP'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Verify IP address matches (security check)
+      if (otp.ipAddress && ipAddress && otp.ipAddress !== ipAddress) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['OTP_IP_MISMATCH'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Mark OTP as used
+      otp.isUsed = true;
+      await this.otpRepository.save(otp);
+
+      // Get user from token and update email
+      const user = await this.providerRepository.findOne({
+        where: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+          id: payload.sub,
+        },
+      });
+
+      if (!user) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['USER_NOT_FOUND'],
+          language,
+        );
+        throw new I18nNotFoundException({ en: message, ar: message }, language);
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+      user.email = payload.newEmail;
+      await this.providerRepository.save(user);
+
+      return true;
+    } catch (error) {
+      if (
+        error instanceof I18nBadRequestException ||
+        error instanceof I18nNotFoundException
+      ) {
+        throw error;
+      }
+
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['INVALID_OTP'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+  }
+
+  async verifyPhoneChange(
+    verifyChangePhoneInput: VerifyChangePhoneInput,
+    language: LanguageCode = 'en',
+    ipAddress?: string,
+  ): Promise<boolean> {
+    try {
+      // Verify and decode the change token
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const payload: any = this.jwtService.verify(
+        verifyChangePhoneInput.changeToken,
+      );
+
+      // Ensure token is a phone change token
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (payload.type !== 'phone_change') {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['INVALID_OTP'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Find valid OTP
+      const otp = await this.otpRepository.findOne({
+        where: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+          target: payload.newPhone,
+          type: OtpType.PHONE_VERIFICATION,
+          isUsed: false,
+          expiresAt: MoreThan(new Date()),
+        },
+      });
+
+      if (!otp) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['INVALID_OTP'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Check attempt rate limiting (max 5 failed attempts per OTP)
+      if (otp.attemptCount >= 5) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['TOO_MANY_OTP_ATTEMPTS'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Check if last attempt was less than 30 seconds ago (prevent brute force)
+      if (otp.lastAttemptAt && otp.lastAttemptAt instanceof Date) {
+        const timeSinceLastAttempt = Date.now() - otp.lastAttemptAt.getTime();
+        if (timeSinceLastAttempt < 30000) {
+          // 30 seconds
+          const message = I18nService.translate(
+            AUTH_ERROR_MESSAGES['OTP_VERIFICATION_THROTTLED'],
+            language,
+          );
+          throw new I18nBadRequestException(
+            { en: message, ar: message },
+            language,
+          );
+        }
+      }
+
+      // Verify OTP code
+      if (otp.code !== verifyChangePhoneInput.code) {
+        otp.attemptCount += 1;
+        otp.lastAttemptAt = new Date();
+        await this.otpRepository.save(otp);
+
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['INVALID_OTP'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Verify IP address matches (security check)
+      if (otp.ipAddress && ipAddress && otp.ipAddress !== ipAddress) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['OTP_IP_MISMATCH'],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+
+      // Mark OTP as used
+      otp.isUsed = true;
+      await this.otpRepository.save(otp);
+
+      // Get user from token and update phone
+      const user = await this.providerRepository.findOne({
+        where: {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+          id: payload.sub,
+        },
+      });
+
+      if (!user) {
+        const message = I18nService.translate(
+          AUTH_ERROR_MESSAGES['USER_NOT_FOUND'],
+          language,
+        );
+        throw new I18nNotFoundException({ en: message, ar: message }, language);
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+      user.phone = payload.newPhone;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+      user.dialCode = payload.countryCode;
+      await this.providerRepository.save(user);
+
+      return true;
+    } catch (error) {
+      if (
+        error instanceof I18nBadRequestException ||
+        error instanceof I18nNotFoundException
+      ) {
+        throw error;
+      }
+
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['INVALID_OTP'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
   }
 
   private async generateAndSendOtp(

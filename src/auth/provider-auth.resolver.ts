@@ -4,24 +4,26 @@ import type { Request } from 'express';
 import { GetLanguage } from '../../lib/i18n';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Provider } from '../provider/entities/provider.entity';
-import { ProviderAuthService } from './provider-auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import type { JwtPayload } from './strategies/jwt.strategy';
-import { ProviderAuthResponse } from './dto/provider-auth-response';
+import { ChangeEmailInput } from './dto/change-email.input';
+import { ChangeEmailResponse } from './dto/change-email.response';
 import { ChangePasswordInput } from './dto/change-password.input';
+import { ChangePhoneInput } from './dto/change-phone.input';
+import { ChangePhoneResponse } from './dto/change-phone.response';
 import { ForgotPasswordInput } from './dto/forgot-password.input';
-import { RegisterProviderInput } from './dto/register-provider.input';
 import { LoginProviderInput } from './dto/login-provider.input';
+import { ProviderAuthResponse } from './dto/provider-auth-response';
+import { RegisterProviderInput } from './dto/register-provider.input';
 import { ResendOtpInput } from './dto/resend-otp.input';
 import { ResetPasswordWithTokenInput } from './dto/reset-password-with-token.input';
+import { VerifyChangeEmailInput } from './dto/verify-change-email.input';
+import { VerifyChangePhoneInput } from './dto/verify-change-phone.input';
 import { VerifyOtpInput } from './dto/verify-otp.input';
 import { VerifyPasswordResetOtpInput } from './dto/verify-password-reset-otp.input';
 import { VerifyPasswordResetOtpResponse } from './dto/verify-password-reset-otp.response';
-import { ChangeEmailInput } from './dto/change-email.input';
-import { ChangeEmailResponse } from './dto/change-email.response';
-import { ChangePhoneInput } from './dto/change-phone.input';
-import { ChangePhoneResponse } from './dto/change-phone.response';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { ProviderAuthService } from './provider-auth.service';
+import type { JwtPayload } from './strategies/jwt.strategy';
 
 @Resolver()
 export class ProviderAuthResolver {
@@ -164,6 +166,22 @@ export class ProviderAuthResolver {
     );
   }
 
+  @Mutation(() => Boolean, {
+    description: 'Verify email change with OTP and change token',
+  })
+  async verifyProviderEmailChange(
+    @Args('input') verifyChangeEmailInput: VerifyChangeEmailInput,
+    @GetLanguage() language: LanguageCode,
+    @Req() request?: Request,
+  ): Promise<boolean> {
+    const ipAddress = this.getClientIp(request);
+    return await this.providerAuthService.verifyEmailChange(
+      verifyChangeEmailInput,
+      language,
+      ipAddress,
+    );
+  }
+
   @UseGuards(JwtAuthGuard)
   @Mutation(() => ChangePhoneResponse, {
     description:
@@ -181,6 +199,22 @@ export class ProviderAuthResolver {
       user.sub,
       changePhoneInput,
       language,
+    );
+  }
+
+  @Mutation(() => Boolean, {
+    description: 'Verify phone change with OTP and change token',
+  })
+  async verifyProviderPhoneChange(
+    @Args('input') verifyChangePhoneInput: VerifyChangePhoneInput,
+    @GetLanguage() language: LanguageCode,
+    @Req() request?: Request,
+  ): Promise<boolean> {
+    const ipAddress = this.getClientIp(request);
+    return await this.providerAuthService.verifyPhoneChange(
+      verifyChangePhoneInput,
+      language,
+      ipAddress,
     );
   }
 }
