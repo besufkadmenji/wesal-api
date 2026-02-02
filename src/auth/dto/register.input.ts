@@ -8,6 +8,7 @@ import {
   IsUUID,
   Matches,
   MinLength,
+  MaxLength,
 } from 'class-validator';
 
 @InputType()
@@ -58,4 +59,15 @@ export class RegisterInput {
   @Field({ nullable: true })
   @IsOptional()
   withAbsher?: boolean;
+
+  @Field()
+  @IsString()
+  @MaxLength(255)
+  bankName?: string;
+
+  @Field()
+  @Matches(/^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/, {
+    message: 'Invalid IBAN format',
+  })
+  ibanNumber?: string;
 }
