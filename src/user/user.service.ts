@@ -120,10 +120,8 @@ export class UserService {
   async findOne(id: string, language: LanguageCode = 'en'): Promise<User> {
     const user = await this.userRepository
       .createQueryBuilder('user')
-      .leftJoinAndSelect('user.categories', 'categories')
       .leftJoinAndSelect('user.country', 'country')
       .leftJoinAndSelect('user.city', 'city')
-      .leftJoinAndSelect('user.signedContract', 'signedContract')
       .where('user.id = :id', { id })
       .andWhere('user.deletedAt IS NULL')
       .getOne();
