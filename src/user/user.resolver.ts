@@ -18,7 +18,7 @@ export class UserResolver {
   constructor(private readonly userService: UserService) {}
 
   @Query(() => User, {
-    name: 'me',
+    name: 'meUser',
     description: 'Get current authenticated user',
   })
   @UseGuards(JwtAuthGuard)

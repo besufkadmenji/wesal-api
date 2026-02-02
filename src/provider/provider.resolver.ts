@@ -1,12 +1,13 @@
 import { UseGuards } from '@nestjs/common';
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { GetLanguage } from '../../lib/i18n/get-language.decorator';
+import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { GetLanguage } from '../../lib/i18n/get-language.decorator';
-import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CreateProviderInput } from './dto/create-provider.input';
+import { PaginatedProviderResponse } from './dto/paginated-provider.response';
 import { ProviderPaginationInput } from './dto/provider-pagination.input';
 import {
   AdminSignContractInput,
@@ -17,7 +18,7 @@ import { UpdateProviderInput } from './dto/update-provider.input';
 import { Provider } from './entities/provider.entity';
 import { ProviderStatus } from './enums/provider-status.enum';
 import { ProviderService } from './provider.service';
-import { PaginatedProviderResponse } from './dto/paginated-provider.response';
+import { CurrentProvider } from 'src/auth/decorators/current-provider.decorator';
 
 @Resolver(() => Provider)
 export class ProviderResolver {
@@ -73,15 +74,15 @@ export class ProviderResolver {
   }
 
   @Query(() => Provider, {
-    name: 'currentProvider',
+    name: 'meProvider',
     description: 'Get current authenticated provider',
   })
   @UseGuards(JwtAuthGuard)
   async getCurrentProvider(
-    @CurrentUser() user: JwtPayload,
+    @CurrentProvider() provider: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.providerService.findOne(user.sub, language);
+    return this.providerService.findOne(provider.sub, language);
   }
 
   @Mutation(() => Provider, { description: 'Update provider' })
