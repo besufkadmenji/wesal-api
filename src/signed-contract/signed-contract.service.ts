@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { SignedContract } from './signed-contract.entity';
-import { SignedContractPaginationInput } from './dto/signed-contract-pagination.input';
-import { SortOrder } from '../../lib/common/dto/pagination.input';
 import { IPaginatedType } from '../../lib/common/dto/paginated-response';
+import { SortOrder } from '../../lib/common/dto/pagination.input';
+import { SignedContractPaginationInput } from './dto/signed-contract-pagination.input';
+import { SignedContract } from './signed-contract.entity';
 
 @Injectable()
 export class SignedContractService {
@@ -19,7 +19,7 @@ export class SignedContractService {
     const {
       page = 1,
       limit = 10,
-      userId,
+      providerId,
       search,
       sortBy,
       sortOrder = SortOrder.DESC,
@@ -31,8 +31,10 @@ export class SignedContractService {
       .leftJoinAndSelect('signedContract.user', 'user')
       .where('1 = 1');
 
-    if (userId) {
-      queryBuilder.andWhere('signedContract.userId = :userId', { userId });
+    if (providerId) {
+      queryBuilder.andWhere('signedContract.providerId = :providerId', {
+        providerId,
+      });
     }
 
     // Add search filter if provided
@@ -71,17 +73,27 @@ export class SignedContractService {
     };
   }
 
-  async findByUserId(userId: string): Promise<SignedContract | null> {
+  async findByProviderId(providerId: string): Promise<SignedContract | null> {
     return this.signedContractRepository.findOne({
-      where: { userId },
-      relations: ['user', 'user.categories', 'user.city', 'user.country'],
+      where: { providerId },
+      relations: [
+        'provider',
+        'provider.categories',
+        'provider.city',
+        'provider.country',
+      ],
     });
   }
 
   async findById(id: string): Promise<SignedContract | null> {
     return this.signedContractRepository.findOne({
       where: { id },
-      relations: ['user', 'user.categories', 'user.city', 'user.country'],
+      relations: [
+        'provider',
+        'provider.categories',
+        'provider.city',
+        'provider.country',
+      ],
     });
   }
 
@@ -108,9 +120,11 @@ export class SignedContractService {
     return contract;
   }
 
-  async findByUserIdOrCreate(userId: string): Promise<SignedContract | null> {
+  async findByProviderIdOrCreate(
+    providerId: string,
+  ): Promise<SignedContract | null> {
     return this.signedContractRepository.findOne({
-      where: { userId },
+      where: { providerId },
     });
   }
 }

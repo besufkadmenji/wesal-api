@@ -2,8 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { Admin } from 'src/admin/entities/admin.entity';
-import { AdminPermissionType } from 'src/admin/enums/admin-permission-type.enum';
-import { In, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import {
   I18nBadRequestException,
@@ -11,18 +10,10 @@ import {
 } from '../../lib/errors/i18n.exceptions';
 import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
-import { Category } from '../category/entities/category.entity';
-import { SignedContractService } from '../signed-contract/signed-contract.service';
 import { CreateUserInput } from './dto/create-user.input';
-import {
-  AdminSignContractInput,
-  SignContractInput,
-} from './dto/sign-contract.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UserPaginationInput } from './dto/user-pagination.input';
 import { User } from './entities/user.entity';
-import { SignedContractStatus } from './enums/contract.enum';
-import { UserRole } from './enums/user-role.enum';
 import { UserStatus } from './enums/user-status.enum';
 import { USER_ERROR_CODES } from './errors/user.error-codes';
 import { USER_ERROR_MESSAGES } from './errors/user.error-messages';
@@ -34,9 +25,6 @@ export class UserService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Admin)
     private readonly adminRepository: Repository<Admin>,
-    @InjectRepository(Category)
-    private readonly categoryRepository: Repository<Category>,
-    private readonly signedContractService: SignedContractService,
   ) {}
 
   async create(
@@ -68,22 +56,10 @@ export class UserService {
     // Hash password
     const hashedPassword = await bcrypt.hash(createUserInput.password, 10);
 
-    // Handle categories for providers
-    let categories: Category[] | undefined;
-    if (createUserInput.categoryIds && createUserInput.categoryIds.length > 0) {
-      categories = await this.categoryRepository.find({
-        where: { id: In(createUserInput.categoryIds) },
-      });
-    }
-
     const user = this.userRepository.create({
       ...createUserInput,
       password: hashedPassword,
-      categories,
-      status:
-        createUserInput.role === UserRole.PROVIDER
-          ? UserStatus.PENDING_APPROVAL
-          : UserStatus.ACTIVE,
+      status: UserStatus.ACTIVE,
     });
 
     return this.userRepository.save(user);
@@ -262,39 +238,7 @@ export class UserService {
       }
     }
 
-    // Validate categories - cannot be emptied if they already exist
-    if (
-      updateUserInput.categoryIds !== undefined &&
-      updateUserInput.categoryIds !== null
-    ) {
-      if (
-        user.categories &&
-        user.categories.length > 0 &&
-        updateUserInput.categoryIds.length === 0
-      ) {
-        const message = I18nService.translate(
-          USER_ERROR_MESSAGES[USER_ERROR_CODES.CATEGORIES_CANNOT_BE_REMOVED],
-          language,
-        );
-        throw new I18nBadRequestException(
-          { en: message, ar: message },
-          language,
-        );
-      }
-
-      // Update categories if provided
-      if (updateUserInput.categoryIds.length > 0) {
-        const categories = await this.categoryRepository.find({
-          where: { id: In(updateUserInput.categoryIds) },
-        });
-        user.categories = categories;
-      }
-    }
-
-    // Remove categoryIds from the update payload before assigning
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { categoryIds, ...updateData } = updateUserInput;
-    Object.assign(user, updateData);
+    Object.assign(user, updateUserInput);
     return this.userRepository.save(user);
   }
 
@@ -356,271 +300,6 @@ export class UserService {
     if (reason) {
       user.deactivationReason = reason;
     }
-    return this.userRepository.save(user);
-  }
-
-  async signContract(
-    userId: string,
-    input: SignContractInput,
-    language: LanguageCode = 'en',
-  ): Promise<User> {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_NOT_FOUND],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    // Check if user is a provider
-    if (user.role !== UserRole.PROVIDER) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.NOT_A_PROVIDER],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    // Check if contract is already signed
-    if (user.signedContract) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.CONTRACT_ALREADY_SIGNED],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    // Create signed contract object
-    const signedContract = await this.signedContractService.create({
-      userId: user.id,
-      user,
-      serviceProviderSignature: input.serviceProviderSignature,
-      platformManagerSignature: null,
-      platformManagerName: null,
-      contractSignedAt: new Date(),
-      contractExpiresAt: null,
-      status: SignedContractStatus.ACTIVE,
-      terminationReason: null,
-      acceptedRulesAr: input.acceptedRulesAr,
-      acceptedRulesEn: input.acceptedRulesEn,
-    });
-
-    user.signedContract = signedContract;
-    return this.userRepository.save(user);
-  }
-  async adminSignContract(
-    adminId: string,
-    input: AdminSignContractInput,
-    language: LanguageCode = 'en',
-  ): Promise<User> {
-    const admin = await this.adminRepository.findOne({
-      where: { id: adminId, permissionType: AdminPermissionType.SUPER_ADMIN },
-    });
-
-    if (!admin) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.ADMIN_NOT_FOUND],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    const user = await this.userRepository.findOne({
-      where: { id: input.userId },
-    });
-
-    if (!user) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_NOT_FOUND],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    // Check if user is a provider
-    if (user.role !== UserRole.PROVIDER) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.NOT_A_PROVIDER],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    // Check if contract is already signed
-    if (!user.signedContract) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.CONTRACT_NOT_SIGNED],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    if (!admin.platformManagerSignature) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[
-          USER_ERROR_CODES.PLATFORM_MANAGER_SIGNATURE_NOT_FOUND
-        ],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    // Create signed contract object
-    const updatedContract = await this.signedContractService.update(
-      user.signedContract.id,
-      {
-        platformManagerName: admin.fullName,
-        platformManagerSignature: admin.platformManagerSignature,
-      },
-    );
-
-    user.signedContract = updatedContract;
-    return this.userRepository.save(user);
-  }
-
-  async terminateContract(
-    userId: string,
-    terminationReason: string,
-    language: LanguageCode = 'en',
-  ): Promise<User> {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_NOT_FOUND],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    // Check if user is a provider
-    if (user.role !== UserRole.PROVIDER) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.NOT_A_PROVIDER],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    // Check if contract exists
-    if (!user.signedContract) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.CONTRACT_NOT_FOUND],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    // Check if contract is already terminated or expired
-    if (
-      user.signedContract.status === SignedContractStatus.TERMINATED_BY_USER ||
-      user.signedContract.status === SignedContractStatus.TERMINATED_BY_ADMIN ||
-      user.signedContract.status === SignedContractStatus.EXPIRED
-    ) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.CONTRACT_ALREADY_TERMINATED],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    // Terminate contract
-    const updatedContract = await this.signedContractService.update(
-      user.signedContract.id,
-      {
-        status: SignedContractStatus.TERMINATED_BY_USER,
-        terminationReason,
-      },
-    );
-
-    user.signedContract = updatedContract;
-    return this.userRepository.save(user);
-  }
-  async adminTerminateContract(
-    adminId: string,
-    userId: string,
-    terminationReason: string,
-    language: LanguageCode = 'en',
-  ): Promise<User> {
-    const admin = await this.adminRepository.findOne({
-      where: { id: adminId },
-    });
-
-    if (!admin) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.ADMIN_NOT_FOUND],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    if (admin.permissionType !== AdminPermissionType.SUPER_ADMIN) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.NOT_AUTHORIZED],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
-
-    if (!user) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_NOT_FOUND],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    // Check if user is a provider
-    if (user.role !== UserRole.PROVIDER) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.NOT_A_PROVIDER],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    // Check if contract exists
-    if (!user.signedContract) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.CONTRACT_NOT_FOUND],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    // Check if contract is already terminated or expired
-    if (
-      user.signedContract.status === SignedContractStatus.TERMINATED_BY_USER ||
-      user.signedContract.status === SignedContractStatus.TERMINATED_BY_ADMIN ||
-      user.signedContract.status === SignedContractStatus.EXPIRED
-    ) {
-      const message = I18nService.translate(
-        USER_ERROR_MESSAGES[USER_ERROR_CODES.CONTRACT_ALREADY_TERMINATED],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    // Terminate contract
-    const updatedContract = await this.signedContractService.update(
-      user.signedContract.id,
-      {
-        status: SignedContractStatus.TERMINATED_BY_ADMIN,
-        terminationReason,
-      },
-    );
-
-    user.signedContract = updatedContract;
     return this.userRepository.save(user);
   }
 }

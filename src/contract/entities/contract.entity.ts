@@ -11,6 +11,7 @@ import {
 import { ObjectType, Field, ID, Float, Int } from '@nestjs/graphql';
 import { Conversation } from '../../conversation/entities/conversation.entity';
 import { User } from '../../user/entities/user.entity';
+import { Provider } from '../../provider/entities/provider.entity';
 import { ContractStatus } from '../enums/contract-status.enum';
 import { ContractSignature } from './contract-signature.entity';
 
@@ -52,10 +53,10 @@ export class Contract {
   @Column({ type: 'uuid' })
   providerId: string;
 
-  @Field(() => User)
-  @ManyToOne(() => User)
+  @Field(() => Provider)
+  @ManyToOne(() => Provider)
   @JoinColumn({ name: 'providerId' })
-  provider: User;
+  provider: Provider;
 
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 10, scale: 2 })

@@ -10,9 +10,7 @@ import { Listing } from '../listing/entities/listing.entity';
 import { User } from '../user/entities/user.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Conversation, Message, Listing, User]),
-  ],
+  imports: [TypeOrmModule.forFeature([Conversation, Message, Listing, User])],
   providers: [
     ConversationService,
     MessageService,

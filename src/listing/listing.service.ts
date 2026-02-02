@@ -9,8 +9,7 @@ import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Category } from '../category/entities/category.entity';
 import { City } from '../city/entities/city.entity';
-import { User } from '../user/entities/user.entity';
-import { UserRole } from '../user/enums/user-role.enum';
+import { Provider } from '../provider/entities/provider.entity';
 import { CreateListingInput } from './dto/create-listing.input';
 import { ListingPaginationInput } from './dto/listing-pagination.input';
 import { PaginatedListingResponse } from './dto/paginated-listings.response';
@@ -25,8 +24,8 @@ export class ListingService {
   constructor(
     @InjectRepository(Listing)
     private readonly listingRepository: Repository<Listing>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
+    @InjectRepository(Provider)
+    private readonly providerRepository: Repository<Provider>,
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(City)
@@ -35,21 +34,16 @@ export class ListingService {
 
   async create(
     createListingInput: CreateListingInput,
-    userId: string,
+    providerId: string,
     language: LanguageCode = 'en',
   ): Promise<Listing> {
-    // Check if user is a provider
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
+    // Check if provider is a provider
+    const provider = await this.providerRepository.findOne({
+      where: { id: providerId },
+    });
+    if (!provider) {
       throw new I18nNotFoundException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_NOT_FOUND],
-        language,
-      );
-    }
-
-    if (user.role !== UserRole.PROVIDER) {
-      throw new I18nBadRequestException(
-        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.PROVIDER_ONLY],
         language,
       );
     }
@@ -78,7 +72,7 @@ export class ListingService {
     // Create listing
     const listing = this.listingRepository.create({
       ...createListingInput,
-      userId,
+      providerId,
       status: createListingInput.status || ListingStatus.ACTIVE,
       story: createListingInput.story,
       photos: createListingInput.photos,
@@ -179,8 +173,8 @@ export class ListingService {
     return listing;
   }
 
-  async findByUser(
-    userId: string,
+  async findByProvider(
+    providerId: string,
     paginationInput: ListingPaginationInput,
   ): Promise<PaginatedListingResponse> {
     const page = paginationInput.page ?? 1;
@@ -194,7 +188,7 @@ export class ListingService {
 
     let query = this.listingRepository.createQueryBuilder('listing');
 
-    query = query.where('listing.userId = :userId', { userId });
+    query = query.where('listing.providerId = :providerId', { providerId });
 
     if (search) {
       query = query.andWhere('listing.name ILIKE :search', {
@@ -228,7 +222,7 @@ export class ListingService {
   async update(
     id: string,
     updateListingInput: UpdateListingInput,
-    userId: string,
+    providerId: string,
     language: LanguageCode = 'en',
   ): Promise<Listing> {
     // Find listing
@@ -241,7 +235,7 @@ export class ListingService {
     }
 
     // Check authorization
-    if (listing.userId !== userId) {
+    if (listing.providerId !== providerId) {
       throw new I18nBadRequestException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.UNAUTHORIZED],
         language,
@@ -285,7 +279,7 @@ export class ListingService {
   async remove(
     id: string,
     language: LanguageCode = 'en',
-    userId?: string,
+    providerId?: string,
     adminId?: string,
   ): Promise<{ success: boolean; message: string }> {
     const listing = await this.listingRepository.findOne({ where: { id } });
@@ -298,7 +292,7 @@ export class ListingService {
     }
 
     // Check authorization
-    if (listing.userId !== userId && !adminId) {
+    if (listing.providerId !== providerId && !adminId) {
       throw new I18nBadRequestException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.UNAUTHORIZED],
         language,

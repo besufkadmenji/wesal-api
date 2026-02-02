@@ -2,7 +2,7 @@ import { Field, InputType } from '@nestjs/graphql';
 import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 @InputType()
-export class LoginInput {
+export class LoginProviderInput {
   @Field()
   @IsNotEmpty({
     message: 'Email or phone number is required',

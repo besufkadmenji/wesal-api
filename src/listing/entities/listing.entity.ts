@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { Category } from '../../category/entities/category.entity';
 import { City } from '../../city/entities/city.entity';
-import { User } from '../../user/entities/user.entity';
+import { Provider } from '../../provider/entities/provider.entity';
 import { ListingStatus, ListingType } from '../enums/listing.enum';
 import { ListingMedia } from './listing-media';
 
@@ -23,12 +23,12 @@ export class Listing {
 
   @Field()
   @Column('uuid')
-  userId: string;
+  providerId: string;
 
-  @Field(() => User, { nullable: true })
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'userId' })
-  provider: User;
+  @Field(() => Provider, { nullable: true })
+  @ManyToOne(() => Provider, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'providerId' })
+  provider: Provider;
 
   @Field()
   @Column('uuid')

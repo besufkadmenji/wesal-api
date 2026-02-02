@@ -1,19 +1,14 @@
 import { Field, InputType } from '@nestjs/graphql';
 import {
-  IsArray,
   IsEmail,
-  IsEnum,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsPhoneNumber,
   IsString,
   IsUUID,
   Matches,
-  MaxLength,
   MinLength,
 } from 'class-validator';
-import { UserRole } from '../../user/enums/user-role.enum';
 
 @InputType()
 export class RegisterInput {
@@ -46,15 +41,10 @@ export class RegisterInput {
   @IsPhoneNumber()
   phone: string;
 
-  @Field(() => UserRole)
-  @IsEnum(UserRole)
-  role: UserRole;
-
   @Field({ nullable: true })
   @IsOptional()
   avatarFilename?: string;
 
-  // Provider-specific fields
   @Field({ nullable: true })
   @IsOptional()
   @IsUUID()
@@ -62,54 +52,6 @@ export class RegisterInput {
 
   @Field({ nullable: true })
   @IsOptional()
-  @IsString()
-  address?: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsNumber()
-  latitude?: number;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsNumber()
-  longitude?: number;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  bankName?: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  ibanNumber?: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsString()
-  @MaxLength(500)
-  commercialName?: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsString()
-  commercialRegistrationNumber?: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsString()
-  commercialRegistrationFilename?: string;
-
-  @Field(() => [String], { nullable: true })
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  categoryIds?: string[];
-
-  @Field({ nullable: true })
-  @IsOptional()
-  withAbsher?: boolean;
+  @IsUUID()
+  countryId?: string;
 }

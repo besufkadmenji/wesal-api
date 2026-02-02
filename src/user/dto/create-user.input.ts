@@ -1,16 +1,13 @@
 import { Field, InputType } from '@nestjs/graphql';
 import {
-  IsArray,
   IsEmail,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
-  IsUUID,
+  IsString,
   Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { UserRole } from '../enums/user-role.enum';
 import { USER_ERROR_CODES } from '../errors/user.error-codes';
 
 @InputType()
@@ -50,10 +47,6 @@ export class CreateUserInput {
   })
   name: string;
 
-  @Field(() => String, { nullable: true })
-  @IsOptional()
-  commercialName?: string | null;
-
   @Field({ nullable: true })
   @IsOptional()
   @Matches(/^\+?[1-9]\d{1,3}$/, {
@@ -63,78 +56,18 @@ export class CreateUserInput {
 
   @Field({ nullable: true })
   @IsOptional()
-  @MaxLength(500, {
-    message: USER_ERROR_CODES.INVALID_AVATAR_URL_LENGTH,
-  })
-  avatarFilename?: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @MaxLength(500, {
-    message: USER_ERROR_CODES.INVALID_AVATAR_URL_LENGTH,
-  })
-  commercialRegistrationFilename?: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsUUID('4', { message: USER_ERROR_CODES.INVALID_COUNTRY_ID })
-  countryId?: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsUUID('4', { message: USER_ERROR_CODES.INVALID_CITY_ID })
-  cityId?: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
   @MaxLength(10, {
     message: USER_ERROR_CODES.INVALID_LANGUAGE_CODE,
   })
   languageCode?: string;
 
-  // Provider-specific fields
   @Field({ nullable: true })
   @IsOptional()
-  address?: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsNumber()
-  latitude?: number;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsNumber()
-  longitude?: number;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @MaxLength(255, {
-    message: 'Bank name must not exceed 255 characters',
-  })
+  @IsString()
   bankName?: string;
 
   @Field({ nullable: true })
   @IsOptional()
-  @Matches(/^[A-Z]{2}\d{2}[A-Z0-9]{1,30}$/, {
-    message: 'Invalid IBAN format',
-  })
+  @IsString()
   ibanNumber?: string;
-
-  @Field(() => [String], { nullable: true })
-  @IsOptional()
-  @IsArray()
-  @IsUUID('4', { each: true })
-  categoryIds?: string[];
-
-  @Field({ nullable: true })
-  @IsOptional()
-  commercialRegistrationNumber?: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  withAbsher?: boolean;
-
-  @Field(() => UserRole)
-  role: UserRole;
 }

@@ -1,9 +1,9 @@
 import { UseGuards } from '@nestjs/common';
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CurrentAdmin } from 'src/admin/decorators/current-admin.decorator';
+import { CurrentProvider } from 'src/auth/decorators/current-provider.decorator';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { CreateListingInput } from './dto/create-listing.input';
@@ -22,10 +22,14 @@ export class ListingResolver {
   @UseGuards(JwtAuthGuard)
   async createListing(
     @Args('createListingInput') createListingInput: CreateListingInput,
-    @CurrentUser() user: JwtPayload,
+    @CurrentProvider() provider: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.listingService.create(createListingInput, user.sub, language);
+    return this.listingService.create(
+      createListingInput,
+      provider.sub,
+      language,
+    );
   }
 
   @Query(() => PaginatedListingResponse, { name: 'listings' })
@@ -45,24 +49,24 @@ export class ListingResolver {
 
   @Query(() => PaginatedListingResponse, { name: 'myListings' })
   @UseGuards(JwtAuthGuard)
-  async findByUser(
-    @CurrentUser() user: JwtPayload,
+  async findByProvider(
+    @CurrentProvider() provider: JwtPayload,
     @Args('paginationInput') paginationInput: ListingPaginationInput,
   ) {
-    return this.listingService.findByUser(user.sub, paginationInput);
+    return this.listingService.findByProvider(provider.sub, paginationInput);
   }
 
   @Mutation(() => Listing)
   @UseGuards(JwtAuthGuard)
   async updateListing(
     @Args('updateListingInput') updateListingInput: UpdateListingInput,
-    @CurrentUser() user: JwtPayload,
+    @CurrentProvider() provider: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ) {
     return this.listingService.update(
       updateListingInput.id,
       updateListingInput,
-      user.sub,
+      provider.sub,
       language,
     );
   }
@@ -71,11 +75,11 @@ export class ListingResolver {
   @UseGuards(JwtAuthGuard)
   async removeListing(
     @Args('id', { type: () => ID }) id: string,
-    @CurrentUser() user: JwtPayload,
+    @CurrentProvider() provider: JwtPayload,
     @CurrentAdmin() admin: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.listingService.remove(id, language, user?.sub, admin.sub);
+    return this.listingService.remove(id, language, provider?.sub, admin.sub);
   }
 
   @Mutation(() => Listing)

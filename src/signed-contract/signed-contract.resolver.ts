@@ -18,8 +18,8 @@ export class SignedContractResolver {
   }
 
   @Query(() => SignedContract, { nullable: true })
-  async signedContractByUserId(@Args('userId') userId: string) {
-    return this.signedContractService.findByUserId(userId);
+  async signedContractByProviderId(@Args('providerId') providerId: string) {
+    return this.signedContractService.findByProviderId(providerId);
   }
 
   @Query(() => SignedContract, { nullable: true })

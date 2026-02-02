@@ -1,6 +1,5 @@
 import { UseGuards } from '@nestjs/common';
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
-import { CurrentAdmin } from 'src/admin/decorators/current-admin.decorator';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -9,10 +8,6 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { DeactivateUserInput } from './dto/deactivate-user.input';
 import { DeleteUserInput } from './dto/delete-user.input';
 import { PaginatedUserResponse } from './dto/paginated-user.response';
-import {
-  AdminSignContractInput,
-  SignContractInput,
-} from './dto/sign-contract.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UserPaginationInput } from './dto/user-pagination.input';
 import { User } from './entities/user.entity';
@@ -97,59 +92,5 @@ export class UserResolver {
     @GetLanguage() language: LanguageCode,
   ) {
     return this.userService.deactivate(id, input.reason, language);
-  }
-
-  @Mutation(() => User, { description: 'Sign contract as service provider' })
-  @UseGuards(JwtAuthGuard)
-  signContract(
-    @Args('input') input: SignContractInput,
-    @CurrentUser() user: JwtPayload,
-    @GetLanguage() language: LanguageCode,
-  ) {
-    return this.userService.signContract(user.sub, input, language);
-  }
-
-  @Mutation(() => User, { description: 'Sign contract as service provider' })
-  @UseGuards(JwtAuthGuard)
-  adminSignContract(
-    @Args('input') input: AdminSignContractInput,
-    @CurrentAdmin() admin: JwtPayload,
-    @GetLanguage() language: LanguageCode,
-  ) {
-    return this.userService.adminSignContract(admin.sub, input, language);
-  }
-
-  @Mutation(() => User, {
-    description: 'Terminate contract as service provider',
-  })
-  @UseGuards(JwtAuthGuard)
-  terminateContract(
-    @CurrentUser() user: JwtPayload,
-    @GetLanguage() language: LanguageCode,
-    @Args('terminationReason') terminationReason: string,
-  ) {
-    return this.userService.terminateContract(
-      user.sub,
-      terminationReason,
-      language,
-    );
-  }
-
-  @Mutation(() => User, {
-    description: 'Terminate contract as service provider',
-  })
-  @UseGuards(JwtAuthGuard)
-  adminTerminateContract(
-    @CurrentAdmin() admin: JwtPayload,
-    @GetLanguage() language: LanguageCode,
-    @Args('userId') userId: string,
-    @Args('terminationReason') terminationReason: string,
-  ) {
-    return this.userService.adminTerminateContract(
-      admin.sub,
-      userId,
-      terminationReason,
-      language,
-    );
   }
 }

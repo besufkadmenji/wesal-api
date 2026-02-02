@@ -10,7 +10,6 @@ import { I18nService } from 'lib/i18n/i18n.service';
 import { LanguageCode } from 'lib/i18n/language.types';
 import { SmsService } from 'lib/sms/sms.service';
 import { User } from 'src/user/entities/user.entity';
-import { UserRole } from 'src/user/enums/user-role.enum';
 import { UserService } from 'src/user/user.service';
 import { AuthResponse } from './dto/auth-response';
 import { ChangeEmailInput } from './dto/change-email.input';
@@ -31,7 +30,6 @@ import { VerifyPasswordResetOtpResponse } from './dto/verify-password-reset-otp.
 import { Otp } from './entities/otp.entity';
 import { OtpType } from './enums/otp-type.enum';
 import { AUTH_ERROR_MESSAGES } from './errors/auth.error-messages';
-import { UserStatus } from 'src/user/enums/user-status.enum';
 
 @Injectable()
 export class AuthService {
@@ -50,43 +48,7 @@ export class AuthService {
     registerInput: RegisterInput,
     language: LanguageCode = 'en',
   ): Promise<User> {
-    // Validate that providers provide required fields
-    if (registerInput.role === UserRole.PROVIDER) {
-      if (!registerInput.commercialName) {
-        const message = I18nService.translate(
-          AUTH_ERROR_MESSAGES['COMMERCIAL_NAME_REQUIRED'],
-          language,
-        );
-        throw new I18nBadRequestException(
-          { en: message, ar: message },
-          language,
-        );
-      }
-
-      if (!registerInput.commercialRegistrationNumber) {
-        const message = I18nService.translate(
-          AUTH_ERROR_MESSAGES['REGISTRATION_NUMBER_REQUIRED'],
-          language,
-        );
-        throw new I18nBadRequestException(
-          { en: message, ar: message },
-          language,
-        );
-      }
-
-      if (!registerInput.commercialRegistrationFilename) {
-        const message = I18nService.translate(
-          AUTH_ERROR_MESSAGES['COMMERCIAL_REGISTRATION_FILE_REQUIRED'],
-          language,
-        );
-        throw new I18nBadRequestException(
-          { en: message, ar: message },
-          language,
-        );
-      }
-    }
-
-    // Create user using UserService (handles validation, hashing, and categories)
+    // Create user using UserService (handles validation and hashing)
     const savedUser = await this.userService.create(registerInput, language);
 
     // Send verification OTPs
@@ -114,7 +76,6 @@ export class AuthService {
       .where('user.email = :identifier OR user.phone = :identifier', {
         identifier: loginInput.emailOrPhone,
       })
-      .andWhere('user.role = :role', { role: loginInput.role })
       .getOne();
 
     if (!user) {
@@ -147,12 +108,8 @@ export class AuthService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    if (user.role === UserRole.PROVIDER && user.status !== UserStatus.ACTIVE) {
-      return { accessToken: '', user };
-    }
-
     // Generate JWT token
-    const payload = { sub: user.id, email: user.email, role: user.role };
+    const payload = { sub: user.id, email: user.email, type: 'user' };
     const accessToken: string = this.jwtService.sign(payload);
 
     return { accessToken, user };

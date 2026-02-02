@@ -8,7 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { User } from '../user/entities/user.entity';
+import { Provider } from '../provider/entities/provider.entity';
 import { SignedContractStatus } from '../user/enums/contract.enum';
 
 @ObjectType()
@@ -27,16 +27,17 @@ export class SignedContract {
   })
   publicId: number | null;
 
-  @Field()
-  @Column({ type: 'uuid' })
-  userId: string;
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  providerId: string | null;
 
-  @Field(() => User, { nullable: true })
-  @OneToOne(() => User, (user) => user.signedContract, {
+  @Field(() => Provider, { nullable: true })
+  @OneToOne(() => Provider, (provider) => provider.signedContract, {
     onDelete: 'CASCADE',
+    nullable: true,
   })
-  @JoinColumn({ name: 'userId' })
-  user: User;
+  @JoinColumn({ name: 'providerId' })
+  provider?: Provider | null;
 
   @Field()
   @Column({ type: 'varchar', length: 500 })
