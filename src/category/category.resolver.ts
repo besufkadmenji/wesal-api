@@ -1,3 +1,4 @@
+import { UseGuards } from '@nestjs/common';
 import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { GetLanguage } from '../../lib/i18n';
@@ -8,6 +9,9 @@ import { CreateCategoryInput } from './dto/create-category.input';
 import { PaginatedCategoryResponse } from './dto/paginated-category.response';
 import { UpdateCategoryInput } from './dto/update-category.input';
 import { Category } from './entities/category.entity';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Resolver(() => Category)
 export class CategoryResolver {
@@ -21,18 +25,22 @@ export class CategoryResolver {
   }
 
   @Query(() => PaginatedCategoryResponse, { name: 'categories' })
+  @UseGuards(OptionalJwtAuthGuard)
   async findAll(
     @Args('input', { nullable: true }) input?: CategoryPaginationInput,
+    @CurrentUser() user?: JwtPayload,
   ): Promise<IPaginatedType<Category>> {
-    return this.categoryService.findAll(input ?? {});
+    return this.categoryService.findAll(input ?? {}, user?.sub);
   }
 
   @Query(() => Category, { name: 'category' })
+  @UseGuards(OptionalJwtAuthGuard)
   async findOne(
     @Args('id') id: string,
     @GetLanguage() language: LanguageCode,
+    @CurrentUser() user?: JwtPayload,
   ): Promise<Category> {
-    return this.categoryService.findOne(id, language);
+    return this.categoryService.findOne(id, language, user?.sub);
   }
 
   @Mutation(() => Category)

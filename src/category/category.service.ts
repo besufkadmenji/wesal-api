@@ -10,12 +10,16 @@ import { CreateCategoryInput } from './dto/create-category.input';
 import { UpdateCategoryInput } from './dto/update-category.input';
 import { Category } from './entities/category.entity';
 import { CATEGORY_ERROR_MESSAGES } from './errors/category.error-messages';
+import { TrackingService } from '../tracking/tracking.service';
+import { TargetType } from '../tracking/enums/target-type.enum';
+import { ActionType } from '../tracking/enums/action-type.enum';
 
 @Injectable()
 export class CategoryService {
   constructor(
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
+    private readonly trackingService: TrackingService,
   ) {}
 
   async create(createCategoryInput: CreateCategoryInput): Promise<Category> {
@@ -25,6 +29,7 @@ export class CategoryService {
 
   async findAll(
     paginationInput: CategoryPaginationInput,
+    userId?: string,
   ): Promise<IPaginatedType<Category>> {
     const { page = 1, limit = 10, search } = paginationInput;
     const skip = (page - 1) * limit;
@@ -40,11 +45,51 @@ export class CategoryService {
       );
     }
 
+    // If user is logged in, rank by their popular categories
+    if (userId) {
+      const popularCategories = await this.trackingService.getPopularCategories(
+        userId,
+        50,
+      );
+      const popularIds = popularCategories.map((p) => p.categoryId);
+
+      if (popularIds.length > 0) {
+        // Use CASE WHEN to prioritize popular categories
+        queryBuilder.addSelect(
+          `CASE WHEN category.id IN (:...popularIds) THEN 0 ELSE 1 END`,
+          'popularity_rank',
+        );
+        queryBuilder.setParameter('popularIds', popularIds);
+        queryBuilder.orderBy('popularity_rank', 'ASC');
+        queryBuilder.addOrderBy('category.createdAt', 'DESC');
+      } else {
+        queryBuilder.orderBy('category.createdAt', 'DESC');
+      }
+    } else {
+      queryBuilder.orderBy('category.createdAt', 'DESC');
+    }
+
     const [items, total] = await queryBuilder
       .skip(skip)
       .take(limit)
-      .orderBy('category.createdAt', 'DESC')
       .getManyAndCount();
+
+    // Track views for logged-in users
+    if (userId && items.length > 0) {
+      // Track views asynchronously without blocking the response
+      Promise.all(
+        items.map((item) =>
+          this.trackingService.trackAction(userId, {
+            targetType: TargetType.CATEGORY,
+            targetId: item.id,
+            actionType: ActionType.VIEW,
+          }),
+        ),
+      ).catch((err) => {
+        // Log error but don't fail the request
+        console.error('Failed to track category views:', err);
+      });
+    }
 
     const totalPages = Math.ceil(total / limit);
 
@@ -61,7 +106,11 @@ export class CategoryService {
     };
   }
 
-  async findOne(id: string, language: LanguageCode = 'en'): Promise<Category> {
+  async findOne(
+    id: string,
+    language: LanguageCode = 'en',
+    userId?: string,
+  ): Promise<Category> {
     const category = await this.categoryRepository.findOne({
       where: { id },
     });
@@ -72,6 +121,19 @@ export class CategoryService {
         language,
       );
       throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    // Track view for logged-in users
+    if (userId) {
+      this.trackingService
+        .trackAction(userId, {
+          targetType: TargetType.CATEGORY,
+          targetId: id,
+          actionType: ActionType.CLICK,
+        })
+        .catch((err) => {
+          console.error('Failed to track category view:', err);
+        });
     }
 
     return category;

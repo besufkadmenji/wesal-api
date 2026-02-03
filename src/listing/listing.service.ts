@@ -18,6 +18,9 @@ import { Listing } from './entities/listing.entity';
 import { ListingStatus } from './enums/listing.enum';
 import { LISTING_ERROR_CODES } from './errors/listing.error-codes';
 import { LISTING_ERROR_MESSAGES } from './errors/listing.error-messages';
+import { TrackingService } from '../tracking/tracking.service';
+import { TargetType } from '../tracking/enums/target-type.enum';
+import { ActionType } from '../tracking/enums/action-type.enum';
 
 @Injectable()
 export class ListingService {
@@ -30,6 +33,7 @@ export class ListingService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(City)
     private readonly cityRepository: Repository<City>,
+    private readonly trackingService: TrackingService,
   ) {}
 
   async create(
@@ -84,6 +88,7 @@ export class ListingService {
 
   async findAll(
     paginationInput: ListingPaginationInput,
+    userId?: string,
   ): Promise<PaginatedListingResponse> {
     const page = paginationInput.page ?? 1;
     const limit = paginationInput.limit ?? 10;
@@ -132,17 +137,57 @@ export class ListingService {
       query = query.andWhere('listing.price <= :maxPrice', { maxPrice });
     }
 
-    // Load relations and apply sorting
+    // Load relations
     query = query
       .leftJoinAndSelect('listing.provider', 'provider')
       .leftJoinAndSelect('listing.category', 'category')
-      .leftJoinAndSelect('listing.city', 'city')
-      .orderBy(`listing.${sortBy}`, sortOrder)
-      .skip(skip)
-      .take(limit);
+      .leftJoinAndSelect('listing.city', 'city');
+
+    // If user is logged in, rank by their popular listings
+    if (userId) {
+      const popularListings = await this.trackingService.getPopularListings(
+        userId,
+        100,
+      );
+      const popularIds = popularListings.map((p) => p.listingId);
+
+      if (popularIds.length > 0) {
+        // Use CASE WHEN to prioritize popular listings
+        query.addSelect(
+          `CASE WHEN listing.id IN (:...popularIds) THEN 0 ELSE 1 END`,
+          'popularity_rank',
+        );
+        query.setParameter('popularIds', popularIds);
+        query.orderBy('popularity_rank', 'ASC');
+        query.addOrderBy(`listing.${sortBy}`, sortOrder);
+      } else {
+        query.orderBy(`listing.${sortBy}`, sortOrder);
+      }
+    } else {
+      query.orderBy(`listing.${sortBy}`, sortOrder);
+    }
+
+    query.skip(skip).take(limit);
 
     const [items, total] = await query.getManyAndCount();
     const totalPages = Math.ceil(total / limit);
+
+    // Track views for logged-in users
+    if (userId && items.length > 0) {
+      // Track views asynchronously without blocking the response
+      Promise.all(
+        items.map((item) =>
+          this.trackingService.trackAction(userId, {
+            targetType: TargetType.LISTING,
+            targetId: item.id,
+            actionType: ActionType.VIEW,
+          }),
+        ),
+      ).catch((err) => {
+        // Log error but don't fail the request
+        console.error('Failed to track listing views:', err);
+      });
+    }
 
     return {
       items,
@@ -157,7 +202,11 @@ export class ListingService {
     };
   }
 
-  async findOne(id: string, language: LanguageCode = 'en'): Promise<Listing> {
+  async findOne(
+    id: string,
+    language: LanguageCode = 'en',
+    userId?: string,
+  ): Promise<Listing> {
     const listing = await this.listingRepository.findOne({
       where: { id },
       relations: ['provider', 'category', 'city'],
@@ -168,6 +217,19 @@ export class ListingService {
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_NOT_FOUND],
         language,
       );
+    }
+
+    // Track view for logged-in users
+    if (userId) {
+      this.trackingService
+        .trackAction(userId, {
+          targetType: TargetType.LISTING,
+          targetId: id,
+          actionType: ActionType.CLICK,
+        })
+        .catch((err) => {
+          console.error('Failed to track listing view:', err);
+        });
     }
 
     return listing;

@@ -2,9 +2,11 @@ import { UseGuards } from '@nestjs/common';
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CurrentAdmin } from 'src/admin/decorators/current-admin.decorator';
 import { CurrentProvider } from 'src/auth/decorators/current-provider.decorator';
+import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { CreateListingInput } from './dto/create-listing.input';
 import { ListingPaginationInput } from './dto/listing-pagination.input';
@@ -33,18 +35,22 @@ export class ListingResolver {
   }
 
   @Query(() => PaginatedListingResponse, { name: 'listings' })
+  @UseGuards(OptionalJwtAuthGuard)
   async findAll(
     @Args('paginationInput') paginationInput: ListingPaginationInput,
+    @CurrentUser() user?: JwtPayload,
   ) {
-    return this.listingService.findAll(paginationInput);
+    return this.listingService.findAll(paginationInput, user?.sub);
   }
 
   @Query(() => Listing, { name: 'listing', nullable: true })
+  @UseGuards(OptionalJwtAuthGuard)
   async findOne(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
+    @CurrentUser() user?: JwtPayload,
   ) {
-    return this.listingService.findOne(id, language);
+    return this.listingService.findOne(id, language, user?.sub);
   }
 
   @Query(() => PaginatedListingResponse, { name: 'myListings' })

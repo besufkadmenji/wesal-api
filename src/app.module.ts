@@ -30,6 +30,7 @@ import { ListingModule } from './listing/listing.module';
 import { BankModule } from './bank/bank.module';
 import { DeliveryCompanyModule } from './delivery-company/delivery-company.module';
 import { ProviderModule } from './provider/provider.module';
+import { TrackingModule } from './tracking/tracking.module';
 
 // Parse DATABASE_URL if available, otherwise use individual env variables
 function getDatabaseConfig() {
@@ -103,6 +104,7 @@ function getDatabaseConfig() {
     ListingModule,
     BankModule,
     DeliveryCompanyModule,
+    TrackingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

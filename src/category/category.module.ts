@@ -3,9 +3,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { CategoryService } from './category.service';
 import { CategoryResolver } from './category.resolver';
 import { Category } from './entities/category.entity';
+import { TrackingModule } from '../tracking/tracking.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Category])],
+  imports: [TypeOrmModule.forFeature([Category]), TrackingModule],
   providers: [CategoryResolver, CategoryService],
   exports: [CategoryService],
 })
