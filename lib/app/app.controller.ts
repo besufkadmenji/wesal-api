@@ -3,15 +3,15 @@ import {
   Controller,
   Get,
   NotFoundException,
+  Param,
   Post,
   Query,
+  Res,
   UploadedFile,
   UseInterceptors,
-  Param,
-  Res,
 } from '@nestjs/common';
-import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { FileUploadService } from '../file-upload';
 import { AppService } from './app.service';
 
@@ -107,17 +107,62 @@ export class AppController {
     try {
       const s3Key = decodeURIComponent(encodedPath);
 
-      const { buffer, contentType } =
-        await this.fileUploadService.getFileWithMetadata(s3Key);
+      // Check if it's a range request (for video streaming)
+      const rangeHeader = res.req.headers.range;
 
-      res.set({
-        'Content-Type': contentType ?? 'application/octet-stream',
-        'Content-Disposition': 'inline',
-        'Cache-Control': 'public, max-age=31536000, immutable',
-        'Content-Length': buffer.length,
-      });
+      if (rangeHeader) {
+        // Handle range request for video streaming
+        const { contentType, contentLength } =
+          await this.fileUploadService.getFileMetadata(s3Key);
 
-      return res.send(buffer);
+        // Parse range header (e.g., "bytes=0-1023")
+        const parts = rangeHeader.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : contentLength - 1;
+        const chunkSize = end - start + 1;
+
+        // Get file stream with range
+        const { stream } = await this.fileUploadService.getFileStream(s3Key, {
+          start,
+          end,
+        });
+
+        // Set partial content headers
+        res.status(206);
+        res.set({
+          'Content-Type': contentType ?? 'application/octet-stream',
+          'Content-Length': chunkSize,
+          'Content-Range': `bytes ${start}-${end}/${contentLength}`,
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+        });
+
+        // Pipe stream directly to response
+        return new Promise((resolve, reject) => {
+          stream.pipe(res);
+          stream.on('end', resolve);
+          stream.on('error', reject);
+        });
+      } else {
+        // Non-range request - stream entire file
+        const { stream, contentType, contentLength } =
+          await this.fileUploadService.getFileStream(s3Key);
+
+        res.set({
+          'Content-Type': contentType ?? 'application/octet-stream',
+          'Content-Disposition': 'inline',
+          'Content-Length': contentLength,
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'public, max-age=31536000, immutable',
+        });
+
+        // Pipe stream directly to response
+        return new Promise((resolve, reject) => {
+          stream.pipe(res);
+          stream.on('end', resolve);
+          stream.on('error', reject);
+        });
+      }
     } catch (error) {
       if (error instanceof Error && error.message.includes('NoSuchKey')) {
         throw new NotFoundException('File not found');

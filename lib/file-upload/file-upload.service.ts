@@ -151,6 +151,61 @@ export class FileUploadService {
     }
   }
 
+  async getFileStream(
+    s3Key: string,
+    range?: { start: number; end: number },
+  ): Promise<{
+    stream: NodeJS.ReadableStream;
+    contentType?: string;
+    contentLength: number;
+    contentRange?: string;
+  }> {
+    const getCommand = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: s3Key,
+      ...(range && { Range: `bytes=${range.start}-${range.end}` }),
+    });
+
+    try {
+      const response = await this.s3Client.send(getCommand);
+
+      if (!response.Body) {
+        throw new Error('File body is empty');
+      }
+
+      return {
+        stream: response.Body as unknown as NodeJS.ReadableStream,
+        contentType: response.ContentType,
+        contentLength: response.ContentLength ?? 0,
+        contentRange: response.ContentRange,
+      };
+    } catch (error) {
+      console.error('Error fetching file stream from S3:', error);
+      throw error;
+    }
+  }
+
+  async getFileMetadata(
+    s3Key: string,
+  ): Promise<{ contentType?: string; contentLength: number }> {
+    const getCommand = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: s3Key,
+    });
+
+    try {
+      const response = await this.s3Client.send(getCommand);
+
+      return {
+        contentType: response.ContentType,
+        contentLength: response.ContentLength ?? 0,
+      };
+    } catch (error) {
+      console.error('Error fetching file metadata from S3:', error);
+      throw error;
+    }
+  }
+
   getUploadDir(): string {
     return `s3://${this.bucket}`;
   }
