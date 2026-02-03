@@ -50,7 +50,7 @@ export class TrackingService {
   }
 
   /**
-   * Get most popular categories based on views/clicks for a user
+   * Get most popular categories based on clicks for a user
    * Returns category IDs sorted by popularity (count)
    */
   async getPopularCategories(
@@ -65,6 +65,9 @@ export class TrackingService {
       .andWhere('tracking.targetType = :targetType', {
         targetType: TargetType.CATEGORY,
       })
+      .andWhere('tracking.actionType = :actionType', {
+        actionType: ActionType.CLICK,
+      })
       .groupBy('tracking.targetId')
       .orderBy('count', 'DESC')
       .limit(limit)
@@ -77,7 +80,7 @@ export class TrackingService {
   }
 
   /**
-   * Get most popular listings based on views/clicks for a user
+   * Get most popular listings based on clicks for a user
    * Returns listing IDs sorted by popularity (count)
    */
   async getPopularListings(
@@ -91,6 +94,9 @@ export class TrackingService {
       .where('tracking.userId = :userId', { userId })
       .andWhere('tracking.targetType = :targetType', {
         targetType: TargetType.LISTING,
+      })
+      .andWhere('tracking.actionType = :actionType', {
+        actionType: ActionType.CLICK,
       })
       .groupBy('tracking.targetId')
       .orderBy('count', 'DESC')
