@@ -15,16 +15,35 @@ export class TrackingService {
 
   /**
    * Track a user action (view or click) on a category or listing
+   * Uses upsert to increment count instead of creating duplicate rows
    */
   async trackAction(
     userId: string,
     input: TrackActionInput,
   ): Promise<Tracking> {
+    // Try to find existing tracking record
+    const existing = await this.trackingRepository.findOne({
+      where: {
+        userId,
+        targetType: input.targetType,
+        targetId: input.targetId,
+        actionType: input.actionType,
+      },
+    });
+
+    if (existing) {
+      // Increment count and update timestamp
+      existing.count += 1;
+      return this.trackingRepository.save(existing);
+    }
+
+    // Create new tracking record
     const tracking = this.trackingRepository.create({
       userId,
       targetType: input.targetType,
       targetId: input.targetId,
       actionType: input.actionType,
+      count: 1,
     });
 
     return this.trackingRepository.save(tracking);
@@ -32,7 +51,7 @@ export class TrackingService {
 
   /**
    * Get most popular categories based on views/clicks for a user
-   * Returns category IDs sorted by popularity
+   * Returns category IDs sorted by popularity (count)
    */
   async getPopularCategories(
     userId: string,
@@ -41,7 +60,7 @@ export class TrackingService {
     const result = await this.trackingRepository
       .createQueryBuilder('tracking')
       .select('tracking.targetId', 'categoryId')
-      .addSelect('COUNT(*)', 'count')
+      .addSelect('SUM(tracking.count)', 'count')
       .where('tracking.userId = :userId', { userId })
       .andWhere('tracking.targetType = :targetType', {
         targetType: TargetType.CATEGORY,
@@ -59,7 +78,7 @@ export class TrackingService {
 
   /**
    * Get most popular listings based on views/clicks for a user
-   * Returns listing IDs sorted by popularity
+   * Returns listing IDs sorted by popularity (count)
    */
   async getPopularListings(
     userId: string,
@@ -68,7 +87,7 @@ export class TrackingService {
     const result = await this.trackingRepository
       .createQueryBuilder('tracking')
       .select('tracking.targetId', 'listingId')
-      .addSelect('COUNT(*)', 'count')
+      .addSelect('SUM(tracking.count)', 'count')
       .where('tracking.userId = :userId', { userId })
       .andWhere('tracking.targetType = :targetType', {
         targetType: TargetType.LISTING,
@@ -95,7 +114,7 @@ export class TrackingService {
     const query = this.trackingRepository
       .createQueryBuilder('tracking')
       .select('tracking.targetId', 'categoryId')
-      .addSelect('COUNT(*)', 'count')
+      .addSelect('SUM(tracking.count)', 'count')
       .where('tracking.targetType = :targetType', {
         targetType: TargetType.CATEGORY,
       });
@@ -127,7 +146,7 @@ export class TrackingService {
     const query = this.trackingRepository
       .createQueryBuilder('tracking')
       .select('tracking.targetId', 'listingId')
-      .addSelect('COUNT(*)', 'count')
+      .addSelect('SUM(tracking.count)', 'count')
       .where('tracking.targetType = :targetType', {
         targetType: TargetType.LISTING,
       });
@@ -159,21 +178,25 @@ export class TrackingService {
     clicks: number;
     uniqueUsers: number;
   }> {
-    const [views, clicks, uniqueUsers] = await Promise.all([
-      this.trackingRepository.count({
-        where: {
-          targetType,
-          targetId,
+    const [viewsResult, clicksResult, uniqueUsers] = await Promise.all([
+      this.trackingRepository
+        .createQueryBuilder('tracking')
+        .select('SUM(tracking.count)', 'total')
+        .where('tracking.targetType = :targetType', { targetType })
+        .andWhere('tracking.targetId = :targetId', { targetId })
+        .andWhere('tracking.actionType = :actionType', {
           actionType: ActionType.VIEW,
-        },
-      }),
-      this.trackingRepository.count({
-        where: {
-          targetType,
-          targetId,
+        })
+        .getRawOne<{ total: string }>(),
+      this.trackingRepository
+        .createQueryBuilder('tracking')
+        .select('SUM(tracking.count)', 'total')
+        .where('tracking.targetType = :targetType', { targetType })
+        .andWhere('tracking.targetId = :targetId', { targetId })
+        .andWhere('tracking.actionType = :actionType', {
           actionType: ActionType.CLICK,
-        },
-      }),
+        })
+        .getRawOne<{ total: string }>(),
       this.trackingRepository
         .createQueryBuilder('tracking')
         .select('COUNT(DISTINCT tracking.userId)', 'count')
@@ -183,6 +206,10 @@ export class TrackingService {
         .then((r) => parseInt(r?.count ?? '0')),
     ]);
 
-    return { views, clicks, uniqueUsers };
+    return {
+      views: parseInt(viewsResult?.total ?? '0'),
+      clicks: parseInt(clicksResult?.total ?? '0'),
+      uniqueUsers,
+    };
   }
 }

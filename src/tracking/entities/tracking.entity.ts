@@ -1,4 +1,4 @@
-import { Field, ID, ObjectType } from '@nestjs/graphql';
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
@@ -6,6 +6,7 @@ import {
   Index,
   ManyToOne,
   PrimaryGeneratedColumn,
+  UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { ActionType } from '../enums/action-type.enum';
@@ -13,9 +14,9 @@ import { TargetType } from '../enums/target-type.enum';
 
 @ObjectType()
 @Entity('tracking')
-@Index(['userId', 'targetType', 'targetId', 'actionType'])
+@Index(['userId', 'targetType', 'targetId', 'actionType'], { unique: true })
 @Index(['targetType', 'targetId', 'actionType'])
-@Index(['createdAt'])
+@Index(['userId', 'targetType', 'actionType'])
 export class Tracking {
   @Field(() => ID)
   @PrimaryGeneratedColumn('uuid')
@@ -50,7 +51,15 @@ export class Tracking {
   })
   actionType: ActionType;
 
+  @Field(() => Int)
+  @Column({ type: 'int', default: 1 })
+  count: number;
+
   @Field(() => Date)
   @CreateDateColumn()
   createdAt: Date;
+
+  @Field(() => Date)
+  @UpdateDateColumn()
+  updatedAt: Date;
 }
