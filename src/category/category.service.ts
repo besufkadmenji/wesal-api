@@ -47,12 +47,13 @@ export class CategoryService {
 
     // If user is logged in, rank by their popular categories
     if (userId) {
+      console.log('Fetching popular categories for user:', userId);
       const popularCategories = await this.trackingService.getPopularCategories(
         userId,
         50,
       );
       const popularIds = popularCategories.map((p) => p.categoryId);
-
+      console.log('Popular Category IDs:', popularIds);
       if (popularIds.length > 0) {
         // Use CASE WHEN to prioritize popular categories
         queryBuilder.addSelect(
