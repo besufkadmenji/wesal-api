@@ -145,21 +145,51 @@ ID,Name,Email,Phone,Created At
 
 ## Field Translations
 
-The service includes comprehensive field translations for common database fields:
+The service includes comprehensive field translations for 200+ common database fields:
 
 ### Sample Translations:
 | Field Name | Arabic (ar) | English (en) |
 |------------|-------------|--------------|
 | `id` | المعرف | ID |
+| `publicNumber` | الرقم العام | Public Number |
 | `name` | الاسم | Name |
 | `email` | البريد الإلكتروني | Email |
-| `phone` | رقم الهاتف | Phone |
+| `phone` | الهاتف | Phone |
+| `dialCode` | رمز الاتصال | Dial Code |
 | `status` | الحالة | Status |
+| `emailVerified` | البريد مؤكد | Email Verified |
+| `phoneVerified` | الهاتف مؤكد | Phone Verified |
+| `isActive` | نشط | Active |
+| `deactivationReason` | سبب الإيقاف | Deactivation Reason |
+| `avatarFilename` | اسم ملف الصورة | Avatar Filename |
+| `ibanNumber` | رقم الآيبان | IBAN Number |
+| `languageCode` | رمز اللغة | Language Code |
+| `withAbsher` | مع أبشر | With Absher |
+| `deletedAt` | تاريخ الحذف | Deleted At |
+| `deleteReason` | سبب الحذف | Delete Reason |
 | `createdAt` | تاريخ الإنشاء | Created At |
 | `updatedAt` | تاريخ التحديث | Updated At |
-| `isActive` | نشط | Is Active |
+| `nameEn` | الاسم بالإنجليزية | Name (English) |
+| `nameAr` | الاسم بالعربية | Name (Arabic) |
 
-**120+ fields are pre-translated.** For untranslated fields:
+**200+ fields are pre-translated** covering:
+- Common fields (id, name, email, phone, status, dates)
+- Verification fields (emailVerified, phoneVerified, isVerified)
+- User/Provider fields (avatar, address, nationalId, deactivation, deletion)
+- Location fields (city, country, latitude, longitude)
+- Category/Classification fields (bilingual names and descriptions)
+- Listing fields (price, duration, serviceType)
+- Contract/Payment fields (amount, transactionId, IBAN)
+- Rating/Review fields (rating, comment, review)
+- Bank fields (bankName, accountNumber, ibanNumber)
+- Notification fields (type, isRead, readAt)
+- FAQ fields (question, answer, bilingual content)
+- Tracking/Delivery fields (trackingNumber, deliveryStatus)
+- Settings fields (key, value)
+- Publishing fields (publishedAt, isPublished, featured)
+- Metadata fields (tags, notes, slug, url)
+
+For untranslated fields:
 - **Arabic**: Original field name is kept (e.g., `customField`)
 - **English**: Converted to Title Case (e.g., `customField` → `Custom Field`)
 
