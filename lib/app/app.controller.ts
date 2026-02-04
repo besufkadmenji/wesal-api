@@ -12,9 +12,19 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiQuery,
+  ApiParam,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 import { FileUploadService } from '../file-upload';
 import { AppService } from './app.service';
 
+@ApiTags('General', 'File Management')
 @Controller()
 export class AppController {
   constructor(
@@ -23,12 +33,47 @@ export class AppController {
   ) {}
 
   @Get()
+  @ApiOperation({ summary: 'Health check endpoint' })
+  @ApiResponse({ status: 200, description: 'Returns Hello World message' })
   getHello(): string {
     return this.appService.getHello();
   }
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
+  @ApiOperation({ summary: 'Upload a file' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    description: 'File upload',
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'The file to upload',
+        },
+      },
+    },
+  })
+  @ApiQuery({
+    name: 'subfolder',
+    required: false,
+    description: 'Optional subfolder path for organizing uploaded files',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'File uploaded successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        filename: { type: 'string', description: 'Stored filename' },
+        url: { type: 'string', description: 'File access URL' },
+        size: { type: 'number', description: 'File size in bytes' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - Invalid file' })
   async uploadFile(
     @UploadedFile() file: any,
     @Query('subfolder') subfolder?: string,
@@ -67,6 +112,18 @@ export class AppController {
   }
 
   @Get('download/:encodedPath')
+  @ApiOperation({ summary: 'Download a file as attachment' })
+  @ApiParam({
+    name: 'encodedPath',
+    description: 'URL-encoded S3 key/path of the file to download',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'File downloaded successfully',
+    content: { 'application/octet-stream': {} },
+  })
+  @ApiResponse({ status: 404, description: 'File not found' })
+  @ApiResponse({ status: 400, description: 'Download failed' })
   async downloadFile(
     @Param('encodedPath') encodedPath: string,
     @Res() res: Response,
@@ -100,6 +157,23 @@ export class AppController {
   }
 
   @Get('files/:encodedPath')
+  @ApiOperation({ summary: 'Serve a file inline (for embedding in pages)' })
+  @ApiParam({
+    name: 'encodedPath',
+    description: 'URL-encoded S3 key/path of the file to serve',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'File served successfully with appropriate content type',
+    content: {
+      'image/*': {},
+      'video/*': {},
+      'application/pdf': {},
+      'application/octet-stream': {},
+    },
+  })
+  @ApiResponse({ status: 404, description: 'File not found' })
+  @ApiResponse({ status: 400, description: 'File serving failed' })
   async serveFile(
     @Param('encodedPath') encodedPath: string,
     @Res() res: Response,

@@ -6,6 +6,7 @@ import { City } from '../city/entities/city.entity';
 import { Listing } from './entities/listing.entity';
 import { ListingResolver } from './listing.resolver';
 import { ListingService } from './listing.service';
+import { ListingController } from './listing.controller';
 import { TrackingModule } from '../tracking/tracking.module';
 
 @Module({
@@ -13,6 +14,7 @@ import { TrackingModule } from '../tracking/tracking.module';
     TypeOrmModule.forFeature([Listing, Provider, Category, City]),
     TrackingModule,
   ],
+  controllers: [ListingController],
   providers: [ListingResolver, ListingService],
   exports: [ListingService],
 })

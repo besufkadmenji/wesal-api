@@ -19,6 +19,7 @@ import { ComplaintModule } from './complaint/complaint.module';
 import { NotificationModule } from './notification/notification.module';
 import { AuthModule } from './auth/auth.module';
 import { FileUploadModule } from '../lib/file-upload';
+import { CsvExportModule } from '../lib/csv-export';
 import { AdminModule } from './admin/admin.module';
 import { PermissionModule } from './permission/permission.module';
 import { AdminPermissionModule } from './admin-permission/admin-permission.module';
@@ -80,6 +81,7 @@ function getDatabaseConfig() {
       serveRoot: '/uploads',
     }),
     GraphQLConfigModule,
+    CsvExportModule,
     AuthModule,
     UserModule,
     ProviderModule,

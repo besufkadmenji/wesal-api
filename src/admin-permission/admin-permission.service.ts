@@ -21,6 +21,16 @@ export class AdminPermissionService {
     private readonly permissionRepository: Repository<Permission>,
   ) {}
 
+  /**
+   * Get all admin permissions
+   */
+  async findAll(): Promise<AdminPermission[]> {
+    return this.adminPermissionRepository.find({
+      relations: ['permission', 'admin'],
+      order: { createdAt: 'DESC' },
+    });
+  }
+
   async assign(
     assignPermissionInput: AssignPermissionInput,
     language: LanguageCode = 'en',

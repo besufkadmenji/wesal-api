@@ -6,12 +6,14 @@ import { SignedContractModule } from '../signed-contract/signed-contract.module'
 import { Provider } from './entities/provider.entity';
 import { ProviderResolver } from './provider.resolver';
 import { ProviderService } from './provider.service';
+import { ProviderController } from './provider.controller';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Provider, Admin, Category]),
     SignedContractModule,
   ],
+  controllers: [ProviderController],
   providers: [ProviderResolver, ProviderService],
   exports: [ProviderService],
 })

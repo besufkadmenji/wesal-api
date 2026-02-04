@@ -1,0 +1,52 @@
+import { Controller, Get, Query, Res } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiQuery,
+  ApiProduces,
+  ApiResponse,
+} from '@nestjs/swagger';
+import type { Response } from 'express';
+import { ContactMessageService } from './contact-message.service';
+import { CsvExportService } from '../../lib/csv-export';
+
+@ApiTags('Contact Messages', 'Export')
+@Controller('contact-messages')
+export class ContactMessageController {
+  constructor(
+    private readonly contactMessageService: ContactMessageService,
+    private readonly csvExportService: CsvExportService,
+  ) {}
+
+  @Get('export')
+  @ApiOperation({ summary: 'Export contact messages to CSV' })
+  @ApiQuery({
+    name: 'fields',
+    required: false,
+    description: 'Comma-separated list of fields to export',
+    example: 'id,name,email,phone,message,createdAt',
+  })
+  @ApiProduces('text/csv')
+  @ApiResponse({ status: 200, description: 'CSV file download' })
+  async export(
+    @Query('fields') fields: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const result = await this.contactMessageService.findAll({
+      page: 1,
+      limit: 999999,
+    });
+    const contactMessages = result.items;
+
+    const selectedFields = fields
+      ? fields.split(',').map((f) => f.trim())
+      : undefined;
+
+    this.csvExportService.exportToCsv(
+      contactMessages,
+      `contact-messages-export-${new Date().toISOString().split('T')[0]}`,
+      res,
+      selectedFields,
+    );
+  }
+}

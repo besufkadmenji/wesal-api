@@ -13,6 +13,14 @@ export class SettingService {
     private readonly settingRepository: Repository<Setting>,
   ) {}
 
+  /**
+   * Get all settings
+   */
+  async findAll(): Promise<Setting[]> {
+    const setting = await this.getSetting();
+    return [setting]; // Return as array for consistency with export
+  }
+
   async getSetting(): Promise<Setting> {
     let setting = await this.settingRepository.findOne({
       where: { id: SETTINGS_ID },

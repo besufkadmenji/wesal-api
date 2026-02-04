@@ -1,0 +1,52 @@
+import { Controller, Get, Query, Res } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiQuery,
+  ApiProduces,
+  ApiResponse,
+} from '@nestjs/swagger';
+import type { Response } from 'express';
+import { CategoryService } from './category.service';
+import { CsvExportService } from '../../lib/csv-export';
+
+@ApiTags('Categories', 'Export')
+@Controller('categories')
+export class CategoryController {
+  constructor(
+    private readonly categoryService: CategoryService,
+    private readonly csvExportService: CsvExportService,
+  ) {}
+
+  @Get('export')
+  @ApiOperation({ summary: 'Export categories to CSV' })
+  @ApiQuery({
+    name: 'fields',
+    required: false,
+    description: 'Comma-separated list of fields to export',
+    example: 'id,nameEn,nameAr,image',
+  })
+  @ApiProduces('text/csv')
+  @ApiResponse({ status: 200, description: 'CSV file download' })
+  async export(
+    @Query('fields') fields: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    const result = await this.categoryService.findAll({
+      page: 1,
+      limit: 999999,
+    });
+    const categories = result.items;
+
+    const selectedFields = fields
+      ? fields.split(',').map((f) => f.trim())
+      : undefined;
+
+    this.csvExportService.exportToCsv(
+      categories,
+      `categories-export-${new Date().toISOString().split('T')[0]}`,
+      res,
+      selectedFields,
+    );
+  }
+}

@@ -2,10 +2,12 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TrackingResolver } from './tracking.resolver';
 import { TrackingService } from './tracking.service';
+import { TrackingController } from './tracking.controller';
 import { Tracking } from './entities/tracking.entity';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Tracking])],
+  controllers: [TrackingController],
   providers: [TrackingResolver, TrackingService],
   exports: [TrackingService],
 })

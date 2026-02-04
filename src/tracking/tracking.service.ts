@@ -14,6 +14,15 @@ export class TrackingService {
   ) {}
 
   /**
+   * Get all tracking records
+   */
+  async findAll(): Promise<Tracking[]> {
+    return this.trackingRepository.find({
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  /**
    * Track a user action (view or click) on a category or listing
    * Uses upsert to increment count instead of creating duplicate rows
    */

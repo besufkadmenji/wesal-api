@@ -5,9 +5,11 @@ import { User } from '../user/entities/user.entity';
 import { Rating } from './entities/rating.entity';
 import { RatingResolver } from './rating.resolver';
 import { RatingService } from './rating.service';
+import { RatingController } from './rating.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Rating, User, Listing])],
+  controllers: [RatingController],
   providers: [RatingResolver, RatingService],
   exports: [RatingService],
 })
