@@ -39,6 +39,187 @@ export class AppController {
     return this.appService.getHello();
   }
 
+  @Get('exports/available')
+  @ApiOperation({ summary: 'Get list of all available export models' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of available export models with metadata',
+    schema: {
+      type: 'object',
+      properties: {
+        exports: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              name: {
+                type: 'string',
+                description: 'Display name of the model',
+              },
+              endpoint: { type: 'string', description: 'Export endpoint path' },
+              model: { type: 'string', description: 'Internal model name' },
+              description: {
+                type: 'string',
+                description: 'Brief description of the data',
+              },
+            },
+          },
+        },
+        count: {
+          type: 'number',
+          description: 'Total number of available exports',
+        },
+      },
+    },
+  })
+  getAvailableExports() {
+    const exports = [
+      {
+        name: 'Users',
+        endpoint: '/users/export',
+        model: 'user',
+        description: 'Export user accounts and profiles',
+      },
+      {
+        name: 'Providers',
+        endpoint: '/providers/export',
+        model: 'provider',
+        description: 'Export service provider accounts',
+      },
+      {
+        name: 'Listings',
+        endpoint: '/listings/export',
+        model: 'listing',
+        description: 'Export service listings and offerings',
+      },
+      {
+        name: 'Categories',
+        endpoint: '/categories/export',
+        model: 'category',
+        description: 'Export service categories',
+      },
+      {
+        name: 'Cities',
+        endpoint: '/cities/export',
+        model: 'city',
+        description: 'Export city data',
+      },
+      {
+        name: 'Countries',
+        endpoint: '/countries/export',
+        model: 'country',
+        description: 'Export country data',
+      },
+      {
+        name: 'Banks',
+        endpoint: '/banks/export',
+        model: 'bank',
+        description: 'Export banking institutions',
+      },
+      {
+        name: 'Delivery Companies',
+        endpoint: '/delivery-companies/export',
+        model: 'delivery-company',
+        description: 'Export delivery service providers',
+      },
+      {
+        name: 'Contracts',
+        endpoint: '/contracts/export',
+        model: 'contract',
+        description: 'Export contract records',
+      },
+      {
+        name: 'Payments',
+        endpoint: '/payments/export',
+        model: 'payment',
+        description: 'Export payment transactions',
+      },
+      {
+        name: 'Ratings',
+        endpoint: '/ratings/export',
+        model: 'rating',
+        description: 'Export user ratings and reviews',
+      },
+      {
+        name: 'Complaints',
+        endpoint: '/complaints/export',
+        model: 'complaint',
+        description: 'Export complaint records',
+      },
+      {
+        name: 'Notifications',
+        endpoint: '/notifications/export',
+        model: 'notification',
+        description: 'Export notification history',
+      },
+      {
+        name: 'FAQs',
+        endpoint: '/faqs/export',
+        model: 'faq',
+        description: 'Export frequently asked questions',
+      },
+      {
+        name: 'Contact Messages',
+        endpoint: '/contact-messages/export',
+        model: 'contact-message',
+        description: 'Export contact form submissions',
+      },
+      {
+        name: 'Signed Contracts',
+        endpoint: '/signed-contracts/export',
+        model: 'signed-contract',
+        description: 'Export signed contract documents',
+      },
+      {
+        name: 'Favorites',
+        endpoint: '/favorites/export',
+        model: 'favorite',
+        description: 'Export user favorite items',
+      },
+      {
+        name: 'Conversations',
+        endpoint: '/conversations/export',
+        model: 'conversation',
+        description: 'Export conversation threads',
+      },
+      {
+        name: 'Tracking',
+        endpoint: '/tracking/export',
+        model: 'tracking',
+        description: 'Export user activity tracking data',
+      },
+      {
+        name: 'Admins',
+        endpoint: '/admins/export',
+        model: 'admin',
+        description: 'Export admin user accounts',
+      },
+      {
+        name: 'Permissions',
+        endpoint: '/permissions/export',
+        model: 'permission',
+        description: 'Export permission definitions',
+      },
+      {
+        name: 'Admin Permissions',
+        endpoint: '/admin-permissions/export',
+        model: 'admin-permission',
+        description: 'Export admin permission assignments',
+      },
+      {
+        name: 'Settings',
+        endpoint: '/settings/export',
+        model: 'setting',
+        description: 'Export system settings',
+      },
+    ];
+
+    return {
+      exports,
+      count: exports.length,
+    };
+  }
+
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
   @ApiOperation({ summary: 'Upload a file' })
