@@ -1,10 +1,11 @@
-import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Controller, Get, Query, Res, Headers } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiQuery,
   ApiProduces,
   ApiResponse,
+  ApiHeader,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { UserService } from './user.service';
@@ -22,7 +23,7 @@ export class UserController {
   @ApiOperation({
     summary: 'Export users to CSV',
     description:
-      'Export all user records to a CSV file with optional field selection',
+      'Export all user records to a CSV file with optional field selection and localization support',
   })
   @ApiQuery({
     name: 'fields',
@@ -31,14 +32,22 @@ export class UserController {
       'Comma-separated list of fields to export (e.g., "id,name,email,phone"). If not provided, all fields are exported.',
     example: 'id,name,email,phone,status,createdAt',
   })
+  @ApiHeader({
+    name: 'Accept-Language',
+    required: false,
+    description:
+      'Language for CSV headers (ar = Arabic, en = English). Defaults to Arabic (ar).',
+    example: 'ar',
+  })
   @ApiProduces('text/csv')
   @ApiResponse({
     status: 200,
-    description: 'CSV file download',
+    description: 'CSV file download with localized headers',
     content: { 'text/csv': { schema: { type: 'string', format: 'binary' } } },
   })
   async export(
     @Query('fields') fields: string,
+    @Headers('accept-language') acceptLanguage: string,
     @Res() res: Response,
   ): Promise<void> {
     const result = await this.userService.findAll({ page: 1, limit: 999999 });
@@ -49,11 +58,17 @@ export class UserController {
       ? fields.split(',').map((f) => f.trim())
       : undefined;
 
+    // Parse language from Accept-Language header (default to Arabic)
+    const language = acceptLanguage?.toLowerCase().startsWith('en')
+      ? 'en'
+      : 'ar';
+
     this.csvExportService.exportToCsv(
       users,
       `users-export-${new Date().toISOString().split('T')[0]}`,
       res,
       selectedFields,
+      language,
     );
   }
 }

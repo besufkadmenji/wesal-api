@@ -1,15 +1,25 @@
 # CSV Export Feature
 
 ## Overview
-The Wesal API now includes CSV export functionality for all entities. This allows you to export data to CSV files with optional field selection.
+The Wesal API includes comprehensive CSV export functionality for all entities with localization support. Export data to user-friendly CSV files with Arabic (default) or English headers, optional field selection, and automatic security filtering.
+
+## Key Features
+- ✅ **User-Friendly Headers**: Field names translated to Arabic or English instead of technical database column names
+- ✅ **Localization**: Accept-Language header support (ar = Arabic, en = English)
+- ✅ **Field Selection**: Export specific columns to reduce file size
+- ✅ **Security**: Automatically filters sensitive fields (passwords, tokens, secrets)
+- ✅ **Recursive Filtering**: Removes sensitive data even from nested objects and relations
+- ✅ **Excel Compatible**: UTF-8 with BOM for proper encoding in Excel
+- ✅ **Data Formatting**: Dates formatted consistently, booleans as Yes/No (نعم/لا)
 
 ## Implementation
 
 ### Core Service
 - **Location**: `lib/csv-export/csv-export.service.ts`
 - **Module**: `lib/csv-export/csv-export.module.ts` (registered globally)
-- Handles CSV generation with proper escaping and formatting
-- Supports field selection to export specific columns
+- Handles CSV generation with proper escaping, formatting, and translation
+- Supports field selection and language switching
+- Implements comprehensive security filtering
 
 ### Export Endpoints
 
@@ -42,12 +52,19 @@ All entities have export endpoints following the pattern: `GET /{entity-plural}/
 
 ## Usage
 
-### Basic Export (All Fields)
+### Basic Export (All Fields, Arabic Headers)
 ```bash
 curl http://localhost:3000/users/export > users.csv
 ```
 
-This will download a CSV file with all fields from the users table.
+This will download a CSV file with all fields and Arabic headers (default).
+
+### Export with English Headers
+```bash
+curl -H "Accept-Language: en" http://localhost:3000/users/export > users.csv
+```
+
+Use the `Accept-Language` header to get English headers instead of Arabic.
 
 ### Export with Field Selection
 ```bash
@@ -56,50 +73,95 @@ curl "http://localhost:3000/users/export?fields=id,name,email,phone" > users.csv
 
 This will download a CSV file with only the specified fields.
 
+### Export with Field Selection AND English Headers
+```bash
+curl -H "Accept-Language: en" "http://localhost:3000/users/export?fields=id,name,email,phone" > users.csv
+```
+
+Combine field selection with language preference.
+
 #### Query Parameters:
 - `fields` (optional): Comma-separated list of field names to include in the export
   - Example: `fields=id,name,email`
   - If omitted, all fields are exported
 
+#### Headers:
+- `Accept-Language` (optional): Language code for CSV headers
+  - `ar` - Arabic headers (default)
+  - `en` - English headers
+  - Any other value defaults to Arabic
+
 ### Example Requests
 
-#### Export all user data:
+#### Export all user data with Arabic headers:
 ```bash
 GET /users/export
+Accept-Language: ar
 ```
 
-#### Export specific user fields:
+#### Export specific user fields with English headers:
 ```bash
 GET /users/export?fields=id,name,email,phone,createdAt
+Accept-Language: en
 ```
 
-#### Export listing data with selected fields:
+#### Export listing data with Arabic headers (default):
 ```bash
 GET /listings/export?fields=id,name,price,categoryId,providerId,status
 ```
 
 ## Response Format
 
-- **Content-Type**: `text/csv`
+- **Content-Type**: `text/csv; charset=utf-8`
 - **Content-Disposition**: `attachment; filename="{entity}-export-{date}.csv"`
 - **Date Format**: ISO date (YYYY-MM-DD)
+- **Encoding**: UTF-8 with BOM (Byte Order Mark) for Excel compatibility
 
 Example filename: `users-export-2026-02-04.csv`
 
 ## CSV Format
 
 - **Separator**: Comma (`,`)
-- **Encoding**: UTF-8
+- **Encoding**: UTF-8 with BOM (`\uFEFF` prefix)
+- **Headers**: Translated to user-friendly text in selected language
 - **Escaping**: Values containing commas, quotes, or newlines are wrapped in double quotes
-- **Date Format**: ISO 8601 (e.g., `2026-02-04T12:34:56.789Z`)
+- **Date Format**: YYYY-MM-DD HH:mm (e.g., `2026-02-04 12:34`)
+- **Booleans**: Formatted as `نعم`/`لا` (Arabic) or `Yes`/`No` (English)
 - **JSON Objects**: Complex objects are serialized to JSON strings
 
-### Example CSV Output:
+### Example CSV Output (Arabic Headers):
 ```csv
-id,name,email,phone,createdAt
-"123e4567-e89b-12d3-a456-426614174000","John Doe","john@example.com","+1234567890","2026-02-04T10:00:00.000Z"
-"223e4567-e89b-12d3-a456-426614174001","Jane Smith","jane@example.com","+0987654321","2026-02-03T15:30:00.000Z"
+المعرف,الاسم,البريد الإلكتروني,رقم الهاتف,تاريخ الإنشاء
+"123e4567-e89b-12d3-a456-426614174000","John Doe","john@example.com","+1234567890","2026-02-04 10:00"
+"223e4567-e89b-12d3-a456-426614174001","Jane Smith","jane@example.com","+0987654321","2026-02-03 15:30"
 ```
+
+### Example CSV Output (English Headers):
+```csv
+ID,Name,Email,Phone,Created At
+"123e4567-e89b-12d3-a456-426614174000","John Doe","john@example.com","+1234567890","2026-02-04 10:00"
+"223e4567-e89b-12d3-a456-426614174001","Jane Smith","jane@example.com","+0987654321","2026-02-03 15:30"
+```
+
+## Field Translations
+
+The service includes comprehensive field translations for common database fields:
+
+### Sample Translations:
+| Field Name | Arabic (ar) | English (en) |
+|------------|-------------|--------------|
+| `id` | المعرف | ID |
+| `name` | الاسم | Name |
+| `email` | البريد الإلكتروني | Email |
+| `phone` | رقم الهاتف | Phone |
+| `status` | الحالة | Status |
+| `createdAt` | تاريخ الإنشاء | Created At |
+| `updatedAt` | تاريخ التحديث | Updated At |
+| `isActive` | نشط | Is Active |
+
+**120+ fields are pre-translated.** For untranslated fields:
+- **Arabic**: Original field name is kept (e.g., `customField`)
+- **English**: Converted to Title Case (e.g., `customField` → `Custom Field`)
 
 ## Architecture
 
@@ -107,10 +169,11 @@ id,name,email,phone,createdAt
 Each entity has a dedicated controller:
 - Location: `src/{entity}/{entity}.controller.ts`
 - Endpoint: `/{entity-plural}/export`
+- Accepts `Accept-Language` header for localization
 - Registered in their respective modules
 
 ### Services
-Each entity service must implement a `findAll()` method that returns all records.
+Each entity service must implement a `findAll()` method that returns paginated results with an `items` array.
 
 ### CSV Export Service
 The `CsvExportService` provides:
@@ -120,6 +183,12 @@ The `CsvExportService` provides:
     - `filename: string` - Base filename (without extension)
     - `res: Response` - Express response object
     - `fields?: string[]` - Optional array of field names to include
+    - `language?: 'ar' | 'en'` - Language for headers (defaults to 'ar')
+- `removeSensitiveData()` - Recursively removes sensitive fields
+- `translateFieldName()` - Translates field names to user-friendly headers
+- `formatValue()` - Formats dates, booleans, and complex objects
+- `formatDate()` - Formats dates consistently
+- `formatBoolean()` - Formats booleans based on language
 
 ## Extension
 
@@ -127,18 +196,33 @@ To add export functionality to new entities:
 
 1. **Ensure Service has findAll() method**:
 ```typescript
-async findAll(): Promise<Entity[]> {
-  return this.entityRepository.find();
+async findAll(options: PaginationOptions): Promise<IPaginatedType<Entity>> {
+  // Return paginated results with items array
+  return {
+    items: await this.entityRepository.find(),
+    total: await this.entityRepository.count(),
+    page: options.page,
+    limit: options.limit,
+  };
 }
 ```
 
 2. **Create Controller**:
 ```typescript
-import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Controller, Get, Query, Res, Headers } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiQuery,
+  ApiProduces,
+  ApiResponse,
+  ApiHeader,
+} from '@nestjs/swagger';
 import type { Response } from 'express';
 import { EntityService } from './entity.service';
 import { CsvExportService } from '../../lib/csv-export';
 
+@ApiTags('Entities', 'Export')
 @Controller('entities')
 export class EntityController {
   constructor(
@@ -147,18 +231,48 @@ export class EntityController {
   ) {}
 
   @Get('export')
+  @ApiOperation({ 
+    summary: 'Export entities to CSV',
+    description: 'Export all entity records to a CSV file with optional field selection and localization'
+  })
+  @ApiQuery({
+    name: 'fields',
+    required: false,
+    description: 'Comma-separated list of fields to export',
+    example: 'id,name,createdAt',
+  })
+  @ApiHeader({
+    name: 'Accept-Language',
+    required: false,
+    description: 'Language for CSV headers (ar = Arabic, en = English). Defaults to Arabic.',
+    example: 'ar',
+  })
+  @ApiProduces('text/csv')
+  @ApiResponse({ 
+    status: 200, 
+    description: 'CSV file download with localized headers',
+    content: { 'text/csv': { schema: { type: 'string', format: 'binary' } } }
+  })
   async export(
     @Query('fields') fields: string,
+    @Headers('accept-language') acceptLanguage: string,
     @Res() res: Response,
   ): Promise<void> {
-    const entities = await this.entityService.findAll();
-    const selectedFields = fields ? fields.split(',').map((f) => f.trim()) : undefined;
+    const result = await this.entityService.findAll({ page: 1, limit: 999999 });
+    const entities = result.items;
+    
+    const selectedFields = fields 
+      ? fields.split(',').map((f) => f.trim()) 
+      : undefined;
+    
+    const language = acceptLanguage?.toLowerCase().startsWith('en') ? 'en' : 'ar';
     
     this.csvExportService.exportToCsv(
       entities,
       `entities-export-${new Date().toISOString().split('T')[0]}`,
       res,
       selectedFields,
+      language,
     );
   }
 }
@@ -175,6 +289,15 @@ export class EntityController {
 export class EntityModule {}
 ```
 
+4. **Add Field Translations (Optional)**:
+If your entity has custom fields, add translations to `FIELD_TRANSLATIONS` in `csv-export.service.ts`:
+```typescript
+private readonly FIELD_TRANSLATIONS: Record<string, { ar: string; en: string }> = {
+  // ... existing translations ...
+  customField: { ar: 'حقل مخصص', en: 'Custom Field' },
+};
+```
+
 ## Security Considerations
 
 ### Sensitive Field Filtering 🔒
@@ -188,7 +311,30 @@ export class EntityModule {}
 - `secret`, `privateKey`, `apiKey`
 - `resetToken`, `verificationToken`
 
-These fields are **never included in exports**, even if explicitly requested via the `fields` parameter.
+**Recursive Protection:**
+These fields are **never included in exports**, even if:
+- Explicitly requested via the `fields` parameter
+- Present in nested objects (related entities)
+- Included through database joins or relations
+
+The filtering works recursively through the entire object tree, ensuring that passwords and sensitive tokens in related entities (e.g., provider passwords in signed contracts) are also removed.
+
+**Example:**
+```typescript
+// SignedContract with Provider relation
+{
+  id: "123",
+  providerId: "456",
+  provider: {
+    id: "456",
+    name: "John Doe",
+    password: "hash123" // ⚠️ AUTOMATICALLY REMOVED
+  }
+}
+
+// Exported CSV will NOT contain the password field
+// even though it's nested in the provider relation
+```
 
 ### Additional Security Requirements
 

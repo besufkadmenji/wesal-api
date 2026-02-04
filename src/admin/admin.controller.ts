@@ -1,10 +1,11 @@
-import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Controller, Get, Query, Res, Headers } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiQuery,
   ApiProduces,
   ApiResponse,
+  ApiHeader,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { AdminService } from './admin.service';
@@ -31,6 +32,13 @@ export class AdminController {
       'Comma-separated list of fields to export (e.g., "id,name,email"). If not provided, all fields are exported.',
     example: 'id,name,email,role,isActive',
   })
+  @ApiHeader({
+    name: 'Accept-Language',
+    required: false,
+    description:
+      'Language for CSV headers (ar = Arabic, en = English). Defaults to Arabic.',
+    example: 'ar',
+  })
   @ApiProduces('text/csv')
   @ApiResponse({
     status: 200,
@@ -39,6 +47,7 @@ export class AdminController {
   })
   async export(
     @Query('fields') fields: string,
+    @Headers('accept-language') acceptLanguage: string,
     @Res() res: Response,
   ): Promise<void> {
     // Get all admins without pagination
@@ -49,11 +58,16 @@ export class AdminController {
       ? fields.split(',').map((f) => f.trim())
       : undefined;
 
+    const language = acceptLanguage?.toLowerCase().startsWith('en')
+      ? 'en'
+      : 'ar';
+
     this.csvExportService.exportToCsv(
       admins,
       `admins-export-${new Date().toISOString().split('T')[0]}`,
       res,
       selectedFields,
+      language,
     );
   }
 }

@@ -1,10 +1,11 @@
-import { Controller, Get, Query, Res } from '@nestjs/common';
+import { Controller, Get, Query, Res, Headers } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiQuery,
   ApiProduces,
   ApiResponse,
+  ApiHeader,
 } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { CountryService } from './country.service';
@@ -26,10 +27,18 @@ export class CountryController {
     description: 'Comma-separated list of fields to export',
     example: 'id,nameEn,nameAr,dialCode',
   })
+  @ApiHeader({
+    name: 'Accept-Language',
+    required: false,
+    description:
+      'Language for CSV headers (ar = Arabic, en = English). Defaults to Arabic.',
+    example: 'ar',
+  })
   @ApiProduces('text/csv')
   @ApiResponse({ status: 200, description: 'CSV file download' })
   async export(
     @Query('fields') fields: string,
+    @Headers('accept-language') acceptLanguage: string,
     @Res() res: Response,
   ): Promise<void> {
     const result = await this.countryService.findAll({
@@ -42,11 +51,16 @@ export class CountryController {
       ? fields.split(',').map((f) => f.trim())
       : undefined;
 
+    const language = acceptLanguage?.toLowerCase().startsWith('en')
+      ? 'en'
+      : 'ar';
+
     this.csvExportService.exportToCsv(
       countries,
       `countries-export-${new Date().toISOString().split('T')[0]}`,
       res,
       selectedFields,
+      language,
     );
   }
 }
