@@ -366,8 +366,8 @@ export class ProviderService {
     const updatedContract = await this.signedContractService.update(
       provider.signedContract.id,
       {
-        platformManagerName: input.platformManagerName,
-        platformManagerSignature: input.platformManagerSignature,
+        platformManagerName: admin.fullName,
+        platformManagerSignature: admin.platformManagerSignature,
       },
     );
 
