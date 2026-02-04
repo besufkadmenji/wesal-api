@@ -177,14 +177,29 @@ export class EntityModule {}
 
 ## Security Considerations
 
-⚠️ **Important**: The current implementation does not include authentication or authorization. In production:
+### Sensitive Field Filtering 🔒
 
-1. Add authentication guards to all export endpoints
-2. Implement role-based access control (RBAC)
-3. Add rate limiting to prevent abuse
-4. Log export operations for audit trails
-5. Consider adding pagination for large datasets
-6. Add data sanitization to prevent sensitive data exposure
+**The CSV export service automatically filters out sensitive fields** to prevent accidental exposure of critical data:
+
+**Protected Fields:**
+- `password`, `passwordHash`, `hashedPassword`
+- `hash`, `salt`
+- `refreshToken`, `accessToken`, `token`
+- `secret`, `privateKey`, `apiKey`
+- `resetToken`, `verificationToken`
+
+These fields are **never included in exports**, even if explicitly requested via the `fields` parameter.
+
+### Additional Security Requirements
+
+⚠️ **Important**: The current implementation requires additional security measures in production:
+
+1. **Authentication**: Add authentication guards to all export endpoints
+2. **Authorization**: Implement role-based access control (RBAC)
+3. **Rate Limiting**: Prevent abuse with rate limiting
+4. **Audit Logging**: Log all export operations for compliance
+5. **Pagination**: Consider pagination for large datasets
+6. **Data Sanitization**: Review and sanitize other potentially sensitive fields
 
 ### Recommended Guards:
 ```typescript

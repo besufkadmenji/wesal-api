@@ -3,6 +3,23 @@ import type { Response } from 'express';
 
 @Injectable()
 export class CsvExportService {
+  // Fields that should never be exported for security reasons
+  private readonly SENSITIVE_FIELDS = [
+    'password',
+    'passwordHash',
+    'hashedPassword',
+    'hash',
+    'salt',
+    'refreshToken',
+    'accessToken',
+    'token',
+    'secret',
+    'privateKey',
+    'apiKey',
+    'resetToken',
+    'verificationToken',
+  ];
+
   /**
    * Convert data to CSV format and send as download
    * @param data - Array of objects to export
@@ -22,7 +39,10 @@ export class CsvExportService {
     }
 
     // Get headers from first object or use provided fields
-    const headers = fields || Object.keys(data[0]);
+    let headers = fields || Object.keys(data[0]);
+
+    // Always filter out sensitive fields
+    headers = this.filterSensitiveFields(headers);
 
     // Filter data to only include specified fields
     const filteredData = data.map((row) => {
@@ -46,6 +66,18 @@ export class CsvExportService {
     );
 
     res.send(csvContent);
+  }
+
+  /**
+   * Filter out sensitive fields from the list of headers
+   */
+  private filterSensitiveFields(fields: string[]): string[] {
+    return fields.filter((field) => {
+      const lowerField = field.toLowerCase();
+      return !this.SENSITIVE_FIELDS.some((sensitive) =>
+        lowerField.includes(sensitive.toLowerCase()),
+      );
+    });
   }
 
   /**
