@@ -22,7 +22,7 @@ export class AdminOtp {
   adminId: string;
 
   @Field(() => Admin)
-  @ManyToOne(() => Admin)
+  @ManyToOne(() => Admin, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'adminId' })
   admin: Admin;
 
