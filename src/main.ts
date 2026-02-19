@@ -72,7 +72,9 @@ async function bootstrap() {
     process.env.AUTO_SEED !== 'false' &&
     (process.env.NODE_ENV === 'production' ||
       process.env.NODE_ENV === 'development');
-
+  console.log(
+    `AUTO_SEED is set to ${process.env.AUTO_SEED}. Database seeding will ${shouldSeed ? 'run' : 'be skipped'}.`,
+  );
   if (shouldSeed) {
     void seedDatabaseInBackground();
   }

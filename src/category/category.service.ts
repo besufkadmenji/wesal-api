@@ -13,6 +13,7 @@ import { CATEGORY_ERROR_MESSAGES } from './errors/category.error-messages';
 import { TrackingService } from '../tracking/tracking.service';
 import { TargetType } from '../tracking/enums/target-type.enum';
 import { ActionType } from '../tracking/enums/action-type.enum';
+import { SearchService } from '../search/search.service';
 
 @Injectable()
 export class CategoryService {
@@ -20,11 +21,17 @@ export class CategoryService {
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
     private readonly trackingService: TrackingService,
+    private readonly searchService: SearchService,
   ) {}
 
   async create(createCategoryInput: CreateCategoryInput): Promise<Category> {
     const category = this.categoryRepository.create(createCategoryInput);
-    return await this.categoryRepository.save(category);
+    const saved = await this.categoryRepository.save(category);
+    // Index in Elasticsearch asynchronously
+    this.searchService
+      .indexCategory(saved)
+      .catch((err) => console.error('Failed to index category in ES', err));
+    return saved;
   }
 
   async findAll(
@@ -34,50 +41,64 @@ export class CategoryService {
     const { page = 1, limit = 10, search } = paginationInput;
     const skip = (page - 1) * limit;
 
-    const queryBuilder = this.categoryRepository.createQueryBuilder('category');
+    let items: Category[];
+    let total: number;
 
-    // Add search filter if provided
-    if (search && search.trim()) {
-      const searchTerm = `%${search.trim()}%`;
-      queryBuilder.andWhere(
-        '(category.nameEn ILIKE :search OR category.nameAr ILIKE :search OR category.descriptionEn ILIKE :search OR category.descriptionAr ILIKE :search)',
-        { search: searchTerm },
+    // Use Elasticsearch when a search query is present
+    if (search && search.trim() && this.searchService.isEnabled) {
+      const esResult = await this.searchService.searchCategories(
+        search.trim(),
+        page,
+        limit,
       );
-    }
 
-    // If user is logged in, rank by their popular categories
-    if (userId) {
-      console.log('Fetching popular categories for user:', userId);
-      const popularCategories = await this.trackingService.getPopularCategories(
-        userId,
-        50,
-      );
-      const popularIds = popularCategories.map((p) => p.categoryId);
-      console.log('Popular Category IDs:', popularIds);
-      if (popularIds.length > 0) {
-        // Use CASE WHEN to prioritize popular categories
-        queryBuilder.addSelect(
-          `CASE WHEN category.id IN (:...popularIds) THEN 0 ELSE 1 END`,
-          'popularity_rank',
+      if (esResult.total > 0) {
+        items = await this.searchService.loadCategoriesById(esResult.ids);
+        total = esResult.total;
+      } else {
+        items = [];
+        total = 0;
+      }
+    } else {
+      // Fallback: Postgres ILIKE search with optional popularity ranking
+      const queryBuilder =
+        this.categoryRepository.createQueryBuilder('category');
+
+      if (search && search.trim()) {
+        const searchTerm = `%${search.trim()}%`;
+        queryBuilder.andWhere(
+          '(category.nameEn ILIKE :search OR category.nameAr ILIKE :search OR category.descriptionEn ILIKE :search OR category.descriptionAr ILIKE :search)',
+          { search: searchTerm },
         );
-        queryBuilder.setParameter('popularIds', popularIds);
-        queryBuilder.orderBy('popularity_rank', 'ASC');
-        queryBuilder.addOrderBy('category.createdAt', 'DESC');
+      }
+
+      if (userId) {
+        const popularCategories =
+          await this.trackingService.getPopularCategories(userId, 50);
+        const popularIds = popularCategories.map((p) => p.categoryId);
+        if (popularIds.length > 0) {
+          queryBuilder.addSelect(
+            `CASE WHEN category.id IN (:...popularIds) THEN 0 ELSE 1 END`,
+            'popularity_rank',
+          );
+          queryBuilder.setParameter('popularIds', popularIds);
+          queryBuilder.orderBy('popularity_rank', 'ASC');
+          queryBuilder.addOrderBy('category.createdAt', 'DESC');
+        } else {
+          queryBuilder.orderBy('category.createdAt', 'DESC');
+        }
       } else {
         queryBuilder.orderBy('category.createdAt', 'DESC');
       }
-    } else {
-      queryBuilder.orderBy('category.createdAt', 'DESC');
-    }
 
-    const [items, total] = await queryBuilder
-      .skip(skip)
-      .take(limit)
-      .getManyAndCount();
+      [items, total] = await queryBuilder
+        .skip(skip)
+        .take(limit)
+        .getManyAndCount();
+    }
 
     // Track views for logged-in users
     if (userId && items.length > 0) {
-      // Track views asynchronously without blocking the response
       Promise.all(
         items.map((item) =>
           this.trackingService.trackAction(userId, {
@@ -87,7 +108,6 @@ export class CategoryService {
           }),
         ),
       ).catch((err) => {
-        // Log error but don't fail the request
         console.error('Failed to track category views:', err);
       });
     }
@@ -156,7 +176,12 @@ export class CategoryService {
     }
 
     Object.assign(category, updateCategoryInput);
-    return await this.categoryRepository.save(category);
+    const saved = await this.categoryRepository.save(category);
+    // Keep Elasticsearch index in sync
+    this.searchService
+      .indexCategory(saved)
+      .catch((err) => console.error('Failed to update category in ES', err));
+    return saved;
   }
 
   async remove(id: string, language: LanguageCode = 'en'): Promise<Category> {
@@ -170,6 +195,10 @@ export class CategoryService {
       .execute();
 
     await this.categoryRepository.delete({ id });
+    // Remove from Elasticsearch index
+    this.searchService
+      .removeCategory(id)
+      .catch((err) => console.error('Failed to remove category from ES', err));
     return category;
   }
 }

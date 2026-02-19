@@ -1,5 +1,4 @@
 import 'reflect-metadata';
-import * as path from 'path';
 import { AppDataSource } from './database/data-source';
 import { runDatabaseSeeds } from './database/seeds/run-seeds';
 

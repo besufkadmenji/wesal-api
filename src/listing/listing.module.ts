@@ -8,11 +8,13 @@ import { ListingResolver } from './listing.resolver';
 import { ListingService } from './listing.service';
 import { ListingController } from './listing.controller';
 import { TrackingModule } from '../tracking/tracking.module';
+import { SearchModule } from '../search/search.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Listing, Provider, Category, City]),
     TrackingModule,
+    SearchModule,
   ],
   controllers: [ListingController],
   providers: [ListingResolver, ListingService],

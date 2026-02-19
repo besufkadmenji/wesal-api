@@ -21,6 +21,7 @@ import { LISTING_ERROR_MESSAGES } from './errors/listing.error-messages';
 import { TrackingService } from '../tracking/tracking.service';
 import { TargetType } from '../tracking/enums/target-type.enum';
 import { ActionType } from '../tracking/enums/action-type.enum';
+import { SearchService } from '../search/search.service';
 
 @Injectable()
 export class ListingService {
@@ -34,6 +35,7 @@ export class ListingService {
     @InjectRepository(City)
     private readonly cityRepository: Repository<City>,
     private readonly trackingService: TrackingService,
+    private readonly searchService: SearchService,
   ) {}
 
   async create(
@@ -83,7 +85,12 @@ export class ListingService {
       tags: '',
     });
 
-    return this.listingRepository.save(listing);
+    const saved = await this.listingRepository.save(listing);
+    // Index in Elasticsearch asynchronously
+    this.searchService.indexListing(saved).catch((err) =>
+      console.error('Failed to index listing in ES', err),
+    );
+    return saved;
   }
 
   async findAll(
@@ -104,72 +111,94 @@ export class ListingService {
       maxPrice,
     } = paginationInput;
 
-    let query = this.listingRepository.createQueryBuilder('listing');
+    let items: Listing[];
+    let total: number;
 
-    // Apply filters
-    if (status) {
-      query = query.where('listing.status = :status', {
-        status: status,
-      });
-    }
-
-    if (search) {
-      query = query.andWhere('listing.name ILIKE :search', {
-        search: `%${search}%`,
-      });
-    }
-
-    if (categoryId) {
-      query = query.andWhere('listing.categoryId = :categoryId', {
-        categoryId,
-      });
-    }
-
-    if (cityId) {
-      query = query.andWhere('listing.cityId = :cityId', { cityId });
-    }
-
-    if (minPrice) {
-      query = query.andWhere('listing.price >= :minPrice', { minPrice });
-    }
-
-    if (maxPrice) {
-      query = query.andWhere('listing.price <= :maxPrice', { maxPrice });
-    }
-
-    // Load relations
-    query = query
-      .leftJoinAndSelect('listing.provider', 'provider')
-      .leftJoinAndSelect('listing.category', 'category')
-      .leftJoinAndSelect('listing.city', 'city');
-
-    // If user is logged in, rank by their popular listings
-    if (userId) {
-      const popularListings = await this.trackingService.getPopularListings(
-        userId,
-        100,
+    // Use Elasticsearch when a search term is present
+    if (search && search.trim() && this.searchService.isEnabled) {
+      const esResult = await this.searchService.searchListings(
+        search.trim(),
+        page,
+        limit,
+        {
+          status,
+          categoryId: categoryId ?? undefined,
+          cityId: cityId ?? undefined,
+          minPrice: minPrice ?? undefined,
+          maxPrice: maxPrice ?? undefined,
+        },
       );
-      const popularIds = popularListings.map((p) => p.listingId);
 
-      if (popularIds.length > 0) {
-        // Use CASE WHEN to prioritize popular listings
-        query.addSelect(
-          `CASE WHEN listing.id IN (:...popularIds) THEN 0 ELSE 1 END`,
-          'popularity_rank',
+      if (esResult.total > 0) {
+        items = await this.searchService.loadListingsById(esResult.ids);
+        total = esResult.total;
+      } else {
+        items = [];
+        total = 0;
+      }
+    } else {
+      // Fallback: Postgres query with optional popularity ranking
+      let query = this.listingRepository.createQueryBuilder('listing');
+
+      if (status) {
+        query = query.where('listing.status = :status', { status });
+      }
+
+      if (search) {
+        query = query.andWhere('listing.name ILIKE :search', {
+          search: `%${search}%`,
+        });
+      }
+
+      if (categoryId) {
+        query = query.andWhere('listing.categoryId = :categoryId', {
+          categoryId,
+        });
+      }
+
+      if (cityId) {
+        query = query.andWhere('listing.cityId = :cityId', { cityId });
+      }
+
+      if (minPrice) {
+        query = query.andWhere('listing.price >= :minPrice', { minPrice });
+      }
+
+      if (maxPrice) {
+        query = query.andWhere('listing.price <= :maxPrice', { maxPrice });
+      }
+
+      query = query
+        .leftJoinAndSelect('listing.provider', 'provider')
+        .leftJoinAndSelect('listing.category', 'category')
+        .leftJoinAndSelect('listing.city', 'city');
+
+      if (userId) {
+        const popularListings = await this.trackingService.getPopularListings(
+          userId,
+          100,
         );
-        query.setParameter('popularIds', popularIds);
-        query.orderBy('popularity_rank', 'ASC');
-        query.addOrderBy(`listing.${sortBy}`, sortOrder);
+        const popularIds = popularListings.map((p) => p.listingId);
+
+        if (popularIds.length > 0) {
+          query.addSelect(
+            `CASE WHEN listing.id IN (:...popularIds) THEN 0 ELSE 1 END`,
+            'popularity_rank',
+          );
+          query.setParameter('popularIds', popularIds);
+          query.orderBy('popularity_rank', 'ASC');
+          query.addOrderBy(`listing.${sortBy}`, sortOrder);
+        } else {
+          query.orderBy(`listing.${sortBy}`, sortOrder);
+        }
       } else {
         query.orderBy(`listing.${sortBy}`, sortOrder);
       }
-    } else {
-      query.orderBy(`listing.${sortBy}`, sortOrder);
+
+      query.skip(skip).take(limit);
+      [items, total] = await query.getManyAndCount();
     }
 
-    query.skip(skip).take(limit);
-
-    const [items, total] = await query.getManyAndCount();
     const totalPages = Math.ceil(total / limit);
 
     // Track views for logged-in users
@@ -335,7 +364,12 @@ export class ListingService {
       listing,
       updateListingInput,
     );
-    return this.listingRepository.save(updatedListing);
+    const saved = await this.listingRepository.save(updatedListing);
+    // Keep Elasticsearch index in sync
+    this.searchService.indexListing(saved).catch((err) =>
+      console.error('Failed to update listing in ES', err),
+    );
+    return saved;
   }
 
   async remove(
@@ -362,6 +396,10 @@ export class ListingService {
     }
 
     await this.listingRepository.remove(listing);
+    // Remove from Elasticsearch index
+    this.searchService.removeListing(id).catch((err) =>
+      console.error('Failed to remove listing from ES', err),
+    );
 
     const successMessage =
       LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_DELETED];
@@ -403,7 +441,12 @@ export class ListingService {
     }
 
     listing.status = ListingStatus.ACTIVE;
-    return await this.listingRepository.save(listing);
+    const saved = await this.listingRepository.save(listing);
+    // Reflect status change in Elasticsearch
+    this.searchService.indexListing(saved).catch((err) =>
+      console.error('Failed to update listing status in ES', err),
+    );
+    return saved;
   }
 
   async deactivate(
@@ -440,6 +483,11 @@ export class ListingService {
 
     listing.status = ListingStatus.INACTIVE;
     listing.deactivationReason = reason;
-    return await this.listingRepository.save(listing);
+    const saved = await this.listingRepository.save(listing);
+    // Reflect status change in Elasticsearch
+    this.searchService.indexListing(saved).catch((err) =>
+      console.error('Failed to update listing status in ES', err),
+    );
+    return saved;
   }
 }

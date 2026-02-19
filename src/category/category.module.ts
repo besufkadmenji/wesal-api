@@ -5,9 +5,10 @@ import { CategoryResolver } from './category.resolver';
 import { CategoryController } from './category.controller';
 import { Category } from './entities/category.entity';
 import { TrackingModule } from '../tracking/tracking.module';
+import { SearchModule } from '../search/search.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Category]), TrackingModule],
+  imports: [TypeOrmModule.forFeature([Category]), TrackingModule, SearchModule],
   controllers: [CategoryController],
   providers: [CategoryResolver, CategoryService],
   exports: [CategoryService],
