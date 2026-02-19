@@ -195,9 +195,12 @@ export class SearchService {
   // ─── Search ──────────────────────────────────────────────────────────────────
 
   /**
-   * Search categories with multi-language fuzzy matching.
-   * Fields are boosted: nameEn/nameAr (^4) > descriptionEn/descriptionAr (^1).
-   * Returns ordered IDs (by relevance) + total.
+   * Search categories with tiered multi-language ranking:
+   *   Tier 1 — exact phrase in name (^10)
+   *   Tier 2 — phrase-prefix on name (^7, autocomplete)
+   *   Tier 3 — cross_fields AND across name+description per language (all terms required)
+   *   Tier 4 — fuzzy typo-tolerance on name only (prefix_length: 2)
+   * min_score: 0.3 drops low-confidence matches (e.g. single-word hits in description).
    */
   async searchCategories(
     query: string,
@@ -214,30 +217,56 @@ export class SearchService {
       index: CATEGORIES_INDEX,
       from,
       size: limit,
+      min_score: 0.3,
       query: {
         bool: {
           should: [
-            // Exact prefix match — highest boost
+            // Tier 1: Exact phrase match in name — highest precision
             {
               multi_match: {
                 query,
-                fields: ['nameEn^6', 'nameAr^6'],
-                type: 'phrase_prefix',
+                fields: ['nameEn^10', 'nameAr^10'],
+                type: 'phrase',
               },
             },
-            // Full-text relevance match with fuzziness
+            // Tier 2: Phrase prefix on name — autocomplete-style matching
             {
               multi_match: {
                 query,
-                fields: [
-                  'nameEn^4',
-                  'nameAr^4',
-                  'descriptionEn^1',
-                  'descriptionAr^1',
-                ],
+                fields: ['nameEn^7', 'nameAr^7'],
+                type: 'phrase_prefix',
+                max_expansions: 50,
+              },
+            },
+            // Tier 3: All terms must appear across English name+description
+            // (cross_fields requires same analyzer per group)
+            {
+              multi_match: {
+                query,
+                fields: ['nameEn^5', 'descriptionEn^2'],
+                type: 'cross_fields',
+                operator: 'and',
+                analyzer: 'english',
+              },
+            },
+            // Tier 3b: All terms must appear across Arabic name+description
+            {
+              multi_match: {
+                query,
+                fields: ['nameAr^5', 'descriptionAr^2'],
+                type: 'cross_fields',
+                operator: 'and',
+                analyzer: 'arabic',
+              },
+            },
+            // Tier 4: Fuzzy typo-tolerance on name only (not description)
+            {
+              multi_match: {
+                query,
+                fields: ['nameEn^3', 'nameAr^3'],
                 type: 'best_fields',
-                fuzziness: 'AUTO',
-                prefix_length: 1,
+                fuzziness: 1,
+                prefix_length: 2,
                 operator: 'or',
               },
             },
@@ -259,9 +288,12 @@ export class SearchService {
   }
 
   /**
-   * Search listings with relevance ranking, recency decay, and filter support.
-   * Fields: name (^5), tags (^2), description (^1).
-   * Recency is factored via a Gaussian decay over createdAt.
+   * Search listings with tiered ranking and optional filter support:
+   *   Tier 1 — exact phrase match in name (^10)
+   *   Tier 2 — phrase-prefix on name (^7, autocomplete)
+   *   Tier 3 — cross_fields AND across name+tags+description (all terms required)
+   *   Tier 4 — fuzzy typo-tolerance on name only (fuzziness: 1, prefix_length: 2)
+   * min_score: 0.3 applied only when a text query is present.
    */
   async searchListings(
     query: string,
@@ -279,47 +311,43 @@ export class SearchService {
 
     if (query && query.trim()) {
       must.push({
-        function_score: {
-          query: {
-            bool: {
-              should: [
-                // Prefix match on name
-                {
-                  match_phrase_prefix: {
-                    name: { query, boost: 6 },
-                  },
-                },
-                // Best fields fuzzy match
-                {
-                  multi_match: {
-                    query,
-                    fields: ['name^5', 'tags^2', 'description^1'],
-                    type: 'best_fields',
-                    fuzziness: 'AUTO',
-                    prefix_length: 1,
-                    operator: 'or',
-                  },
-                },
-              ],
-              minimum_should_match: 1,
-            },
-          },
-          functions: [
+        bool: {
+          should: [
+            // Tier 1: Exact phrase match in name — highest precision
             {
-              // Newer listings get a small boost — decays to 50% at 30 days
-              gauss: {
-                createdAt: {
-                  origin: 'now',
-                  scale: '30d',
-                  offset: '3d',
-                  decay: 0.5,
+              match_phrase: {
+                name: { query, boost: 10 },
+              },
+            },
+            // Tier 2: Phrase prefix on name — autocomplete-style
+            {
+              match_phrase_prefix: {
+                name: { query, boost: 7, max_expansions: 50 },
+              },
+            },
+            // Tier 3: All terms must appear across name + tags + description
+            // (standard analyzer on all three — cross_fields works here)
+            {
+              multi_match: {
+                query,
+                fields: ['name^5', 'tags^3', 'description^1'],
+                type: 'cross_fields',
+                operator: 'and',
+              },
+            },
+            // Tier 4: Fuzzy typo-tolerance on name only
+            {
+              match: {
+                name: {
+                  query,
+                  fuzziness: 1,
+                  prefix_length: 2,
+                  boost: 2,
                 },
               },
-              weight: 1.5,
             },
           ],
-          score_mode: 'sum',
-          boost_mode: 'multiply',
+          minimum_should_match: 1,
         },
       });
     }
@@ -344,6 +372,8 @@ export class SearchService {
       index: LISTINGS_INDEX,
       from,
       size: limit,
+      // Only apply a minimum score when there's a text query — not for filter-only requests
+      ...(must.length > 0 ? { min_score: 0.3 } : {}),
       query: {
         bool: {
           ...(must.length > 0 ? { must } : {}),

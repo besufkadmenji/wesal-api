@@ -1,5 +1,5 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Client } from '@elastic/elasticsearch';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 
 @Injectable()
 export class ElasticsearchService implements OnModuleInit {
@@ -20,12 +20,11 @@ export class ElasticsearchService implements OnModuleInit {
     const username = process.env.ELASTIC_USERNAME;
     const password = process.env.ELASTIC_PASSWORD;
 
-    const auth =
-      apiKey
-        ? { apiKey }
-        : username && password
-          ? { username, password }
-          : undefined;
+    const auth = apiKey
+      ? { apiKey }
+      : username && password
+        ? { username, password }
+        : undefined;
 
     this._client = new Client({ node, ...(auth ? { auth } : {}) });
     this.logger.log(`Elasticsearch client connected to ${node}`);
