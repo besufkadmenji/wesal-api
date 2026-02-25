@@ -123,7 +123,7 @@ export class ProviderService {
 
     if (search) {
       query.andWhere(
-        '(provider.name ILIKE :search OR provider.email ILIKE :search OR provider.phone ILIKE :search OR provider."publicId"::text ILIKE :search)',
+        '(provider.name ILIKE :search OR provider.email ILIKE :search OR provider.phone ILIKE :search OR "provider"."publicId"::text ILIKE :search)',
         { search: `%${search}%` },
       );
     }
