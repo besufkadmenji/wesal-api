@@ -73,6 +73,22 @@ export class ContactMessageResolver {
     );
   }
 
+  @Mutation(() => ContactMessage, {
+    description: 'Reply to contact message (admin only)',
+  })
+  @UseGuards(AdminAuthGuard)
+  replyToContactMessage(
+    @CurrentAdmin() admin: JwtPayload,
+    @Args('id', { type: () => ID }) id: string,
+    @Args('message')
+    message: string,
+  ) {
+    if (!admin?.sub) {
+      throw new Error('Unauthorized');
+    }
+    return this.contactMessageService.reply(id, message);
+  }
+
   @Mutation(() => Boolean, {
     description: 'Delete contact message (admin only)',
   })

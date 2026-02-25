@@ -1,5 +1,5 @@
 import { UseGuards } from '@nestjs/common';
-import { Args, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { GetLanguage } from '../../lib/i18n';
 import type { LanguageCode } from '../../lib/i18n/language.types';
@@ -12,6 +12,7 @@ import { Category } from './entities/category.entity';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Resolver(() => Category)
 export class CategoryResolver {
@@ -57,5 +58,23 @@ export class CategoryResolver {
     @GetLanguage() language: LanguageCode,
   ): Promise<Category> {
     return this.categoryService.remove(id, language);
+  }
+
+  @Mutation(() => Category)
+  @UseGuards(JwtAuthGuard)
+  async activateCategory(
+    @Args('id', { type: () => ID }) id: string,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Category> {
+    return this.categoryService.activate(id, language);
+  }
+
+  @Mutation(() => Category)
+  @UseGuards(JwtAuthGuard)
+  async deactivateCategory(
+    @Args('id', { type: () => ID }) id: string,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Category> {
+    return this.categoryService.deactivate(id, language);
   }
 }

@@ -47,6 +47,10 @@ export class ContactMessage {
   @Column({ type: 'text' })
   messageContent: string;
 
+  @Field()
+  @Column({ type: 'text', default: '' })
+  reply: string;
+
   @Field({ nullable: true })
   @Column({ type: 'varchar', length: 255, nullable: true })
   attachmentFilename?: string;

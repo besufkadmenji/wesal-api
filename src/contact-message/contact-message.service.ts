@@ -85,6 +85,11 @@ export class ContactMessageService {
     return this.findOne(id);
   }
 
+  async reply(id: string, message: string): Promise<ContactMessage> {
+    await this.contactMessageRepository.update(id, { reply: message });
+    return this.findOne(id);
+  }
+
   async remove(id: string): Promise<void> {
     await this.contactMessageRepository.delete(id);
   }

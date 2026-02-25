@@ -18,4 +18,16 @@ export const CATEGORY_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Cannot delete category that has children',
     ar: 'لا يمكن حذف فئة لها فئات فرعية',
   },
+  [CATEGORY_ERROR_CODES.CATEGORY_IN_USE]: {
+    en: 'Cannot delete category that is used by listings',
+    ar: 'لا يمكن حذف فئة مستخدمة في إعلانات',
+  },
+  [CATEGORY_ERROR_CODES.CATEGORY_ALREADY_ACTIVE]: {
+    en: 'Category is already active',
+    ar: 'الفئة مفعّلة بالفعل',
+  },
+  [CATEGORY_ERROR_CODES.CATEGORY_ALREADY_INACTIVE]: {
+    en: 'Category is already inactive',
+    ar: 'الفئة غير مفعّلة بالفعل',
+  },
 };

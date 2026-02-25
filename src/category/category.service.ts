@@ -1,8 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Listing } from '../listing/entities/listing.entity';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
-import { I18nNotFoundException } from '../../lib/errors';
+import {
+  I18nBadRequestException,
+  I18nNotFoundException,
+} from '../../lib/errors';
 import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CategoryPaginationInput } from './dto/category-pagination.input';
@@ -13,6 +17,7 @@ import { CATEGORY_ERROR_MESSAGES } from './errors/category.error-messages';
 import { TrackingService } from '../tracking/tracking.service';
 import { TargetType } from '../tracking/enums/target-type.enum';
 import { ActionType } from '../tracking/enums/action-type.enum';
+import { CategoryStatus } from './enum/category.enum';
 import { SearchService } from '../search/search.service';
 
 @Injectable()
@@ -20,6 +25,8 @@ export class CategoryService {
   constructor(
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
+    @InjectRepository(Listing)
+    private readonly listingRepository: Repository<Listing>,
     private readonly trackingService: TrackingService,
     private readonly searchService: SearchService,
   ) {}
@@ -187,6 +194,18 @@ export class CategoryService {
   async remove(id: string, language: LanguageCode = 'en'): Promise<Category> {
     const category = await this.findOne(id, language);
 
+    const listingCount = await this.listingRepository.count({
+      where: { categoryId: id },
+    });
+
+    if (listingCount > 0) {
+      const message = I18nService.translate(
+        CATEGORY_ERROR_MESSAGES['CATEGORY_IN_USE'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
     await this.categoryRepository
       .createQueryBuilder()
       .delete()
@@ -200,5 +219,66 @@ export class CategoryService {
       .removeCategory(id)
       .catch((err) => console.error('Failed to remove category from ES', err));
     return category;
+  }
+
+  async activate(id: string, language: LanguageCode = 'en'): Promise<Category> {
+    const category = await this.categoryRepository.findOne({ where: { id } });
+
+    if (!category) {
+      const message = I18nService.translate(
+        CATEGORY_ERROR_MESSAGES['CATEGORY_NOT_FOUND'],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    if (category.status === CategoryStatus.ACTIVE) {
+      const message = I18nService.translate(
+        CATEGORY_ERROR_MESSAGES['CATEGORY_ALREADY_ACTIVE'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    category.status = CategoryStatus.ACTIVE;
+    const saved = await this.categoryRepository.save(category);
+    this.searchService
+      .indexCategory(saved)
+      .catch((err) =>
+        console.error('Failed to update category status in ES', err),
+      );
+    return saved;
+  }
+
+  async deactivate(
+    id: string,
+    language: LanguageCode = 'en',
+  ): Promise<Category> {
+    const category = await this.categoryRepository.findOne({ where: { id } });
+
+    if (!category) {
+      const message = I18nService.translate(
+        CATEGORY_ERROR_MESSAGES['CATEGORY_NOT_FOUND'],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    if (category.status === CategoryStatus.INACTIVE) {
+      const message = I18nService.translate(
+        CATEGORY_ERROR_MESSAGES['CATEGORY_ALREADY_INACTIVE'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    category.status = CategoryStatus.INACTIVE;
+    const saved = await this.categoryRepository.save(category);
+    this.searchService
+      .indexCategory(saved)
+      .catch((err) =>
+        console.error('Failed to update category status in ES', err),
+      );
+    return saved;
   }
 }

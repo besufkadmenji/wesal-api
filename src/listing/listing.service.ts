@@ -87,9 +87,9 @@ export class ListingService {
 
     const saved = await this.listingRepository.save(listing);
     // Index in Elasticsearch asynchronously
-    this.searchService.indexListing(saved).catch((err) =>
-      console.error('Failed to index listing in ES', err),
-    );
+    this.searchService
+      .indexListing(saved)
+      .catch((err) => console.error('Failed to index listing in ES', err));
     return saved;
   }
 
@@ -366,9 +366,9 @@ export class ListingService {
     );
     const saved = await this.listingRepository.save(updatedListing);
     // Keep Elasticsearch index in sync
-    this.searchService.indexListing(saved).catch((err) =>
-      console.error('Failed to update listing in ES', err),
-    );
+    this.searchService
+      .indexListing(saved)
+      .catch((err) => console.error('Failed to update listing in ES', err));
     return saved;
   }
 
@@ -397,9 +397,9 @@ export class ListingService {
 
     await this.listingRepository.remove(listing);
     // Remove from Elasticsearch index
-    this.searchService.removeListing(id).catch((err) =>
-      console.error('Failed to remove listing from ES', err),
-    );
+    this.searchService
+      .removeListing(id)
+      .catch((err) => console.error('Failed to remove listing from ES', err));
 
     const successMessage =
       LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_DELETED];
@@ -443,9 +443,11 @@ export class ListingService {
     listing.status = ListingStatus.ACTIVE;
     const saved = await this.listingRepository.save(listing);
     // Reflect status change in Elasticsearch
-    this.searchService.indexListing(saved).catch((err) =>
-      console.error('Failed to update listing status in ES', err),
-    );
+    this.searchService
+      .indexListing(saved)
+      .catch((err) =>
+        console.error('Failed to update listing status in ES', err),
+      );
     return saved;
   }
 
@@ -485,9 +487,11 @@ export class ListingService {
     listing.deactivationReason = reason;
     const saved = await this.listingRepository.save(listing);
     // Reflect status change in Elasticsearch
-    this.searchService.indexListing(saved).catch((err) =>
-      console.error('Failed to update listing status in ES', err),
-    );
+    this.searchService
+      .indexListing(saved)
+      .catch((err) =>
+        console.error('Failed to update listing status in ES', err),
+      );
     return saved;
   }
 }

@@ -6,6 +6,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { CategoryStatus } from '../enum/category.enum';
 
 @ObjectType()
 @Entity('categories')
@@ -50,6 +51,14 @@ export class Category {
   @Field()
   @Column({ type: 'text', default: '' })
   rulesEn: string;
+
+  @Field(() => CategoryStatus)
+  @Column({
+    type: 'enum',
+    enum: CategoryStatus,
+    default: CategoryStatus.ACTIVE,
+  })
+  status: CategoryStatus;
 
   @Field()
   @CreateDateColumn()
