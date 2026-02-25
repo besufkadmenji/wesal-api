@@ -39,4 +39,20 @@ export const LISTING_ERROR_MESSAGES: Record<ListingErrorCode, TranslatedError> =
       en: 'Listing is already inactive',
       ar: 'الإعلان غير نشط بالفعل',
     },
+    [LISTING_ERROR_CODES.LISTING_HAS_COMPLAINTS]: {
+      en: 'Cannot delete listing that has complaints',
+      ar: 'لا يمكن حذف إعلان لديه شكاوى',
+    },
+    [LISTING_ERROR_CODES.LISTING_HAS_CONVERSATIONS]: {
+      en: 'Cannot delete listing that has conversations',
+      ar: 'لا يمكن حذف إعلان لديه محادثات',
+    },
+    [LISTING_ERROR_CODES.LISTING_HAS_FAVORITES]: {
+      en: 'Cannot delete listing that has been saved by users',
+      ar: 'لا يمكن حذف إعلان تم حفظه من قبل مستخدمين',
+    },
+    [LISTING_ERROR_CODES.LISTING_HAS_RATINGS]: {
+      en: 'Cannot delete listing that has ratings',
+      ar: 'لا يمكن حذف إعلان لديه تقييمات',
+    },
   };

@@ -26,4 +26,8 @@ export const CONVERSATION_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'A conversation already exists for this listing between these users',
     ar: 'توجد محادثة بالفعل لهذا الإعلان بين هؤلاء المستخدمين',
   },
+  [CONVERSATION_ERROR_CODES.CONVERSATION_HAS_CONTRACTS]: {
+    en: 'Cannot delete conversation that has contracts',
+    ar: 'لا يمكن حذف محادثة مرتبطة بعقود',
+  },
 };

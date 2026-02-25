@@ -31,6 +31,10 @@ export const CITY_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Cannot delete city that is being used by users',
     ar: 'لا يمكن حذف مدينة يستخدمها المستخدمون',
   },
+  [CITY_ERROR_CODES.CITY_IN_USE_BY_PROVIDERS]: {
+    en: 'Cannot delete city that is being used by providers',
+    ar: 'لا يمكن حذف مدينة مرتبطة بمزودي خدمات',
+  },
 };
 
 // Register city error messages in the central registry

@@ -9,9 +9,10 @@ import { Conversation } from './entities/conversation.entity';
 import { Message } from './entities/message.entity';
 import { Listing } from '../listing/entities/listing.entity';
 import { User } from '../user/entities/user.entity';
+import { Contract } from '../contract/entities/contract.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Conversation, Message, Listing, User])],
+  imports: [TypeOrmModule.forFeature([Conversation, Message, Listing, User, Contract])],
   controllers: [ConversationController],
   providers: [
     ConversationService,

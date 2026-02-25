@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Country } from './entities/country.entity';
+import { City } from '../city/entities/city.entity';
+import { Provider } from '../provider/entities/provider.entity';
+import { User } from '../user/entities/user.entity';
 import { CreateCountryInput } from './dto/create-country.input';
 import { UpdateCountryInput } from './dto/update-country.input';
 import type { LanguageCode } from '../../lib/i18n/language.types';
@@ -20,6 +23,12 @@ export class CountryService {
   constructor(
     @InjectRepository(Country)
     private readonly countryRepository: Repository<Country>,
+    @InjectRepository(City)
+    private readonly cityRepository: Repository<City>,
+    @InjectRepository(Provider)
+    private readonly providerRepository: Repository<Provider>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
   ) {}
 
   async create(
@@ -122,6 +131,34 @@ export class CountryService {
 
   async remove(id: string, language: LanguageCode = 'en'): Promise<Country> {
     const country = await this.findOne(id, language);
+
+    const cityCount = await this.cityRepository.count({ where: { countryId: id } });
+    if (cityCount > 0) {
+      const message = I18nService.translate(
+        COUNTRY_ERROR_MESSAGES[COUNTRY_ERROR_CODES.COUNTRY_HAS_CITIES],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    const providerCount = await this.providerRepository.count({ where: { countryId: id } });
+    if (providerCount > 0) {
+      const message = I18nService.translate(
+        COUNTRY_ERROR_MESSAGES[COUNTRY_ERROR_CODES.COUNTRY_HAS_PROVIDERS],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    const userCount = await this.userRepository.count({ where: { countryId: id } });
+    if (userCount > 0) {
+      const message = I18nService.translate(
+        COUNTRY_ERROR_MESSAGES[COUNTRY_ERROR_CODES.COUNTRY_HAS_USERS],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
     return this.countryRepository.remove(country);
   }
 }

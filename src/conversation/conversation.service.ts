@@ -16,6 +16,8 @@ import { Conversation } from './entities/conversation.entity';
 import { Listing } from '../listing/entities/listing.entity';
 import { User } from '../user/entities/user.entity';
 import { CONVERSATION_ERROR_MESSAGES } from './errors/conversation.error-messages';
+import { CONVERSATION_ERROR_CODES } from './errors/conversation.error-codes';
+import { Contract } from '../contract/entities/contract.entity';
 
 @Injectable()
 export class ConversationService {
@@ -26,6 +28,8 @@ export class ConversationService {
     private readonly listingRepository: Repository<Listing>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Contract)
+    private readonly contractRepository: Repository<Contract>,
   ) {}
 
   async create(
@@ -197,6 +201,16 @@ export class ConversationService {
     language: LanguageCode = 'en',
   ): Promise<Conversation> {
     const conversation = await this.findOne(id, language);
+
+    const contractCount = await this.contractRepository.count({ where: { conversationId: id } });
+    if (contractCount > 0) {
+      const message = I18nService.translate(
+        CONVERSATION_ERROR_MESSAGES[CONVERSATION_ERROR_CODES.CONVERSATION_HAS_CONTRACTS],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
     await this.conversationRepository.remove(conversation);
     return conversation;
   }

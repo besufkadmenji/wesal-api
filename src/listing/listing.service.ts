@@ -10,6 +10,10 @@ import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Category } from '../category/entities/category.entity';
 import { City } from '../city/entities/city.entity';
 import { Provider } from '../provider/entities/provider.entity';
+import { Complaint } from '../complaint/entities/complaint.entity';
+import { Conversation } from '../conversation/entities/conversation.entity';
+import { Favorite } from '../favorite/entities/favorite.entity';
+import { Rating } from '../rating/entities/rating.entity';
 import { CreateListingInput } from './dto/create-listing.input';
 import { ListingPaginationInput } from './dto/listing-pagination.input';
 import { PaginatedListingResponse } from './dto/paginated-listings.response';
@@ -34,6 +38,14 @@ export class ListingService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(City)
     private readonly cityRepository: Repository<City>,
+    @InjectRepository(Complaint)
+    private readonly complaintRepository: Repository<Complaint>,
+    @InjectRepository(Conversation)
+    private readonly conversationRepository: Repository<Conversation>,
+    @InjectRepository(Favorite)
+    private readonly favoriteRepository: Repository<Favorite>,
+    @InjectRepository(Rating)
+    private readonly ratingRepository: Repository<Rating>,
     private readonly trackingService: TrackingService,
     private readonly searchService: SearchService,
   ) {}
@@ -391,6 +403,38 @@ export class ListingService {
     if (listing.providerId !== providerId && !adminId) {
       throw new I18nBadRequestException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.UNAUTHORIZED],
+        language,
+      );
+    }
+
+    const complaintCount = await this.complaintRepository.count({ where: { listingId: id } });
+    if (complaintCount > 0) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_HAS_COMPLAINTS],
+        language,
+      );
+    }
+
+    const conversationCount = await this.conversationRepository.count({ where: { listingId: id } });
+    if (conversationCount > 0) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_HAS_CONVERSATIONS],
+        language,
+      );
+    }
+
+    const favoriteCount = await this.favoriteRepository.count({ where: { listingId: id } });
+    if (favoriteCount > 0) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_HAS_FAVORITES],
+        language,
+      );
+    }
+
+    const ratingCount = await this.ratingRepository.count({ where: { listingId: id } });
+    if (ratingCount > 0) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_HAS_RATINGS],
         language,
       );
     }

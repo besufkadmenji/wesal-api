@@ -15,6 +15,7 @@ import { City } from './entities/city.entity';
 import { CITY_ERROR_CODES } from './errors/city.error-codes';
 import { CITY_ERROR_MESSAGES } from './errors/city.error-messages';
 import { User } from '../user/entities/user.entity';
+import { Provider } from '../provider/entities/provider.entity';
 
 @Injectable()
 export class CityService {
@@ -23,6 +24,8 @@ export class CityService {
     private readonly cityRepository: Repository<City>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Provider)
+    private readonly providerRepository: Repository<Provider>,
   ) {}
 
   async create(
@@ -206,6 +209,17 @@ export class CityService {
     if (userCount > 0) {
       const message = I18nService.translate(
         CITY_ERROR_MESSAGES[CITY_ERROR_CODES.CITY_IN_USE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    const providerCount = await this.providerRepository.count({
+      where: { cityId: id },
+    });
+    if (providerCount > 0) {
+      const message = I18nService.translate(
+        CITY_ERROR_MESSAGES[CITY_ERROR_CODES.CITY_IN_USE_BY_PROVIDERS],
         language,
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);

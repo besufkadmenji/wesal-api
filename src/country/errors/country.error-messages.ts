@@ -35,6 +35,18 @@ export const COUNTRY_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Country code must not exceed 500 characters',
     ar: 'يجب ألا يتجاوز رمز الدولة 500 حرف',
   },
+  [COUNTRY_ERROR_CODES.COUNTRY_HAS_CITIES]: {
+    en: 'Cannot delete country that has cities',
+    ar: 'لا يمكن حذف دولة تحتوي على مدن',
+  },
+  [COUNTRY_ERROR_CODES.COUNTRY_HAS_PROVIDERS]: {
+    en: 'Cannot delete country that has providers',
+    ar: 'لا يمكن حذف دولة مرتبطة بمزودي خدمات',
+  },
+  [COUNTRY_ERROR_CODES.COUNTRY_HAS_USERS]: {
+    en: 'Cannot delete country that has users',
+    ar: 'لا يمكن حذف دولة مرتبطة بمستخدمين',
+  },
 };
 
 // Register country error messages in the central registry
