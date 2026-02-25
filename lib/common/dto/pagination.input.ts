@@ -1,5 +1,5 @@
 import { Field, InputType, Int, registerEnumType } from '@nestjs/graphql';
-import { IsOptional, Min, Max } from 'class-validator';
+import { IsOptional, Min } from 'class-validator';
 
 export enum SortOrder {
   ASC = 'ASC',
@@ -24,7 +24,6 @@ export class PaginationInput {
   })
   @IsOptional()
   @Min(1)
-  @Max(100)
   limit?: number = 10;
 
   @Field(() => SortOrder, {
