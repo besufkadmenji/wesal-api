@@ -52,10 +52,7 @@ export class ProviderService {
     });
 
     if (existingProvider) {
-      if (
-        existingProvider.email === createProviderInput.email &&
-        existingProvider.emailVerified
-      ) {
+      if (existingProvider.email === createProviderInput.email) {
         const message = I18nService.translate(
           PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.EMAIL_ALREADY_IN_USE],
           language,
@@ -65,20 +62,11 @@ export class ProviderService {
           language,
         );
       }
-      if (
-        existingProvider.phone === createProviderInput.phone &&
-        existingProvider.phoneVerified
-      ) {
-        const message = I18nService.translate(
-          PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PHONE_ALREADY_IN_USE],
-          language,
-        );
-        throw new I18nBadRequestException(
-          { en: message, ar: message },
-          language,
-        );
-      }
-      return existingProvider;
+      const message = I18nService.translate(
+        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PHONE_ALREADY_IN_USE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
     // Hash password

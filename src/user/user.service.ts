@@ -40,10 +40,7 @@ export class UserService {
     });
 
     if (existingUser) {
-      if (
-        existingUser.email === createUserInput.email &&
-        existingUser.emailVerified
-      ) {
+      if (existingUser.email === createUserInput.email) {
         const message = I18nService.translate(
           USER_ERROR_MESSAGES[USER_ERROR_CODES.EMAIL_ALREADY_IN_USE],
           language,
@@ -53,21 +50,11 @@ export class UserService {
           language,
         );
       }
-      if (
-        existingUser.phone === createUserInput.phone &&
-        existingUser.phoneVerified
-      ) {
-        const message = I18nService.translate(
-          USER_ERROR_MESSAGES[USER_ERROR_CODES.PHONE_ALREADY_IN_USE],
-          language,
-        );
-        throw new I18nBadRequestException(
-          { en: message, ar: message },
-          language,
-        );
-      }
-
-      return existingUser;
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.PHONE_ALREADY_IN_USE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
     // Hash password
