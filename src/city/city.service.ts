@@ -74,7 +74,7 @@ export class CityService {
     if (search && search.trim()) {
       const searchTerm = `%${search.trim()}%`;
       queryBuilder.where(
-        '(city.nameEn ILIKE :search OR city.nameAr ILIKE :search)',
+        '(city.nameEn ILIKE :search OR city.nameAr ILIKE :search OR "city"."publicId"::text ILIKE :search)',
         { search: searchTerm },
       );
     }
@@ -139,7 +139,7 @@ export class CityService {
     if (search && search.trim()) {
       const searchTerm = `%${search.trim()}%`;
       queryBuilder.andWhere(
-        '(city.nameEn ILIKE :search OR city.nameAr ILIKE :search)',
+        '(city.nameEn ILIKE :search OR city.nameAr ILIKE :search OR "city"."publicId"::text ILIKE :search)',
         { search: searchTerm },
       );
     }

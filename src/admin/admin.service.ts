@@ -92,7 +92,7 @@ export class AdminService {
 
     if (search) {
       queryBuilder.andWhere(
-        '(admin.email ILIKE :search OR admin.fullName ILIKE :search OR admin.organizationName ILIKE :search)',
+        '(admin.email ILIKE :search OR admin.fullName ILIKE :search OR admin.organizationName ILIKE :search OR "admin"."publicId"::text ILIKE :search)',
         { search: `%${search}%` },
       );
     }

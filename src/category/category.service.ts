@@ -74,7 +74,7 @@ export class CategoryService {
       if (search && search.trim()) {
         const searchTerm = `%${search.trim()}%`;
         queryBuilder.andWhere(
-          '(category.nameEn ILIKE :search OR category.nameAr ILIKE :search OR category.descriptionEn ILIKE :search OR category.descriptionAr ILIKE :search)',
+          '(category.nameEn ILIKE :search OR category.nameAr ILIKE :search OR category.descriptionEn ILIKE :search OR category.descriptionAr ILIKE :search OR "category"."publicId"::text ILIKE :search)',
           { search: searchTerm },
         );
       }
