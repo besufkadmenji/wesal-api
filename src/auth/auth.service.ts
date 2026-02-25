@@ -889,13 +889,13 @@ export class AuthService {
     // TODO: Replace with actual 4-digit OTP generation in production
     const code = '1234';
 
-    // Create OTP with 10 minutes expiration
+    // Create OTP with 60 seconds expiration
     const otp = this.otpRepository.create({
       userId,
       target,
       type,
       code,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      expiresAt: new Date(Date.now() + 60 * 1000), // 60 seconds
       isUsed: false,
       ipAddress,
       attemptCount: 0,
