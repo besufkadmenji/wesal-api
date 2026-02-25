@@ -3,6 +3,7 @@ import { ApolloServerPluginLandingPageLocalDefault } from '@apollo/server/plugin
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
 import * as jwt from 'jsonwebtoken';
 
 @Module({
@@ -12,6 +13,9 @@ import * as jwt from 'jsonwebtoken';
       autoSchemaFile: true,
       sortSchema: true,
       introspection: true,
+      buildSchemaOptions: {
+        scalarsMap: [{ type: () => Object, scalar: GraphQLJSON }],
+      },
       playground: false,
       subscriptions: {
         'graphql-ws': {

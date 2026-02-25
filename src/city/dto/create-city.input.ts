@@ -1,5 +1,7 @@
 import { Field, InputType, ID } from '@nestjs/graphql';
-import { IsNotEmpty, MaxLength, IsUUID } from 'class-validator';
+import { IsNotEmpty, IsOptional, MaxLength, IsUUID } from 'class-validator';
+import GraphQLJSON from 'graphql-type-json';
+import type { GeoJSONPolygon } from '../types/geo-boundary.type';
 import { CITY_ERROR_CODES } from '../errors/city.error-codes';
 
 @InputType()
@@ -30,4 +32,8 @@ export class CreateCityInput {
     message: CITY_ERROR_CODES.INVALID_CITY_NAME_LENGTH,
   })
   nameAr: string;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  @IsOptional()
+  geoBoundary?: GeoJSONPolygon;
 }

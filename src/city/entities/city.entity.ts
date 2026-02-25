@@ -1,4 +1,6 @@
 import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
+import type { GeoJSONPolygon } from '../types/geo-boundary.type';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -46,6 +48,10 @@ export class City {
     default: CityStatus.ACTIVE,
   })
   status: CityStatus;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
+  geoBoundary: GeoJSONPolygon | null;
 
   @Field()
   @CreateDateColumn()
