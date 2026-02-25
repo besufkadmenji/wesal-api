@@ -52,9 +52,25 @@ export class ProviderService {
     });
 
     if (existingProvider) {
-      if (existingProvider.phoneVerified && existingProvider.emailVerified) {
+      if (
+        existingProvider.email === createProviderInput.email &&
+        existingProvider.emailVerified
+      ) {
         const message = I18nService.translate(
-          PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_ALREADY_EXISTS],
+          PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.EMAIL_ALREADY_IN_USE],
+          language,
+        );
+        throw new I18nBadRequestException(
+          { en: message, ar: message },
+          language,
+        );
+      }
+      if (
+        existingProvider.phone === createProviderInput.phone &&
+        existingProvider.phoneVerified
+      ) {
+        const message = I18nService.translate(
+          PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PHONE_ALREADY_IN_USE],
           language,
         );
         throw new I18nBadRequestException(

@@ -12,6 +12,14 @@ export const PROVIDER_ERROR_MESSAGES: Record<
     en: 'A provider with this email or phone already exists',
     ar: 'مقدم خدمة بهذا البريد الإلكتروني أو الهاتف موجود بالفعل',
   },
+  [PROVIDER_ERROR_CODES.EMAIL_ALREADY_IN_USE]: {
+    en: 'This email is already registered',
+    ar: 'هذا البريد الإلكتروني مسجل بالفعل',
+  },
+  [PROVIDER_ERROR_CODES.PHONE_ALREADY_IN_USE]: {
+    en: 'This phone number is already registered',
+    ar: 'رقم الهاتف هذا مسجل بالفعل',
+  },
   [PROVIDER_ERROR_CODES.INVALID_CREDENTIALS]: {
     en: 'Invalid credentials',
     ar: 'بيانات اعتماد غير صحيحة',
