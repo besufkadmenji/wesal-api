@@ -123,6 +123,15 @@ export class ProviderAuthService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
+    // Check if account is disabled
+    if (provider.status !== ProviderStatus.ACTIVE && provider.emailVerified && provider.phoneVerified) {
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['ACCOUNT_DISABLED'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
     // Check if account is verified — send fresh OTP(s) and return empty token
     if (!provider.emailVerified || !provider.phoneVerified) {
       if (!provider.emailVerified) {
@@ -139,11 +148,6 @@ export class ProviderAuthService {
           OtpType.PHONE_VERIFICATION,
         );
       }
-      return { accessToken: '', provider };
-    }
-
-    // If provider is not active, return empty token
-    if (provider.status !== ProviderStatus.ACTIVE) {
       return { accessToken: '', provider };
     }
 

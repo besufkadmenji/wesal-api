@@ -1,5 +1,7 @@
-import { UseGuards } from '@nestjs/common';
-import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Inject, UseGuards } from '@nestjs/common';
+import { Args, Context, ID, Mutation, Query, Resolver, Subscription } from '@nestjs/graphql';
+import { PubSub } from 'graphql-subscriptions';
+import { PUB_SUB } from 'lib/pubsub/pubsub.module';
 import { CurrentProvider } from 'src/auth/decorators/current-provider.decorator';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
@@ -21,7 +23,10 @@ import { DeleteProviderInput } from './dto/delete-provider.input';
 
 @Resolver(() => Provider)
 export class ProviderResolver {
-  constructor(private readonly providerService: ProviderService) {}
+  constructor(
+    private readonly providerService: ProviderService,
+    @Inject(PUB_SUB) private readonly pubSub: PubSub,
+  ) {}
 
   @Mutation(() => Provider, { description: 'Create a new provider' })
   createProvider(
@@ -182,5 +187,17 @@ export class ProviderResolver {
     @GetLanguage() language: LanguageCode,
   ) {
     return this.providerService.removeAvatar(id, language);
+  }
+
+  @Subscription(() => Provider, {
+    description: 'Subscribe to real-time updates for the authenticated provider',
+    filter: (
+      payload: { providerUpdated: { id: string } },
+      _variables: unknown,
+      context: { userId: string },
+    ) => payload.providerUpdated.id === context.userId,
+  })
+  providerUpdated(@Context() context: { userId: string }) {
+    return this.pubSub.asyncIterableIterator('providerUpdated');
   }
 }

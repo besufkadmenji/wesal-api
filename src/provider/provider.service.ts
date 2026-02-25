@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { PubSub } from 'graphql-subscriptions';
+import { PUB_SUB } from 'lib/pubsub/pubsub.module';
 import { In, Repository } from 'typeorm';
 import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import {
@@ -37,6 +39,7 @@ export class ProviderService {
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
     private readonly signedContractService: SignedContractService,
+    @Inject(PUB_SUB) private readonly pubSub: PubSub,
   ) {}
 
   async create(
@@ -248,7 +251,9 @@ export class ProviderService {
     }
 
     provider.status = ProviderStatus.ACTIVE;
-    return this.providerRepository.save(provider);
+    const saved = await this.providerRepository.save(provider);
+    await this.pubSub.publish('providerUpdated', { providerUpdated: saved });
+    return saved;
   }
 
   async deactivate(
@@ -272,7 +277,9 @@ export class ProviderService {
     if (reason) {
       provider.deactivationReason = reason;
     }
-    return this.providerRepository.save(provider);
+    const saved = await this.providerRepository.save(provider);
+    await this.pubSub.publish('providerUpdated', { providerUpdated: saved });
+    return saved;
   }
 
   async signContract(

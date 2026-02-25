@@ -24,7 +24,8 @@
     "search:reindex:prod": "node dist/reindex",
     "typeorm:generate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:generate -d src/database/data-source.ts -o syncProd",
     "typeorm:migrate": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:run -d src/database/data-source.ts",
-    "typeorm:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts"
+    "typeorm:revert": "ts-node -r tsconfig-paths/register ./node_modules/typeorm/cli.js migration:revert -d src/database/data-source.ts",
+    "email:dev": "email dev"
   },
   "dependencies": {
     "@apollo/server": "^5.4.0",
@@ -42,6 +43,7 @@
     "@nestjs/serve-static": "^5.0.4",
     "@nestjs/swagger": "^11.2.6",
     "@nestjs/typeorm": "^11.0.0",
+    "@react-email/components": "1.0.8",
     "@types/jsonwebtoken": "^9.0.10",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
@@ -53,6 +55,8 @@
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pg": "^8.18.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
     "typeorm": "^0.3.28",
@@ -64,11 +68,13 @@
     "@nestjs/cli": "^11.0.16",
     "@nestjs/schematics": "^11.0.9",
     "@nestjs/testing": "^11.1.14",
+    "@react-email/preview-server": "5.2.8",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.3.0",
     "@types/passport-jwt": "^4.0.1",
+    "@types/react": "^19.2.14",
     "@types/supertest": "^6.0.3",
     "@types/uuid": "^11.0.0",
     "eslint": "^10.0.2",
@@ -77,6 +83,7 @@
     "globals": "^17.3.0",
     "jest": "^30.2.0",
     "prettier": "^3.8.1",
+    "react-email": "5.2.8",
     "source-map-support": "^0.5.21",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.6",
@@ -117,7 +124,9 @@
       "@nestjs/core",
       "unrs-resolver",
       "bcrypt",
-      "@scarf/scarf"
+      "@scarf/scarf",
+      "esbuild",
+      "sharp"
     ]
   }
 }
