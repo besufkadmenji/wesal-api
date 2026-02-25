@@ -9,11 +9,15 @@ import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Category } from '../category/entities/category.entity';
 import { City } from '../city/entities/city.entity';
-import { Provider } from '../provider/entities/provider.entity';
 import { Complaint } from '../complaint/entities/complaint.entity';
 import { Conversation } from '../conversation/entities/conversation.entity';
 import { Favorite } from '../favorite/entities/favorite.entity';
+import { Provider } from '../provider/entities/provider.entity';
 import { Rating } from '../rating/entities/rating.entity';
+import { SearchService } from '../search/search.service';
+import { ActionType } from '../tracking/enums/action-type.enum';
+import { TargetType } from '../tracking/enums/target-type.enum';
+import { TrackingService } from '../tracking/tracking.service';
 import { CreateListingInput } from './dto/create-listing.input';
 import { ListingPaginationInput } from './dto/listing-pagination.input';
 import { PaginatedListingResponse } from './dto/paginated-listings.response';
@@ -22,10 +26,6 @@ import { Listing } from './entities/listing.entity';
 import { ListingStatus } from './enums/listing.enum';
 import { LISTING_ERROR_CODES } from './errors/listing.error-codes';
 import { LISTING_ERROR_MESSAGES } from './errors/listing.error-messages';
-import { TrackingService } from '../tracking/tracking.service';
-import { TargetType } from '../tracking/enums/target-type.enum';
-import { ActionType } from '../tracking/enums/action-type.enum';
-import { SearchService } from '../search/search.service';
 
 @Injectable()
 export class ListingService {
@@ -407,7 +407,9 @@ export class ListingService {
       );
     }
 
-    const complaintCount = await this.complaintRepository.count({ where: { listingId: id } });
+    const complaintCount = await this.complaintRepository.count({
+      where: { listingId: id },
+    });
     if (complaintCount > 0) {
       throw new I18nBadRequestException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_HAS_COMPLAINTS],
@@ -415,7 +417,9 @@ export class ListingService {
       );
     }
 
-    const conversationCount = await this.conversationRepository.count({ where: { listingId: id } });
+    const conversationCount = await this.conversationRepository.count({
+      where: { listingId: id },
+    });
     if (conversationCount > 0) {
       throw new I18nBadRequestException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_HAS_CONVERSATIONS],
@@ -423,7 +427,9 @@ export class ListingService {
       );
     }
 
-    const favoriteCount = await this.favoriteRepository.count({ where: { listingId: id } });
+    const favoriteCount = await this.favoriteRepository.count({
+      where: { listingId: id },
+    });
     if (favoriteCount > 0) {
       throw new I18nBadRequestException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_HAS_FAVORITES],
@@ -431,7 +437,9 @@ export class ListingService {
       );
     }
 
-    const ratingCount = await this.ratingRepository.count({ where: { listingId: id } });
+    const ratingCount = await this.ratingRepository.count({
+      where: { listingId: id },
+    });
     if (ratingCount > 0) {
       throw new I18nBadRequestException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_HAS_RATINGS],

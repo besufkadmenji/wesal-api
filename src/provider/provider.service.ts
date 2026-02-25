@@ -115,11 +115,16 @@ export class ProviderService {
       .leftJoinAndSelect('provider.categories', 'categories')
       .leftJoinAndSelect('provider.signedContract', 'signedContract')
       .where('provider.emailVerified = true')
-      .andWhere('provider.phoneVerified = true');
-
-    if (status) {
-      query.andWhere('provider.status = :status', { status });
-    }
+      .andWhere('provider.phoneVerified = true')
+      .andWhere('provider.status IN (:...statuses)', {
+        statuses: status
+          ? [status]
+          : [
+              ProviderStatus.ACTIVE,
+              ProviderStatus.INACTIVE,
+              ProviderStatus.SUSPENDED,
+            ],
+      });
 
     if (search) {
       query.andWhere(
