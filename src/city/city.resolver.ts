@@ -1,3 +1,4 @@
+import { UseGuards } from '@nestjs/common';
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { CityService } from './city.service';
 import { City } from './entities/city.entity';
@@ -7,6 +8,7 @@ import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CityPaginationInput } from './dto/city-pagination.input';
 import { PaginatedCityResponse } from './dto/paginated-city.response';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Resolver(() => City)
 export class CityResolver {
@@ -67,5 +69,23 @@ export class CityResolver {
     @GetLanguage() language: LanguageCode,
   ) {
     return this.cityService.remove(id, language);
+  }
+
+  @Mutation(() => City)
+  @UseGuards(JwtAuthGuard)
+  async activateCity(
+    @Args('id', { type: () => ID }) id: string,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<City> {
+    return this.cityService.activate(id, language);
+  }
+
+  @Mutation(() => City)
+  @UseGuards(JwtAuthGuard)
+  async deactivateCity(
+    @Args('id', { type: () => ID }) id: string,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<City> {
+    return this.cityService.deactivate(id, language);
   }
 }

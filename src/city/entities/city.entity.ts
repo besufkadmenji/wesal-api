@@ -9,6 +9,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Country } from '../../country/entities/country.entity';
+import { CityStatus } from '../enum/city.enum';
 
 @ObjectType()
 @Entity('cities')
@@ -37,6 +38,14 @@ export class City {
   @Field()
   @Column({ type: 'varchar', length: 500 })
   nameAr: string;
+
+  @Field(() => CityStatus)
+  @Column({
+    type: 'enum',
+    enum: CityStatus,
+    default: CityStatus.ACTIVE,
+  })
+  status: CityStatus;
 
   @Field()
   @CreateDateColumn()

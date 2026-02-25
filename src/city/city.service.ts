@@ -16,6 +16,7 @@ import { CITY_ERROR_CODES } from './errors/city.error-codes';
 import { CITY_ERROR_MESSAGES } from './errors/city.error-messages';
 import { User } from '../user/entities/user.entity';
 import { Provider } from '../provider/entities/provider.entity';
+import { CityStatus } from './enum/city.enum';
 
 @Injectable()
 export class CityService {
@@ -62,21 +63,26 @@ export class CityService {
       sortBy,
       sortOrder = 'DESC',
       search,
+      status,
     } = paginationInput || {};
 
     const skip = (page - 1) * limit;
 
     const queryBuilder = this.cityRepository
       .createQueryBuilder('city')
-      .leftJoinAndSelect('city.country', 'country');
+      .leftJoinAndSelect('city.country', 'country')
+      .where('1=1');
 
     // Add search filter if provided
     if (search && search.trim()) {
       const searchTerm = `%${search.trim()}%`;
-      queryBuilder.where(
+      queryBuilder.andWhere(
         '(city.nameEn ILIKE :search OR city.nameAr ILIKE :search OR "city"."publicId"::text ILIKE :search)',
         { search: searchTerm },
       );
+    }
+    if (status) {
+      queryBuilder.andWhere('city.status = :status', { status });
     }
 
     const [items, total] = await queryBuilder
@@ -227,5 +233,51 @@ export class CityService {
 
     await this.cityRepository.delete({ id });
     return city;
+  }
+
+  async activate(id: string, language: LanguageCode = 'en'): Promise<City> {
+    const city = await this.cityRepository.findOne({ where: { id } });
+
+    if (!city) {
+      const message = I18nService.translate(
+        CITY_ERROR_MESSAGES[CITY_ERROR_CODES.CITY_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    if (city.status === CityStatus.ACTIVE) {
+      const message = I18nService.translate(
+        CITY_ERROR_MESSAGES[CITY_ERROR_CODES.CITY_ALREADY_ACTIVE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    city.status = CityStatus.ACTIVE;
+    return this.cityRepository.save(city);
+  }
+
+  async deactivate(id: string, language: LanguageCode = 'en'): Promise<City> {
+    const city = await this.cityRepository.findOne({ where: { id } });
+
+    if (!city) {
+      const message = I18nService.translate(
+        CITY_ERROR_MESSAGES[CITY_ERROR_CODES.CITY_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    if (city.status === CityStatus.INACTIVE) {
+      const message = I18nService.translate(
+        CITY_ERROR_MESSAGES[CITY_ERROR_CODES.CITY_ALREADY_INACTIVE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    city.status = CityStatus.INACTIVE;
+    return this.cityRepository.save(city);
   }
 }
