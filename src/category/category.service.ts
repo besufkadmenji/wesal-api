@@ -45,7 +45,7 @@ export class CategoryService {
     paginationInput: CategoryPaginationInput,
     userId?: string,
   ): Promise<IPaginatedType<Category>> {
-    const { page = 1, limit = 10, search } = paginationInput;
+    const { page = 1, limit = 10, search, status } = paginationInput;
     const skip = (page - 1) * limit;
 
     let items: Category[];
@@ -60,8 +60,11 @@ export class CategoryService {
       );
 
       if (esResult.total > 0) {
-        items = await this.searchService.loadCategoriesById(esResult.ids);
-        total = esResult.total;
+        const loaded = await this.searchService.loadCategoriesById(
+          esResult.ids,
+        );
+        items = status ? loaded.filter((c) => c.status === status) : loaded;
+        total = items.length;
       } else {
         items = [];
         total = 0;
@@ -77,6 +80,10 @@ export class CategoryService {
           '(category.nameEn ILIKE :search OR category.nameAr ILIKE :search OR category.descriptionEn ILIKE :search OR category.descriptionAr ILIKE :search OR "category"."publicId"::text ILIKE :search)',
           { search: searchTerm },
         );
+      }
+
+      if (status) {
+        queryBuilder.andWhere('category.status = :status', { status });
       }
 
       if (userId) {
