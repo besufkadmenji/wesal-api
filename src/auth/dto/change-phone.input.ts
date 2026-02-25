@@ -1,5 +1,6 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsNotEmpty, IsPhoneNumber, IsString, Matches } from 'class-validator';
+import { IsNotEmpty, IsString, Matches } from 'class-validator';
+import { IsPhoneValid } from 'lib/common/validators/is-phone-valid';
 
 @InputType()
 export class ChangePhoneInput {
@@ -13,6 +14,6 @@ export class ChangePhoneInput {
 
   @Field()
   @IsNotEmpty()
-  @IsPhoneNumber()
+  @IsPhoneValid()
   newPhone: string;
 }

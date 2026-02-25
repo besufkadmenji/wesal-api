@@ -3,13 +3,13 @@ import {
   IsEmail,
   IsNotEmpty,
   IsOptional,
-  IsPhoneNumber,
   IsString,
   IsUUID,
   Matches,
   MinLength,
   MaxLength,
 } from 'class-validator';
+import { IsPhoneValid } from 'lib/common/validators/is-phone-valid';
 
 @InputType()
 export class RegisterInput {
@@ -39,7 +39,7 @@ export class RegisterInput {
 
   @Field()
   @IsNotEmpty()
-  @IsPhoneNumber()
+  @IsPhoneValid()
   phone: string;
 
   @Field({ nullable: true })
