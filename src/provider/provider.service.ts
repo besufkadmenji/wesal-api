@@ -545,8 +545,8 @@ export class ProviderService {
     provider.deletedAt = new Date();
     if (reason) {
       provider.deleteReason = reason;
-      provider.status = ProviderStatus.DELETED;
     }
+    provider.status = ProviderStatus.DELETED;
     await this.providerRepository.save(provider);
     return provider;
   }

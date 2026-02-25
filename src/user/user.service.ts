@@ -265,8 +265,9 @@ export class UserService {
     user.deletedAt = new Date();
     if (reason) {
       user.deleteReason = reason;
-      user.status = UserStatus.DELETED;
     }
+    user.status = UserStatus.DELETED;
+
     return this.userRepository.save(user);
   }
 

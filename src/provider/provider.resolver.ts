@@ -1,5 +1,13 @@
 import { Inject, UseGuards } from '@nestjs/common';
-import { Args, Context, ID, Mutation, Query, Resolver, Subscription } from '@nestjs/graphql';
+import {
+  Args,
+  Context,
+  ID,
+  Mutation,
+  Query,
+  Resolver,
+  Subscription,
+} from '@nestjs/graphql';
 import { PubSub } from 'graphql-subscriptions';
 import { PUB_SUB } from 'lib/pubsub/pubsub.module';
 import { CurrentProvider } from 'src/auth/decorators/current-provider.decorator';
@@ -190,13 +198,15 @@ export class ProviderResolver {
   }
 
   @Subscription(() => Provider, {
-    description: 'Subscribe to real-time updates for the authenticated provider',
+    description:
+      'Subscribe to real-time updates for the authenticated provider',
     filter: (
       payload: { providerUpdated: { id: string } },
       _variables: unknown,
       context: { userId: string },
     ) => payload.providerUpdated.id === context.userId,
   })
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   providerUpdated(@Context() context: { userId: string }) {
     return this.pubSub.asyncIterableIterator('providerUpdated');
   }
