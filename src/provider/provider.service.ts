@@ -113,7 +113,9 @@ export class ProviderService {
       .leftJoinAndSelect('provider.country', 'country')
       .leftJoinAndSelect('provider.city', 'city')
       .leftJoinAndSelect('provider.categories', 'categories')
-      .leftJoinAndSelect('provider.signedContract', 'signedContract');
+      .leftJoinAndSelect('provider.signedContract', 'signedContract')
+      .where('provider.emailVerified = true')
+      .andWhere('provider.phoneVerified = true');
 
     if (status) {
       query.andWhere('provider.status = :status', { status });

@@ -88,6 +88,8 @@ export class UserService {
     const queryBuilder = this.userRepository
       .createQueryBuilder('user')
       .where('user.deletedAt IS NULL')
+      .andWhere('user.emailVerified = true')
+      .andWhere('user.phoneVerified = true')
       .andWhere('user.status IN (:...statuses)', {
         statuses: paginationInput.status
           ? [paginationInput.status]
