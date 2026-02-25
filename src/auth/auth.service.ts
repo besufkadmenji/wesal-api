@@ -10,6 +10,7 @@ import { I18nService } from 'lib/i18n/i18n.service';
 import { LanguageCode } from 'lib/i18n/language.types';
 import { SmsService } from 'lib/sms/sms.service';
 import { User } from 'src/user/entities/user.entity';
+import { UserStatus } from 'src/user/enums/user-status.enum';
 import { UserService } from 'src/user/user.service';
 import { AuthResponse } from './dto/auth-response';
 import { ChangeEmailInput } from './dto/change-email.input';
@@ -94,6 +95,15 @@ export class AuthService {
     if (!isPasswordValid) {
       const message = I18nService.translate(
         AUTH_ERROR_MESSAGES['INVALID_CREDENTIALS'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Check if account is disabled
+    if (user.status !== UserStatus.ACTIVE) {
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['ACCOUNT_DISABLED'],
         language,
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);

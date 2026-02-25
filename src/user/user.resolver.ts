@@ -1,5 +1,15 @@
-import { UseGuards } from '@nestjs/common';
-import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Inject, UseGuards } from '@nestjs/common';
+import {
+  Args,
+  Context,
+  ID,
+  Mutation,
+  Query,
+  Resolver,
+  Subscription,
+} from '@nestjs/graphql';
+import { PubSub } from 'graphql-subscriptions';
+import { PUB_SUB } from 'lib/pubsub/pubsub.module';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -15,7 +25,10 @@ import { UserService } from './user.service';
 
 @Resolver(() => User)
 export class UserResolver {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    @Inject(PUB_SUB) private readonly pubSub: PubSub,
+  ) {}
 
   @Query(() => User, {
     name: 'meUser',
@@ -92,5 +105,18 @@ export class UserResolver {
     @GetLanguage() language: LanguageCode,
   ) {
     return this.userService.deactivate(id, input.reason, language);
+  }
+
+  @Subscription(() => User, {
+    description: 'Subscribe to real-time updates for the authenticated user',
+    filter: (
+      payload: { userUpdated: { id: string } },
+      _variables: unknown,
+      context: { userId: string },
+    ) => payload.userUpdated.id === context.userId,
+  })
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  userUpdated(@Context() context: { userId: string }) {
+    return this.pubSub.asyncIterableIterator('userUpdated');
   }
 }

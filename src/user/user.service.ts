@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { PUB_SUB } from 'lib/pubsub/pubsub.module';
+import { PubSub } from 'graphql-subscriptions';
 import { Admin } from 'src/admin/entities/admin.entity';
 import { Repository } from 'typeorm';
 import { IPaginatedType } from '../../lib/common/dto/paginated-response';
@@ -25,6 +27,7 @@ export class UserService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Admin)
     private readonly adminRepository: Repository<Admin>,
+    @Inject(PUB_SUB) private readonly pubSub: PubSub,
   ) {}
 
   async create(
@@ -278,7 +281,9 @@ export class UserService {
     }
 
     user.status = UserStatus.ACTIVE;
-    return this.userRepository.save(user);
+    const saved = await this.userRepository.save(user);
+    await this.pubSub.publish('userUpdated', { userUpdated: saved });
+    return saved;
   }
 
   async deactivate(
@@ -301,6 +306,8 @@ export class UserService {
     if (reason) {
       user.deactivationReason = reason;
     }
-    return this.userRepository.save(user);
+    const saved = await this.userRepository.save(user);
+    await this.pubSub.publish('userUpdated', { userUpdated: saved });
+    return saved;
   }
 }

@@ -82,4 +82,8 @@ export const AUTH_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Commercial registration file is required for providers',
     ar: 'ملف السجل التجاري مطلوب لمقدمي الخدمات',
   },
+  [AUTH_ERROR_CODES.ACCOUNT_DISABLED]: {
+    en: 'Your account has been disabled. Please contact support',
+    ar: 'تم تعطيل حسابك. يرجى التواصل مع الدعم',
+  },
 };

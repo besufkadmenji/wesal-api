@@ -6,6 +6,7 @@ import * as path from 'path';
 import { AppController } from '../lib/app/app.controller';
 import { AppService } from '../lib/app/app.service';
 import { GraphQLConfigModule } from '../lib/graphql/graphql.module';
+import { PubSubModule } from '../lib/pubsub/pubsub.module';
 import { ElasticsearchModule } from '../lib/elasticsearch/elasticsearch.module';
 import { UserModule } from './user/user.module';
 import { CountryModule } from './country/country.module';
@@ -82,6 +83,7 @@ function getDatabaseConfig() {
       serveRoot: '/uploads',
     }),
     GraphQLConfigModule,
+    PubSubModule,
     ElasticsearchModule,
     CsvExportModule,
     AuthModule,
