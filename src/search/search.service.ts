@@ -61,8 +61,7 @@ export class SearchService {
       index: CATEGORIES_INDEX,
       mappings: {
         properties: {
-          id: { type: 'keyword' },
-          nameEn: {
+          id: { type: 'keyword' },          publicId: { type: 'integer' },          nameEn: {
             type: 'text',
             analyzer: 'english',
             fields: { raw: { type: 'keyword' } },
@@ -129,6 +128,7 @@ export class SearchService {
         id: category.id,
         document: {
           id: category.id,
+          publicId: category.publicId,
           nameEn: category.nameEn,
           nameAr: category.nameAr,
           descriptionEn: category.descriptionEn,
@@ -212,6 +212,9 @@ export class SearchService {
     }
 
     const from = (page - 1) * limit;
+    const publicIdValue = /^\d+$/.test(query.trim())
+      ? parseInt(query.trim(), 10)
+      : null;
 
     const response = await this.elasticsearchService.client.search({
       index: CATEGORIES_INDEX,
@@ -221,6 +224,10 @@ export class SearchService {
       query: {
         bool: {
           should: [
+            // Tier 0: Exact publicId match — highest confidence
+            ...(publicIdValue !== null
+              ? [{ term: { publicId: { value: publicIdValue, boost: 15 } } }]
+              : []),
             // Tier 1: Exact phrase match in name — highest precision
             {
               multi_match: {
@@ -412,6 +419,7 @@ export class SearchService {
       { index: { _index: CATEGORIES_INDEX, _id: cat.id } },
       {
         id: cat.id,
+        publicId: cat.publicId,
         nameEn: cat.nameEn,
         nameAr: cat.nameAr,
         descriptionEn: cat.descriptionEn,
