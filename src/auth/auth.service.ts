@@ -99,13 +99,23 @@ export class AuthService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    // Check if account is verified
+    // Check if account is verified — send fresh OTP(s) and return empty token
     if (!user.emailVerified || !user.phoneVerified) {
-      const message = I18nService.translate(
-        AUTH_ERROR_MESSAGES['ACCOUNT_NOT_VERIFIED'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
+      if (!user.emailVerified) {
+        await this.generateAndSendOtp(
+          user.id,
+          user.email,
+          OtpType.EMAIL_VERIFICATION,
+        );
+      }
+      if (!user.phoneVerified) {
+        await this.generateAndSendOtp(
+          user.id,
+          user.phone,
+          OtpType.PHONE_VERIFICATION,
+        );
+      }
+      return { accessToken: '', user };
     }
 
     // Generate JWT token
