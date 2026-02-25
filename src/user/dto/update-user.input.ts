@@ -5,7 +5,6 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  MaxLength,
 } from 'class-validator';
 import { USER_ERROR_CODES } from '../errors/user.error-codes';
 import { CreateUserInput } from './create-user.input';
@@ -16,13 +15,6 @@ export class UpdateUserInput extends PartialType(CreateUserInput) {
   @IsNotEmpty()
   @IsUUID()
   id: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @MaxLength(500, {
-    message: USER_ERROR_CODES.INVALID_AVATAR_URL_LENGTH,
-  })
-  avatarFilename?: string;
 
   @Field({ nullable: true })
   @IsOptional()
