@@ -9,10 +9,11 @@ import { Provider } from './entities/provider.entity';
 import { ProviderResolver } from './provider.resolver';
 import { ProviderService } from './provider.service';
 import { ProviderController } from './provider.controller';
+import { AdminPermission } from 'src/admin-permission/entities/admin-permission.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Provider, Admin, Category]),
+    TypeOrmModule.forFeature([Provider, Admin, Category, AdminPermission]),
     SignedContractModule,
     AdminPermissionGuardModule,
   ],
@@ -21,4 +22,3 @@ import { ProviderController } from './provider.controller';
   exports: [ProviderService],
 })
 export class ProviderModule {}
-

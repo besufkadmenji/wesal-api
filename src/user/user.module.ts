@@ -8,10 +8,11 @@ import { User } from './entities/user.entity';
 import { Category } from '../category/entities/category.entity';
 import { Admin } from 'src/admin/entities/admin.entity';
 import { SignedContractModule } from '../signed-contract/signed-contract.module';
+import { AdminPermission } from 'src/admin-permission/entities/admin-permission.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Category, Admin]),
+    TypeOrmModule.forFeature([User, Category, Admin, AdminPermission]),
     SignedContractModule,
     AdminPermissionGuardModule,
   ],

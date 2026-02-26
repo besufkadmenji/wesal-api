@@ -5,10 +5,11 @@ import { DeliveryCompanyService } from './delivery-company.service';
 import { DeliveryCompanyResolver } from './delivery-company.resolver';
 import { DeliveryCompanyController } from './delivery-company.controller';
 import { DeliveryCompany } from './entities/delivery-company.entity';
+import { AdminPermission } from 'src/admin-permission/entities/admin-permission.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([DeliveryCompany]),
+    TypeOrmModule.forFeature([DeliveryCompany, AdminPermission]),
     AdminPermissionGuardModule,
   ],
   controllers: [DeliveryCompanyController],

@@ -5,9 +5,13 @@ import { SettingService } from './setting.service';
 import { SettingResolver } from './setting.resolver';
 import { SettingController } from './setting.controller';
 import { Setting } from './entities/setting.entity';
+import { AdminPermission } from 'src/admin-permission/entities/admin-permission.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Setting]), AdminPermissionGuardModule],
+  imports: [
+    TypeOrmModule.forFeature([Setting, AdminPermission]),
+    AdminPermissionGuardModule,
+  ],
   controllers: [SettingController],
   providers: [SettingResolver, SettingService],
   exports: [SettingService],

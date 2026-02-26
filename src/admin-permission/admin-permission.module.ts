@@ -9,7 +9,15 @@ import { Admin } from '../admin/entities/admin.entity';
 import { Permission } from '../permission/entities/permission.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AdminPermission, Admin, Permission]), AdminPermissionGuardModule],
+  imports: [
+    TypeOrmModule.forFeature([
+      AdminPermission,
+      Admin,
+      Permission,
+      AdminPermission,
+    ]),
+    AdminPermissionGuardModule,
+  ],
   controllers: [AdminPermissionController],
   providers: [AdminPermissionResolver, AdminPermissionService],
   exports: [AdminPermissionService],

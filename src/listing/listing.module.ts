@@ -14,10 +14,21 @@ import { ListingService } from './listing.service';
 import { ListingController } from './listing.controller';
 import { TrackingModule } from '../tracking/tracking.module';
 import { SearchModule } from '../search/search.module';
+import { AdminPermission } from 'src/admin-permission/entities/admin-permission.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Listing, Provider, Category, City, Complaint, Conversation, Favorite, Rating]),
+    TypeOrmModule.forFeature([
+      Listing,
+      Provider,
+      Category,
+      City,
+      Complaint,
+      Conversation,
+      Favorite,
+      Rating,
+      AdminPermission,
+    ]),
     TrackingModule,
     SearchModule,
     AdminPermissionGuardModule,

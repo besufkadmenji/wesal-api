@@ -5,9 +5,13 @@ import { FaqService } from './faq.service';
 import { FaqResolver } from './faq.resolver';
 import { FaqController } from './faq.controller';
 import { Faq } from './entities/faq.entity';
+import { AdminPermission } from 'src/admin-permission/entities/admin-permission.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Faq]), AdminPermissionGuardModule],
+  imports: [
+    TypeOrmModule.forFeature([Faq, AdminPermission]),
+    AdminPermissionGuardModule,
+  ],
   controllers: [FaqController],
   providers: [FaqResolver, FaqService],
   exports: [FaqService],
