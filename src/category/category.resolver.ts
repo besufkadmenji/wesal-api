@@ -31,7 +31,8 @@ export class CategoryResolver {
     @Args('input', { nullable: true }) input?: CategoryPaginationInput,
     @CurrentUser() user?: JwtPayload,
   ): Promise<IPaginatedType<Category>> {
-    return this.categoryService.findAll(input ?? {}, user?.sub);
+    const isAdmin = !!user && !user.type;
+    return this.categoryService.findAll(input ?? {}, user?.sub, isAdmin);
   }
 
   @Query(() => Category, { name: 'category' })
@@ -41,7 +42,8 @@ export class CategoryResolver {
     @GetLanguage() language: LanguageCode,
     @CurrentUser() user?: JwtPayload,
   ): Promise<Category> {
-    return this.categoryService.findOne(id, language, user?.sub);
+    const isAdmin = !!user && !user.type;
+    return this.categoryService.findOne(id, language, user?.sub, isAdmin);
   }
 
   @Mutation(() => Category)

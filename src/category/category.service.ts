@@ -47,9 +47,15 @@ export class CategoryService {
   async findAll(
     paginationInput: CategoryPaginationInput,
     userId?: string,
+    isAdmin?: boolean,
   ): Promise<IPaginatedType<Category>> {
     const { page = 1, limit = 10, search, status } = paginationInput;
     const skip = (page - 1) * limit;
+
+    // Non-admins can only see active categories unless an explicit status filter is provided by admin
+    const effectiveStatus = isAdmin
+      ? status
+      : (status ?? CategoryStatus.ACTIVE);
 
     let items: Category[];
     let total: number;
@@ -66,7 +72,9 @@ export class CategoryService {
         const loaded = await this.searchService.loadCategoriesById(
           esResult.ids,
         );
-        items = status ? loaded.filter((c) => c.status === status) : loaded;
+        items = effectiveStatus
+          ? loaded.filter((c) => c.status === effectiveStatus)
+          : loaded;
         total = items.length;
       } else {
         items = [];
@@ -85,8 +93,10 @@ export class CategoryService {
         );
       }
 
-      if (status) {
-        queryBuilder.andWhere('category.status = :status', { status });
+      if (effectiveStatus) {
+        queryBuilder.andWhere('category.status = :status', {
+          status: effectiveStatus,
+        });
       }
 
       if (userId) {
@@ -148,12 +158,22 @@ export class CategoryService {
     id: string,
     language: LanguageCode = 'en',
     userId?: string,
+    isAdmin?: boolean,
   ): Promise<Category> {
     const category = await this.categoryRepository.findOne({
       where: { id },
     });
 
     if (!category) {
+      const message = I18nService.translate(
+        CATEGORY_ERROR_MESSAGES['CATEGORY_NOT_FOUND'],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    // Non-admins cannot see inactive categories
+    if (!isAdmin && category.status !== CategoryStatus.ACTIVE) {
       const message = I18nService.translate(
         CATEGORY_ERROR_MESSAGES['CATEGORY_NOT_FOUND'],
         language,
@@ -202,7 +222,7 @@ export class CategoryService {
   }
 
   async remove(id: string, language: LanguageCode = 'en'): Promise<Category> {
-    const category = await this.findOne(id, language);
+    const category = await this.findOne(id, language, undefined, true);
 
     const listingCount = await this.listingRepository.count({
       where: { categoryId: id },

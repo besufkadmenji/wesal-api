@@ -56,6 +56,7 @@ export class CityService {
 
   async findAll(
     paginationInput?: CityPaginationInput,
+    isAdmin?: boolean,
   ): Promise<IPaginatedType<City>> {
     const {
       page = 1,
@@ -67,6 +68,9 @@ export class CityService {
     } = paginationInput || {};
 
     const skip = (page - 1) * limit;
+
+    // Non-admins can only see active cities unless an explicit status filter is set by admin
+    const effectiveStatus = isAdmin ? status : (status ?? CityStatus.ACTIVE);
 
     const queryBuilder = this.cityRepository
       .createQueryBuilder('city')
@@ -81,8 +85,8 @@ export class CityService {
         { search: searchTerm },
       );
     }
-    if (status) {
-      queryBuilder.andWhere('city.status = :status', { status });
+    if (effectiveStatus) {
+      queryBuilder.andWhere('city.status = :status', { status: effectiveStatus });
     }
 
     const [items, total] = await queryBuilder
@@ -106,7 +110,11 @@ export class CityService {
     };
   }
 
-  async findOne(id: string, language: LanguageCode = 'en'): Promise<City> {
+  async findOne(
+    id: string,
+    language: LanguageCode = 'en',
+    isAdmin?: boolean,
+  ): Promise<City> {
     const city = await this.cityRepository.findOne({
       where: { id },
       relations: ['country'],
@@ -119,12 +127,23 @@ export class CityService {
       );
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
+
+    // Non-admins cannot see inactive cities
+    if (!isAdmin && city.status !== CityStatus.ACTIVE) {
+      const message = I18nService.translate(
+        CITY_ERROR_MESSAGES[CITY_ERROR_CODES.CITY_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
     return city;
   }
 
   async findByCountry(
     countryId: string,
     paginationInput?: CityPaginationInput,
+    isAdmin?: boolean,
   ): Promise<IPaginatedType<City>> {
     const {
       page = 1,
@@ -132,9 +151,13 @@ export class CityService {
       sortBy,
       sortOrder = 'DESC',
       search,
+      status,
     } = paginationInput || {};
 
     const skip = (page - 1) * limit;
+
+    // Non-admins can only see active cities
+    const effectiveStatus = isAdmin ? status : (status ?? CityStatus.ACTIVE);
 
     const queryBuilder = this.cityRepository
       .createQueryBuilder('city')
@@ -148,6 +171,10 @@ export class CityService {
         '(city.nameEn ILIKE :search OR city.nameAr ILIKE :search OR "city"."publicId"::text ILIKE :search)',
         { search: searchTerm },
       );
+    }
+
+    if (effectiveStatus) {
+      queryBuilder.andWhere('city.status = :status', { status: effectiveStatus });
     }
 
     const [items, total] = await queryBuilder
@@ -176,7 +203,7 @@ export class CityService {
     updateCityInput: UpdateCityInput,
     language: LanguageCode = 'en',
   ): Promise<City> {
-    const city = await this.findOne(id, language);
+    const city = await this.findOne(id, language, true);
 
     // Check if new name conflicts with another city in the same country
     if (updateCityInput.nameEn || updateCityInput.countryId) {
@@ -205,7 +232,7 @@ export class CityService {
   }
 
   async remove(id: string, language: LanguageCode = 'en'): Promise<City> {
-    const city = await this.findOne(id, language);
+    const city = await this.findOne(id, language, true);
 
     // Check if any users are using this city
     const userCount = await this.userRepository.count({

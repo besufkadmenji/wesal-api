@@ -9,6 +9,9 @@ import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CityPaginationInput } from './dto/city-pagination.input';
 import { PaginatedCityResponse } from './dto/paginated-city.response';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Resolver(() => City)
 export class CityResolver {
@@ -26,29 +29,38 @@ export class CityResolver {
     name: 'cities',
     description: 'Get all cities with pagination',
   })
+  @UseGuards(OptionalJwtAuthGuard)
   findAll(
     @Args('pagination', { nullable: true }) pagination?: CityPaginationInput,
+    @CurrentUser() user?: JwtPayload,
   ) {
-    return this.cityService.findAll(pagination);
+    const isAdmin = !!user && !user.type;
+    return this.cityService.findAll(pagination, isAdmin);
   }
 
   @Query(() => PaginatedCityResponse, {
     name: 'citiesByCountry',
     description: 'Get cities by country with pagination',
   })
+  @UseGuards(OptionalJwtAuthGuard)
   findByCountry(
     @Args('countryId', { type: () => ID }) countryId: string,
     @Args('pagination', { nullable: true }) pagination?: CityPaginationInput,
+    @CurrentUser() user?: JwtPayload,
   ) {
-    return this.cityService.findByCountry(countryId, pagination);
+    const isAdmin = !!user && !user.type;
+    return this.cityService.findByCountry(countryId, pagination, isAdmin);
   }
 
   @Query(() => City, { name: 'city' })
+  @UseGuards(OptionalJwtAuthGuard)
   findOne(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
+    @CurrentUser() user?: JwtPayload,
   ) {
-    return this.cityService.findOne(id, language);
+    const isAdmin = !!user && !user.type;
+    return this.cityService.findOne(id, language, isAdmin);
   }
 
   @Mutation(() => City)
