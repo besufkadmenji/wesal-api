@@ -7,8 +7,10 @@ import { UpdateContactMessageInput } from './dto/update-contact-message.input';
 import { ContactMessagePaginationInput } from './dto/contact-message-pagination.input';
 import { PaginatedContactMessageResponse } from './dto/paginated-contact-message.response';
 import { AdminAuthGuard } from '../admin/guards/admin-auth.guard';
+import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
+import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
-import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import type { AdminJwtPayload } from '../admin/types/admin-jwt-payload.type';
 
 @Resolver(() => ContactMessage)
 export class ContactMessageResolver {
@@ -28,9 +30,10 @@ export class ContactMessageResolver {
     name: 'contactMessages',
     description: 'Get contact messages (admin only) with pagination',
   })
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('contact_message', 'read')
   findAll(
-    @CurrentAdmin() admin: JwtPayload,
+    @CurrentAdmin() admin: AdminJwtPayload,
     @Args('paginationInput', { nullable: true })
     paginationInput: ContactMessagePaginationInput,
   ) {
@@ -44,9 +47,10 @@ export class ContactMessageResolver {
     name: 'contactMessage',
     description: 'Get single contact message (admin only)',
   })
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('contact_message', 'read')
   findOne(
-    @CurrentAdmin() admin: JwtPayload,
+    @CurrentAdmin() admin: AdminJwtPayload,
     @Args('id', { type: () => ID }) id: string,
   ) {
     if (!admin?.sub) {
@@ -58,9 +62,10 @@ export class ContactMessageResolver {
   @Mutation(() => ContactMessage, {
     description: 'Update contact message (admin only)',
   })
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('contact_message', 'read')
   updateContactMessage(
-    @CurrentAdmin() admin: JwtPayload,
+    @CurrentAdmin() admin: AdminJwtPayload,
     @Args('updateContactMessageInput')
     updateContactMessageInput: UpdateContactMessageInput,
   ) {
@@ -76,9 +81,10 @@ export class ContactMessageResolver {
   @Mutation(() => ContactMessage, {
     description: 'Reply to contact message (admin only)',
   })
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('contact_message', 'read')
   replyToContactMessage(
-    @CurrentAdmin() admin: JwtPayload,
+    @CurrentAdmin() admin: AdminJwtPayload,
     @Args('id', { type: () => ID }) id: string,
     @Args('message')
     message: string,
@@ -92,9 +98,10 @@ export class ContactMessageResolver {
   @Mutation(() => Boolean, {
     description: 'Delete contact message (admin only)',
   })
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('contact_message', 'delete')
   async removeContactMessage(
-    @CurrentAdmin() admin: JwtPayload,
+    @CurrentAdmin() admin: AdminJwtPayload,
     @Args('id', { type: () => ID }) id: string,
   ) {
     if (!admin?.sub) {
@@ -107,9 +114,10 @@ export class ContactMessageResolver {
   @Mutation(() => ContactMessage, {
     description: 'Mark message as read (admin only)',
   })
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('contact_message', 'read')
   markAsRead(
-    @CurrentAdmin() admin: JwtPayload,
+    @CurrentAdmin() admin: AdminJwtPayload,
     @Args('id', { type: () => ID }) id: string,
   ) {
     if (!admin?.sub) {

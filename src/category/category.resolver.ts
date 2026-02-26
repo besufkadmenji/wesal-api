@@ -3,6 +3,8 @@ import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { GetLanguage } from '../../lib/i18n';
 import type { LanguageCode } from '../../lib/i18n/language.types';
+import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
+import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 import { CategoryService } from './category.service';
 import { CategoryPaginationInput } from './dto/category-pagination.input';
 import { CreateCategoryInput } from './dto/create-category.input';
@@ -19,6 +21,8 @@ export class CategoryResolver {
   constructor(private readonly categoryService: CategoryService) {}
 
   @Mutation(() => Category)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('category', 'create')
   async createCategory(
     @Args('input') createCategoryInput: CreateCategoryInput,
   ): Promise<Category> {
@@ -47,6 +51,8 @@ export class CategoryResolver {
   }
 
   @Mutation(() => Category)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('category', 'update')
   async updateCategory(
     @Args('input') updateCategoryInput: UpdateCategoryInput,
     @GetLanguage() language: LanguageCode,
@@ -55,6 +61,8 @@ export class CategoryResolver {
   }
 
   @Mutation(() => Category)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('category', 'delete')
   async removeCategory(
     @Args('id') id: string,
     @GetLanguage() language: LanguageCode,
@@ -63,7 +71,8 @@ export class CategoryResolver {
   }
 
   @Mutation(() => Category)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('category', 'update')
   async activateCategory(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -72,7 +81,8 @@ export class CategoryResolver {
   }
 
   @Mutation(() => Category)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('category', 'update')
   async deactivateCategory(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,

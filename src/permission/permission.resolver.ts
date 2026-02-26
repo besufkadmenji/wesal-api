@@ -6,6 +6,8 @@ import { CreatePermissionInput } from './dto/create-permission.input';
 import { UpdatePermissionInput } from './dto/update-permission.input';
 import { GetLanguage } from 'lib/i18n/get-language.decorator';
 import type { LanguageCode } from 'lib/i18n/language.types';
+import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
+import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Resolver(() => Permission)
@@ -13,7 +15,8 @@ export class PermissionResolver {
   constructor(private readonly permissionService: PermissionService) {}
 
   @Mutation(() => Permission)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('permission', 'full_access')
   createPermission(
     @Args('createPermissionInput') createPermissionInput: CreatePermissionInput,
     @GetLanguage() language: LanguageCode,
@@ -22,13 +25,15 @@ export class PermissionResolver {
   }
 
   @Query(() => [Permission], { name: 'permissions' })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('permission', 'read')
   findAllPermissions() {
     return this.permissionService.findAll();
   }
 
   @Query(() => Permission, { name: 'permission' })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('permission', 'read')
   findOnePermission(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -37,7 +42,8 @@ export class PermissionResolver {
   }
 
   @Mutation(() => Permission)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('permission', 'full_access')
   updatePermission(
     @Args('id', { type: () => ID }) id: string,
     @Args('updatePermissionInput') updatePermissionInput: UpdatePermissionInput,
@@ -47,7 +53,8 @@ export class PermissionResolver {
   }
 
   @Mutation(() => Boolean)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('permission', 'full_access')
   removePermission(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,

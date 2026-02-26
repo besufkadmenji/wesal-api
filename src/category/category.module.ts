@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AdminPermissionGuardModule } from 'lib/common/admin-permission-guard.module';
 import { CategoryService } from './category.service';
 import { CategoryResolver } from './category.resolver';
 import { CategoryController } from './category.controller';
@@ -14,6 +15,7 @@ import { SearchModule } from '../search/search.module';
     TypeOrmModule.forFeature([Category, Listing, Provider]),
     TrackingModule,
     SearchModule,
+    AdminPermissionGuardModule,
   ],
   controllers: [CategoryController],
   providers: [CategoryResolver, CategoryService],

@@ -2,8 +2,10 @@ import { UseGuards } from '@nestjs/common';
 import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
 import { AdminAuthGuard } from '../admin/guards/admin-auth.guard';
+import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
+import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
-import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import type { AdminJwtPayload } from '../admin/types/admin-jwt-payload.type';
 import { CreateFaqInput } from './dto/create-faq.input';
 import { UpdateFaqInput } from './dto/update-faq.input';
 import { BulkUpdateFaqOrderInput } from './dto/bulk-update-faq-order.input';
@@ -19,7 +21,7 @@ export class FaqResolver {
     description: 'Get all active FAQs (or all if admin)',
   })
   @UseGuards(OptionalJwtAuthGuard)
-  findAll(@CurrentAdmin() admin?: JwtPayload) {
+  findAll(@CurrentAdmin() admin?: AdminJwtPayload) {
     return this.faqService.findAll(!!admin?.sub);
   }
 
@@ -29,9 +31,10 @@ export class FaqResolver {
   }
 
   @Mutation(() => Faq, { description: 'Create FAQ (admin only)' })
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('faq', 'create')
   createFaq(
-    @CurrentAdmin() admin: JwtPayload,
+    @CurrentAdmin() admin: AdminJwtPayload,
     @Args('createFaqInput') createFaqInput: CreateFaqInput,
   ) {
     if (!admin?.sub) {
@@ -41,9 +44,10 @@ export class FaqResolver {
   }
 
   @Mutation(() => Faq, { description: 'Update FAQ (admin only)' })
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('faq', 'update')
   updateFaq(
-    @CurrentAdmin() admin: JwtPayload,
+    @CurrentAdmin() admin: AdminJwtPayload,
     @Args('updateFaqInput') updateFaqInput: UpdateFaqInput,
   ) {
     if (!admin?.sub) {
@@ -53,9 +57,10 @@ export class FaqResolver {
   }
 
   @Mutation(() => Boolean, { description: 'Remove FAQ (admin only)' })
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('faq', 'delete')
   async removeFaq(
-    @CurrentAdmin() admin: JwtPayload,
+    @CurrentAdmin() admin: AdminJwtPayload,
     @Args('id', { type: () => ID }) id: string,
   ) {
     if (!admin?.sub) {
@@ -66,9 +71,10 @@ export class FaqResolver {
   }
 
   @Mutation(() => [Faq], { description: 'Bulk update FAQ order (admin only)' })
-  @UseGuards(AdminAuthGuard)
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('faq', 'update')
   async bulkUpdateOrder(
-    @CurrentAdmin() admin: JwtPayload,
+    @CurrentAdmin() admin: AdminJwtPayload,
     @Args('input') input: BulkUpdateFaqOrderInput,
   ) {
     if (!admin?.sub) {

@@ -71,7 +71,11 @@ export class AdminAuthService {
     }
 
     // Generate JWT token
-    const payload = { sub: admin.id, email: admin.email };
+    const payload = {
+      sub: admin.id,
+      email: admin.email,
+      permissionType: admin.permissionType,
+    };
     const accessToken: string = this.jwtService.sign(payload);
 
     return { accessToken, admin };
@@ -80,6 +84,7 @@ export class AdminAuthService {
   async getMe(adminId: string, language: LanguageCode = 'en'): Promise<Admin> {
     const admin = await this.adminRepository.findOne({
       where: { id: adminId },
+      relations: ['adminPermissions', 'adminPermissions.permission'],
     });
 
     if (!admin) {

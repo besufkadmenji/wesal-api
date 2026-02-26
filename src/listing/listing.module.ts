@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AdminPermissionGuardModule } from '../../lib/common/admin-permission-guard.module';
 import { Provider } from 'src/provider/entities/provider.entity';
 import { Category } from '../category/entities/category.entity';
 import { City } from '../city/entities/city.entity';
@@ -19,6 +20,7 @@ import { SearchModule } from '../search/search.module';
     TypeOrmModule.forFeature([Listing, Provider, Category, City, Complaint, Conversation, Favorite, Rating]),
     TrackingModule,
     SearchModule,
+    AdminPermissionGuardModule,
   ],
   controllers: [ListingController],
   providers: [ListingResolver, ListingService],

@@ -14,6 +14,8 @@ import { CurrentProvider } from 'src/auth/decorators/current-provider.decorator'
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
+import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
+import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { Provider } from '../provider/entities/provider.entity';
@@ -107,7 +109,8 @@ export class ProviderResolver {
   }
 
   @Mutation(() => Provider, { description: 'Activate provider by ID' })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('provider', 'update')
   activateProvider(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -116,7 +119,8 @@ export class ProviderResolver {
   }
 
   @Mutation(() => Provider, { description: 'Deactivate provider' })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('provider', 'update')
   deactivateProvider(
     @Args('id', { type: () => ID }) id: string,
     @Args('reason', { nullable: true }) reason?: string,
@@ -128,7 +132,8 @@ export class ProviderResolver {
   @Mutation(() => Provider, {
     description: 'Reject a pending provider join request',
   })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('provider', 'update')
   rejectProviderJoinRequest(
     @Args('id', { type: () => ID }) id: string,
     @Args('reason') reason: string,
@@ -151,7 +156,8 @@ export class ProviderResolver {
   @Mutation(() => Provider, {
     description: 'Admin signs provider contract',
   })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('provider', 'update')
   adminSignProviderContract(
     @Args('input') input: AdminSignContractInput,
     @CurrentAdmin() admin: JwtPayload,
@@ -179,7 +185,8 @@ export class ProviderResolver {
   @Mutation(() => Provider, {
     description: 'Admin terminates provider contract',
   })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('provider', 'update')
   adminTerminateProviderContract(
     @Args('input') input: AdminTerminateContractInput,
     @CurrentAdmin() admin: JwtPayload,
@@ -193,7 +200,8 @@ export class ProviderResolver {
   }
 
   @Mutation(() => Provider, { description: 'Remove provider' })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('provider', 'delete')
   removeProvider(
     @Args('id', { type: () => ID }) id: string,
     @Args('input') input: DeleteProviderInput,

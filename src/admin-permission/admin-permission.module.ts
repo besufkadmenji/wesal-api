@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AdminPermissionGuardModule } from '../../lib/common/admin-permission-guard.module';
 import { AdminPermissionService } from './admin-permission.service';
 import { AdminPermissionResolver } from './admin-permission.resolver';
 import { AdminPermissionController } from './admin-permission.controller';
@@ -8,7 +9,7 @@ import { Admin } from '../admin/entities/admin.entity';
 import { Permission } from '../permission/entities/permission.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AdminPermission, Admin, Permission])],
+  imports: [TypeOrmModule.forFeature([AdminPermission, Admin, Permission]), AdminPermissionGuardModule],
   controllers: [AdminPermissionController],
   providers: [AdminPermissionResolver, AdminPermissionService],
   exports: [AdminPermissionService],

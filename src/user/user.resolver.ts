@@ -15,6 +15,8 @@ import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
+import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 import { DeactivateUserInput } from './dto/deactivate-user.input';
 import { DeleteUserInput } from './dto/delete-user.input';
 import { PaginatedUserResponse } from './dto/paginated-user.response';
@@ -46,11 +48,15 @@ export class UserResolver {
     name: 'users',
     description: 'Get all users with pagination by role',
   })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('user', 'read')
   findAll(@Args('pagination') pagination: UserPaginationInput) {
     return this.userService.findAll(pagination);
   }
 
   @Query(() => User, { name: 'user', description: 'Get user by ID' })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('user', 'read')
   findOne(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -59,6 +65,8 @@ export class UserResolver {
   }
 
   @Mutation(() => User, { description: 'Update user' })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('user', 'update')
   updateUser(
     @Args('updateUserInput') updateUserInput: UpdateUserInput,
     @GetLanguage() language: LanguageCode,
@@ -72,6 +80,8 @@ export class UserResolver {
   }
 
   @Mutation(() => Boolean, { description: 'Delete user avatar by ID' })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('user', 'update')
   removeAvatar(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -80,6 +90,8 @@ export class UserResolver {
   }
 
   @Mutation(() => User, { description: 'Delete user by ID' })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('user', 'delete')
   removeUser(
     @Args('id', { type: () => ID }) id: string,
     @Args('input') input: DeleteUserInput,
@@ -89,7 +101,8 @@ export class UserResolver {
   }
 
   @Mutation(() => User, { description: 'Activate user by ID' })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('user', 'update')
   activateUser(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -98,7 +111,8 @@ export class UserResolver {
   }
 
   @Mutation(() => User, { description: 'Deactivate user by ID' })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('user', 'update')
   deactivateUser(
     @Args('id', { type: () => ID }) id: string,
     @Args('input') input: DeactivateUserInput,

@@ -10,13 +10,16 @@ import { PaginatedAdminResponse } from './dto/paginated-admin.response';
 import { GetLanguage } from 'lib/i18n/get-language.decorator';
 import type { LanguageCode } from 'lib/i18n/language.types';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminPermissionGuard } from './guards/admin-permission.guard';
+import { RequirePermission } from './decorators/require-permission.decorator';
 
 @Resolver(() => Admin)
 export class AdminResolver {
   constructor(private readonly adminService: AdminService) {}
 
   @Mutation(() => Admin)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('admin', 'create')
   createAdmin(
     @Args('createAdminInput') createAdminInput: CreateAdminInput,
     @GetLanguage() language: LanguageCode,
@@ -25,7 +28,8 @@ export class AdminResolver {
   }
 
   @Query(() => PaginatedAdminResponse, { name: 'admins' })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('admin', 'read')
   findAll(
     @Args('paginationInput', { nullable: true })
     paginationInput?: AdminPaginationInput,
@@ -34,7 +38,8 @@ export class AdminResolver {
   }
 
   @Query(() => Admin, { name: 'admin' })
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('admin', 'read')
   findOne(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -43,7 +48,8 @@ export class AdminResolver {
   }
 
   @Mutation(() => Admin)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('admin', 'update')
   updateAdmin(
     @Args('id', { type: () => ID }) id: string,
     @Args('updateAdminInput') updateAdminInput: UpdateAdminInput,
@@ -53,7 +59,8 @@ export class AdminResolver {
   }
 
   @Mutation(() => Boolean)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('admin', 'delete')
   removeAdmin(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -62,7 +69,8 @@ export class AdminResolver {
   }
 
   @Mutation(() => Admin)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('admin', 'update')
   activateAdmin(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -71,7 +79,8 @@ export class AdminResolver {
   }
 
   @Mutation(() => Admin)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('admin', 'update')
   deactivateAdmin(
     @Args('id', { type: () => ID }) id: string,
     @Args('input') input: DeactivateAdminInput,

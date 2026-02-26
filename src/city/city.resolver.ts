@@ -12,12 +12,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
+import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 
 @Resolver(() => City)
 export class CityResolver {
   constructor(private readonly cityService: CityService) {}
 
   @Mutation(() => City)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('city', 'create')
   createCity(
     @Args('input') createCityInput: CreateCityInput,
     @GetLanguage() language: LanguageCode,
@@ -64,6 +68,8 @@ export class CityResolver {
   }
 
   @Mutation(() => City)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('city', 'update')
   updateCity(
     @Args('input') updateCityInput: UpdateCityInput,
     @GetLanguage() language: LanguageCode,
@@ -76,6 +82,8 @@ export class CityResolver {
   }
 
   @Mutation(() => City)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('city', 'delete')
   removeCity(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -84,7 +92,8 @@ export class CityResolver {
   }
 
   @Mutation(() => City)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('city', 'update')
   async activateCity(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -93,7 +102,8 @@ export class CityResolver {
   }
 
   @Mutation(() => City)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('city', 'update')
   async deactivateCity(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,

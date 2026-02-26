@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AdminPermissionGuardModule } from '../../lib/common/admin-permission-guard.module';
 import { EmailService } from 'lib/email/email.service';
 import { Admin } from '../admin/entities/admin.entity';
 import { Category } from '../category/entities/category.entity';
@@ -13,6 +14,7 @@ import { ProviderController } from './provider.controller';
   imports: [
     TypeOrmModule.forFeature([Provider, Admin, Category]),
     SignedContractModule,
+    AdminPermissionGuardModule,
   ],
   controllers: [ProviderController],
   providers: [ProviderResolver, ProviderService, EmailService],

@@ -1,7 +1,11 @@
+import { UseGuards } from '@nestjs/common';
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { GetLanguage } from '../../lib/i18n';
 import type { LanguageCode } from '../../lib/i18n/language.types';
+import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
+import { RequirePermission } from '../admin/decorators/require-permission.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BankService } from './bank.service';
 import { BankPaginationInput } from './dto/bank-pagination.input';
 import { CreateBankInput } from './dto/create-bank.input';
@@ -15,6 +19,8 @@ export class BankResolver {
   constructor(private readonly bankService: BankService) {}
 
   @Mutation(() => Bank)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('bank', 'create')
   async createBank(
     @Args('input') createBankInput: CreateBankInput,
     @GetLanguage() language: LanguageCode,
@@ -23,6 +29,8 @@ export class BankResolver {
   }
 
   @Query(() => PaginatedBankResponse, { name: 'banks' })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('bank', 'read')
   async findAllBanks(
     @Args('input', { nullable: true }) input?: BankPaginationInput,
   ): Promise<IPaginatedType<Bank>> {
@@ -30,6 +38,8 @@ export class BankResolver {
   }
 
   @Query(() => Bank, { name: 'bank' })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('bank', 'read')
   async findOneBank(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -38,6 +48,8 @@ export class BankResolver {
   }
 
   @Mutation(() => Bank)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('bank', 'update')
   async updateBank(
     @Args('input') updateBankInput: UpdateBankInput,
     @GetLanguage() language: LanguageCode,
@@ -46,6 +58,8 @@ export class BankResolver {
   }
 
   @Mutation(() => Bank)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('bank', 'delete')
   async removeBank(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -54,6 +68,8 @@ export class BankResolver {
   }
 
   @Mutation(() => Bank)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('bank', 'update')
   async activateBank(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -62,6 +78,8 @@ export class BankResolver {
   }
 
   @Mutation(() => Bank)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('bank', 'update')
   async deactivateBank(
     @Args('id', { type: () => ID }) id: string,
     @Args('input') input: DeactivateBankInput,

@@ -5,6 +5,8 @@ import { CurrentProvider } from 'src/auth/decorators/current-provider.decorator'
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
+import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
+import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -78,7 +80,8 @@ export class ListingResolver {
   }
 
   @Mutation(() => RemoveListingResponse)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('listing', 'delete')
   async removeListing(
     @Args('id', { type: () => ID }) id: string,
     @CurrentProvider() provider: JwtPayload,
@@ -89,7 +92,8 @@ export class ListingResolver {
   }
 
   @Mutation(() => Listing)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('listing', 'update')
   async activateListing(
     @Args('id', { type: () => ID }) id: string,
     @CurrentAdmin() admin: JwtPayload,
@@ -99,7 +103,8 @@ export class ListingResolver {
   }
 
   @Mutation(() => Listing)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('listing', 'update')
   async deactivateListing(
     @Args('id', { type: () => ID }) id: string,
     @Args('reason', { type: () => String }) reason: string,

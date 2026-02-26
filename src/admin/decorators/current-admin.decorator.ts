@@ -1,11 +1,11 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { GqlExecutionContext } from '@nestjs/graphql';
-import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import type { AdminJwtPayload } from '../types/admin-jwt-payload.type';
 
 export const CurrentAdmin = createParamDecorator(
-  (data: unknown, ctx: ExecutionContext): JwtPayload | undefined => {
+  (data: unknown, ctx: ExecutionContext): AdminJwtPayload | undefined => {
     const gqlContext = GqlExecutionContext.create(ctx);
     const request = gqlContext.getContext().req;
-    return request?.user as JwtPayload | undefined;
+    return request?.user as AdminJwtPayload | undefined;
   },
 );

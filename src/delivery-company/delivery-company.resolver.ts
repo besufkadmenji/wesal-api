@@ -1,7 +1,11 @@
+import { UseGuards } from '@nestjs/common';
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { GetLanguage } from '../../lib/i18n';
 import type { LanguageCode } from '../../lib/i18n/language.types';
+import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
+import { RequirePermission } from '../admin/decorators/require-permission.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { DeliveryCompanyService } from './delivery-company.service';
 import { DeliveryCompanyPaginationInput } from './dto/delivery-company-pagination.input';
 import { CreateDeliveryCompanyInput } from './dto/create-delivery-company.input';
@@ -17,6 +21,8 @@ export class DeliveryCompanyResolver {
   ) {}
 
   @Mutation(() => DeliveryCompany)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('delivery_company', 'create')
   async createDeliveryCompany(
     @Args('input') createDeliveryCompanyInput: CreateDeliveryCompanyInput,
     @GetLanguage() language: LanguageCode,
@@ -28,6 +34,8 @@ export class DeliveryCompanyResolver {
   }
 
   @Query(() => PaginatedDeliveryCompanyResponse, { name: 'deliveryCompanies' })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('delivery_company', 'read')
   async findAllDeliveryCompanies(
     @Args('input', { nullable: true }) input?: DeliveryCompanyPaginationInput,
   ): Promise<IPaginatedType<DeliveryCompany>> {
@@ -35,6 +43,8 @@ export class DeliveryCompanyResolver {
   }
 
   @Query(() => DeliveryCompany, { name: 'deliveryCompany' })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('delivery_company', 'read')
   async findOneDeliveryCompany(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -43,6 +53,8 @@ export class DeliveryCompanyResolver {
   }
 
   @Mutation(() => DeliveryCompany)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('delivery_company', 'update')
   async updateDeliveryCompany(
     @Args('input') updateDeliveryCompanyInput: UpdateDeliveryCompanyInput,
     @GetLanguage() language: LanguageCode,
@@ -54,6 +66,8 @@ export class DeliveryCompanyResolver {
   }
 
   @Mutation(() => DeliveryCompany)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('delivery_company', 'delete')
   async removeDeliveryCompany(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -62,6 +76,8 @@ export class DeliveryCompanyResolver {
   }
 
   @Mutation(() => DeliveryCompany)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('delivery_company', 'update')
   async activateDeliveryCompany(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
@@ -70,6 +86,8 @@ export class DeliveryCompanyResolver {
   }
 
   @Mutation(() => DeliveryCompany)
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('delivery_company', 'update')
   async deactivateDeliveryCompany(
     @Args('id', { type: () => ID }) id: string,
     @Args('input') input: DeactivateDeliveryCompanyInput,

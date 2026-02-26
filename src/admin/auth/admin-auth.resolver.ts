@@ -13,7 +13,7 @@ import { GetLanguage } from 'lib/i18n/get-language.decorator';
 import type { LanguageCode } from 'lib/i18n/language.types';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { CurrentAdmin } from '../decorators/current-admin.decorator';
-import type { JwtPayload } from '../../auth/strategies/jwt.strategy';
+import type { AdminJwtPayload } from '../types/admin-jwt-payload.type';
 
 @Resolver()
 export class AdminAuthResolver {
@@ -30,7 +30,7 @@ export class AdminAuthResolver {
   @Query(() => Admin, { name: 'meAdmin' })
   @UseGuards(JwtAuthGuard)
   getMe(
-    @CurrentAdmin() currentAdmin: JwtPayload | undefined,
+    @CurrentAdmin() currentAdmin: AdminJwtPayload | undefined,
     @GetLanguage() language: LanguageCode,
   ) {
     if (!currentAdmin?.sub) {
@@ -66,7 +66,7 @@ export class AdminAuthResolver {
   @Mutation(() => Boolean)
   @UseGuards(JwtAuthGuard)
   adminChangePassword(
-    @CurrentAdmin() currentAdmin: JwtPayload | undefined,
+    @CurrentAdmin() currentAdmin: AdminJwtPayload | undefined,
     @Args('input') changePasswordInput: AdminChangePasswordInput,
     @GetLanguage() language: LanguageCode,
   ) {

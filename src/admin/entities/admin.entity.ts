@@ -95,6 +95,7 @@ export class Admin {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  @Field(() => [AdminPermission], { nullable: true })
   @OneToMany(() => AdminPermission, (ap) => ap.admin, { cascade: true })
   adminPermissions?: AdminPermission[];
 }
