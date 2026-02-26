@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { PubSub } from 'graphql-subscriptions';
+import { EmailService } from 'lib/email/email.service';
 import { PUB_SUB } from 'lib/pubsub/pubsub.module';
 import { In, Repository } from 'typeorm';
 import { IPaginatedType } from '../../lib/common/dto/paginated-response';
@@ -40,6 +41,7 @@ export class ProviderService {
     private readonly categoryRepository: Repository<Category>,
     private readonly signedContractService: SignedContractService,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
+    private readonly emailService: EmailService,
   ) {}
 
   async create(
@@ -286,6 +288,56 @@ export class ProviderService {
     }
     const saved = await this.providerRepository.save(provider);
     await this.pubSub.publish('providerUpdated', { providerUpdated: saved });
+    return saved;
+  }
+
+  async rejectJoinRequest(
+    id: string,
+    reason: string,
+    language: LanguageCode = 'en',
+  ): Promise<Provider> {
+    const provider = await this.providerRepository.findOne({
+      where: { id },
+    });
+
+    if (!provider) {
+      const message = I18nService.translate(
+        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    if (provider.status !== ProviderStatus.PENDING_APPROVAL) {
+      const message = I18nService.translate(
+        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.INVALID_STATUS_TRANSITION],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Store original email/phone so we can send the rejection email
+    const originalEmail = provider.email;
+    const originalName = provider.name ?? undefined;
+    const locale = (provider.languageCode ?? 'en') as 'en' | 'ar';
+
+    // Obfuscate email and phone so the same credentials can be re-used on registration
+    provider.email = `REJECTED_${id}_${originalEmail}`;
+    provider.phone = `REJECTED_${id}_${provider.phone}`;
+    provider.status = ProviderStatus.REJECTED;
+    provider.rejectionReason = reason;
+
+    const saved = await this.providerRepository.save(provider);
+    await this.pubSub.publish('providerUpdated', { providerUpdated: saved });
+
+    // Send rejection email to the provider
+    await this.emailService.sendRejectionEmail(
+      originalEmail,
+      reason,
+      locale,
+      originalName,
+    );
+
     return saved;
   }
 

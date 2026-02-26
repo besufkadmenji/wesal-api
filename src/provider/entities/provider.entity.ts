@@ -74,6 +74,10 @@ export class Provider {
   @Column({ type: 'varchar', length: 500, nullable: true })
   deactivationReason?: string | null;
 
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  rejectionReason?: string | null;
+
   // Profile fields
   @Field(() => String, { nullable: true })
   @Column({ type: 'varchar', length: 500, nullable: true })

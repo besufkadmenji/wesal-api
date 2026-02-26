@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { render } from '@react-email/components';
 import * as React from 'react';
 import { Resend } from 'resend';
+import type { RejectionEmailLocale } from '../../emails/rejection.email';
+import RejectionEmail from '../../emails/rejection.email';
 import type { VerifyEmailLocale } from '../../emails/verify.email';
 import VerifyEmail from '../../emails/verify.email';
 
@@ -90,6 +92,41 @@ export class EmailService {
     }
 
     this.logger.log(`Password reset email sent to ${email}`);
+    return true;
+  }
+
+  async sendRejectionEmail(
+    email: string,
+    reason: string,
+    locale: RejectionEmailLocale = 'en',
+    name?: string,
+  ): Promise<boolean> {
+    const subject =
+      locale === 'ar'
+        ? 'تم رفض طلب انضمامك في وصال'
+        : 'Your Wesal service provider application has been rejected';
+
+    const html = await render(
+      React.createElement(RejectionEmail, {
+        reason,
+        locale,
+        name,
+      }),
+    );
+
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: email,
+      subject,
+      html,
+    });
+
+    if (error) {
+      this.logger.error(`Failed to send rejection email to ${email}`, error);
+      return false;
+    }
+
+    this.logger.log(`Rejection email sent to ${email}`);
     return true;
   }
 }

@@ -125,6 +125,19 @@ export class ProviderResolver {
     return this.providerService.deactivate(id, reason, language);
   }
 
+  @Mutation(() => Provider, {
+    description: 'Reject a pending provider join request',
+  })
+  @UseGuards(JwtAuthGuard)
+  rejectProviderJoinRequest(
+    @Args('id', { type: () => ID }) id: string,
+    @Args('reason') reason: string,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.providerService.rejectJoinRequest(id, reason, language);
+  }
+
+
   @Mutation(() => Provider, { description: 'Sign contract as provider' })
   @UseGuards(JwtAuthGuard)
   signProviderContract(
