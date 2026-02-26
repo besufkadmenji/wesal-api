@@ -35,7 +35,7 @@ export class AdminPermission {
   @Column({ type: 'uuid' })
   permissionId: string;
 
-  @Field(() => Admin)
+  @Field(() => Admin, { nullable: true })
   @ManyToOne(() => Admin, (admin) => admin.id, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'adminId' })
   admin?: Admin;
