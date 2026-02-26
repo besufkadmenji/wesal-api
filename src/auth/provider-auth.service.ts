@@ -124,7 +124,11 @@ export class ProviderAuthService {
     }
 
     // Check if account is disabled
-    if (provider.status !== ProviderStatus.ACTIVE && provider.emailVerified && provider.phoneVerified) {
+    if (
+      provider.status !== ProviderStatus.ACTIVE &&
+      provider.emailVerified &&
+      provider.phoneVerified
+    ) {
       const message = I18nService.translate(
         AUTH_ERROR_MESSAGES['ACCOUNT_DISABLED'],
         language,

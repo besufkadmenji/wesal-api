@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Listing } from '../listing/entities/listing.entity';
+import { Provider } from '../provider/entities/provider.entity';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import {
   I18nBadRequestException,
@@ -27,6 +28,8 @@ export class CategoryService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(Listing)
     private readonly listingRepository: Repository<Listing>,
+    @InjectRepository(Provider)
+    private readonly providerRepository: Repository<Provider>,
     private readonly trackingService: TrackingService,
     private readonly searchService: SearchService,
   ) {}
@@ -213,12 +216,19 @@ export class CategoryService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    await this.categoryRepository
-      .createQueryBuilder()
-      .delete()
-      .from('user_categories')
-      .where('categoryId = :categoryId', { categoryId: id })
-      .execute();
+    const providerCount = await this.providerRepository
+      .createQueryBuilder('provider')
+      .innerJoin('provider.categories', 'category')
+      .where('category.id = :categoryId', { categoryId: id })
+      .getCount();
+
+    if (providerCount > 0) {
+      const message = I18nService.translate(
+        CATEGORY_ERROR_MESSAGES['CATEGORY_IN_USE_BY_PROVIDERS'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
 
     await this.categoryRepository.delete({ id });
     // Remove from Elasticsearch index

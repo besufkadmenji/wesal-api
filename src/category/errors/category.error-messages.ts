@@ -22,6 +22,10 @@ export const CATEGORY_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Cannot delete category that is used by listings',
     ar: 'لا يمكن حذف فئة مستخدمة في إعلانات',
   },
+  [CATEGORY_ERROR_CODES.CATEGORY_IN_USE_BY_PROVIDERS]: {
+    en: 'Cannot delete category that is assigned to providers',
+    ar: 'لا يمكن حذف فئة مرتبطة بمزودي خدمة',
+  },
   [CATEGORY_ERROR_CODES.CATEGORY_ALREADY_ACTIVE]: {
     en: 'Category is already active',
     ar: 'الفئة مفعّلة بالفعل',

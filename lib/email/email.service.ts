@@ -1,45 +1,95 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { render } from '@react-email/components';
+import * as React from 'react';
+import { Resend } from 'resend';
+import type { VerifyEmailLocale } from '../../emails/verify.email';
+import VerifyEmail from '../../emails/verify.email';
 
 @Injectable()
 export class EmailService {
-  async sendVerificationEmail(email: string, code: string): Promise<boolean> {
-    // Mock email sending
-    console.log(`[MOCK EMAIL] Sending verification email to: ${email}`);
-    console.log(`[MOCK EMAIL] Verification code: ${code}`);
-    console.log(`[MOCK EMAIL] Subject: Verify your email`);
-    console.log(
-      `[MOCK EMAIL] Message: Your verification code is: ${code}. It will expire in 10 minutes.`,
-    );
-    console.log('---');
+  private readonly logger = new Logger(EmailService.name);
+  private readonly resend: Resend;
+  private readonly from: string;
 
-    // Simulate async operation
-    return Promise.resolve(true);
+  constructor(private readonly configService: ConfigService) {
+    const apiKey = this.configService.getOrThrow<string>('RESEND_API_KEY');
+    this.from = this.configService.getOrThrow<string>('RESEND_FROM');
+    this.resend = new Resend(apiKey);
   }
 
-  async sendPasswordResetEmail(email: string, code: string): Promise<boolean> {
-    // Mock email sending
-    console.log(`[MOCK EMAIL] Sending password reset email to: ${email}`);
-    console.log(`[MOCK EMAIL] Reset code: ${code}`);
-    console.log(`[MOCK EMAIL] Subject: Reset your password`);
-    console.log(
-      `[MOCK EMAIL] Message: Your password reset code is: ${code}. It will expire in 10 minutes.`,
-    );
-    console.log('---');
+  async sendVerificationEmail(
+    email: string,
+    code: string,
+    locale: VerifyEmailLocale = 'en',
+    name?: string,
+  ): Promise<boolean> {
+    const subject =
+      locale === 'ar'
+        ? 'رمز التحقق من بريدك في وصال'
+        : 'Verify your Wesal email';
 
-    // Simulate async operation
-    return Promise.resolve(true);
+    const html = await render(
+      React.createElement(VerifyEmail, {
+        code,
+        locale,
+        name,
+        type: 'email_verification',
+      }),
+    );
+
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: email,
+      subject,
+      html,
+    });
+
+    if (error) {
+      this.logger.error(`Failed to send verification email to ${email}`, error);
+      return false;
+    }
+
+    this.logger.log(`Verification email sent to ${email}`);
+    return true;
   }
 
-  async sendWelcomeEmail(email: string, name: string): Promise<boolean> {
-    // Mock email sending
-    console.log(`[MOCK EMAIL] Sending welcome email to: ${email}`);
-    console.log(`[MOCK EMAIL] Subject: Welcome to Wesal`);
-    console.log(
-      `[MOCK EMAIL] Message: Welcome ${name}! Your account is now active.`,
-    );
-    console.log('---');
+  async sendPasswordResetEmail(
+    email: string,
+    code: string,
+    locale: VerifyEmailLocale = 'en',
+    name?: string,
+  ): Promise<boolean> {
+    const subject =
+      locale === 'ar'
+        ? 'إعادة تعيين كلمة مرور وصال'
+        : 'Reset your Wesal password';
 
-    // Simulate async operation
-    return Promise.resolve(true);
+    const html = await render(
+      React.createElement(VerifyEmail, {
+        code,
+        locale,
+        name,
+        type: 'password_reset',
+      }),
+    );
+
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: email,
+      subject,
+      html,
+    });
+
+    if (error) {
+      this.logger.error(
+        `Failed to send password reset email to ${email}`,
+        error,
+      );
+      return false;
+    }
+
+    this.logger.log(`Password reset email sent to ${email}`);
+    return true;
   }
 }

@@ -57,11 +57,15 @@ export class AuthService {
       savedUser.id,
       savedUser.email,
       OtpType.EMAIL_VERIFICATION,
+      undefined,
+      language,
     );
     await this.generateAndSendOtp(
       savedUser.id,
       savedUser.phone,
       OtpType.PHONE_VERIFICATION,
+      undefined,
+      language,
     );
 
     return savedUser;
@@ -116,6 +120,8 @@ export class AuthService {
           user.id,
           user.email,
           OtpType.EMAIL_VERIFICATION,
+          undefined,
+          language,
         );
       }
       if (!user.phoneVerified) {
@@ -123,6 +129,8 @@ export class AuthService {
           user.id,
           user.phone,
           OtpType.PHONE_VERIFICATION,
+          undefined,
+          language,
         );
       }
       return { accessToken: '', user };
@@ -216,16 +224,8 @@ export class AuthService {
     if (user) {
       if (verifyOtpInput.type === OtpType.EMAIL_VERIFICATION) {
         user.emailVerified = true;
-        // Send welcome email if both are verified
-        if (user.phoneVerified && user.name) {
-          await this.emailService.sendWelcomeEmail(user.email, user.name);
-        }
       } else if (verifyOtpInput.type === OtpType.PHONE_VERIFICATION) {
         user.phoneVerified = true;
-        // Send welcome email if both are verified
-        if (user.emailVerified && user.name) {
-          await this.emailService.sendWelcomeEmail(user.email, user.name);
-        }
       }
       await this.userRepository.save(user);
     }
@@ -281,6 +281,7 @@ export class AuthService {
       resendOtpInput.target,
       resendOtpInput.type,
       ipAddress,
+      language,
     );
 
     return true;
@@ -317,6 +318,7 @@ export class AuthService {
       target,
       OtpType.PASSWORD_RESET,
       ipAddress,
+      language,
     );
 
     return true;
@@ -533,6 +535,8 @@ export class AuthService {
       userId,
       changeEmailInput.newEmail,
       OtpType.EMAIL_VERIFICATION,
+      undefined,
+      language,
     );
 
     // Issue a temporary change token (short-lived, e.g., 15 minutes)
@@ -584,6 +588,8 @@ export class AuthService {
       userId,
       changePhoneInput.newPhone,
       OtpType.PHONE_VERIFICATION,
+      undefined,
+      language,
     );
 
     // Issue a temporary change token (short-lived, e.g., 15 minutes)
@@ -895,17 +901,18 @@ export class AuthService {
     target: string,
     type: OtpType,
     ipAddress?: string,
+    language: LanguageCode = 'en',
   ): Promise<void> {
-    // TODO: Replace with actual 4-digit OTP generation in production
-    const code = '1234';
+    // Generate a cryptographically-safe 4-digit OTP (1000–9999)
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
 
-    // Create OTP with 60 seconds expiration
+    // Create OTP with 10 minutes expiration
     const otp = this.otpRepository.create({
       userId,
       target,
       type,
       code,
-      expiresAt: new Date(Date.now() + 60 * 1000), // 60 seconds
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       isUsed: false,
       ipAddress,
       attemptCount: 0,
@@ -914,13 +921,13 @@ export class AuthService {
 
     // Send OTP based on type
     if (type === OtpType.EMAIL_VERIFICATION) {
-      await this.emailService.sendVerificationEmail(target, code);
+      await this.emailService.sendVerificationEmail(target, code, language);
     } else if (type === OtpType.PHONE_VERIFICATION) {
       await this.smsService.sendVerificationSms(target, code);
     } else if (type === OtpType.PASSWORD_RESET) {
       // Determine if target is email or phone
       if (target.includes('@')) {
-        await this.emailService.sendPasswordResetEmail(target, code);
+        await this.emailService.sendPasswordResetEmail(target, code, language);
       } else {
         await this.smsService.sendPasswordResetSms(target, code);
       }

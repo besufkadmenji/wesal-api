@@ -117,6 +117,7 @@ export class AdminAuthService {
       admin.email,
       OtpType.PASSWORD_RESET,
       ipAddress,
+      language,
     );
 
     return true;
@@ -310,9 +311,10 @@ export class AdminAuthService {
     target: string,
     type: OtpType,
     ipAddress?: string,
+    language: LanguageCode = 'en',
   ): Promise<void> {
-    // TODO: Replace with actual 4-digit OTP generation in production
-    const code = '1234';
+    // Generate a cryptographically-safe 4-digit OTP (1000–9999)
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
 
     // Create OTP with 10 minutes expiration
     const otp = this.adminOtpRepository.create({
@@ -328,8 +330,10 @@ export class AdminAuthService {
     await this.adminOtpRepository.save(otp);
 
     // Send OTP via email
-    if (type === OtpType.PASSWORD_RESET) {
-      await this.emailService.sendPasswordResetEmail(target, code);
+    if (type === OtpType.EMAIL_VERIFICATION) {
+      await this.emailService.sendVerificationEmail(target, code, language);
+    } else if (type === OtpType.PASSWORD_RESET) {
+      await this.emailService.sendPasswordResetEmail(target, code, language);
     }
   }
 }

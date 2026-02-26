@@ -5,12 +5,13 @@ import { CategoryResolver } from './category.resolver';
 import { CategoryController } from './category.controller';
 import { Category } from './entities/category.entity';
 import { Listing } from '../listing/entities/listing.entity';
+import { Provider } from '../provider/entities/provider.entity';
 import { TrackingModule } from '../tracking/tracking.module';
 import { SearchModule } from '../search/search.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Category, Listing]),
+    TypeOrmModule.forFeature([Category, Listing, Provider]),
     TrackingModule,
     SearchModule,
   ],
