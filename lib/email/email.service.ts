@@ -5,6 +5,8 @@ import * as React from 'react';
 import { Resend } from 'resend';
 import type { RejectionEmailLocale } from '../../emails/rejection.email';
 import RejectionEmail from '../../emails/rejection.email';
+import type { ReplyEmailLocale } from '../../emails/reply.email';
+import ReplyEmail from '../../emails/reply.email';
 import type { VerifyEmailLocale } from '../../emails/verify.email';
 import VerifyEmail from '../../emails/verify.email';
 
@@ -130,6 +132,45 @@ export class EmailService {
     }
 
     this.logger.log(`Rejection email sent to ${email}`);
+    return true;
+  }
+
+  async sendContactReplyEmail(
+    email: string,
+    originalMessage: string,
+    reply: string,
+    locale: ReplyEmailLocale = 'en',
+    name?: string,
+  ): Promise<boolean> {
+    const subject =
+      locale === 'ar' ? 'رد من فريق دعم وصال' : 'Reply from Wesal support';
+
+    const html = await render(
+      React.createElement(ReplyEmail, {
+        originalMessage,
+        reply,
+        locale,
+        name,
+      }),
+    );
+
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: email,
+      bcc: 'besufkadmenji@gmail.com',
+      subject,
+      html,
+    });
+
+    if (error) {
+      this.logger.error(
+        `Failed to send contact reply email to ${email}`,
+        error,
+      );
+      return false;
+    }
+
+    this.logger.log(`Contact reply email sent to ${email}`);
     return true;
   }
 }

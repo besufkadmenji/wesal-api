@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { EmailService } from 'lib/email/email.service';
 import { ContactMessage } from './entities/contact-message.entity';
 import { CreateContactMessageInput } from './dto/create-contact-message.input';
 import { UpdateContactMessageInput } from './dto/update-contact-message.input';
@@ -9,9 +10,12 @@ import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 
 @Injectable()
 export class ContactMessageService {
+  private readonly logger = new Logger(ContactMessageService.name);
+
   constructor(
     @InjectRepository(ContactMessage)
     private readonly contactMessageRepository: Repository<ContactMessage>,
+    private readonly emailService: EmailService,
   ) {}
 
   async create(
@@ -85,8 +89,23 @@ export class ContactMessageService {
     return this.findOne(id);
   }
 
-  async reply(id: string, message: string): Promise<ContactMessage> {
+  async reply(
+    id: string,
+    message: string,
+    language: 'en' | 'ar' = 'en',
+  ): Promise<ContactMessage> {
+    const contactMessage = await this.findOne(id);
     await this.contactMessageRepository.update(id, { reply: message });
+
+    // Send reply email to the user
+    await this.emailService.sendContactReplyEmail(
+      contactMessage.email,
+      contactMessage.messageContent,
+      message,
+      language,
+      contactMessage.name,
+    );
+
     return this.findOne(id);
   }
 

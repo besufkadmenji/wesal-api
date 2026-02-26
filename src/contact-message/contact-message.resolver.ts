@@ -11,6 +11,8 @@ import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
 import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
 import type { AdminJwtPayload } from '../admin/types/admin-jwt-payload.type';
+import { GetLanguage } from '../../lib/i18n/get-language.decorator';
+import type { LanguageCode } from '../../lib/i18n/language.types';
 
 @Resolver(() => ContactMessage)
 export class ContactMessageResolver {
@@ -88,11 +90,12 @@ export class ContactMessageResolver {
     @Args('id', { type: () => ID }) id: string,
     @Args('message')
     message: string,
+    @GetLanguage() language: LanguageCode,
   ) {
     if (!admin?.sub) {
       throw new Error('Unauthorized');
     }
-    return this.contactMessageService.reply(id, message);
+    return this.contactMessageService.reply(id, message, language);
   }
 
   @Mutation(() => Boolean, {
