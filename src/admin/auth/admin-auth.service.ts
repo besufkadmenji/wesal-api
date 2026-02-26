@@ -155,20 +155,20 @@ export class AdminAuthService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    // Check if last attempt was less than 30 seconds ago
-    if (otp.lastAttemptAt && otp.lastAttemptAt instanceof Date) {
-      const timeSinceLastAttempt = Date.now() - otp.lastAttemptAt.getTime();
-      if (timeSinceLastAttempt < 30000) {
-        const message = I18nService.translate(
-          ADMIN_ERROR_MESSAGES['OTP_VERIFICATION_THROTTLED'],
-          language,
-        );
-        throw new I18nBadRequestException(
-          { en: message, ar: message },
-          language,
-        );
-      }
-    }
+    // // Check if last attempt was less than 30 seconds ago
+    // if (otp.lastAttemptAt && otp.lastAttemptAt instanceof Date) {
+    //   const timeSinceLastAttempt = Date.now() - otp.lastAttemptAt.getTime();
+    //   if (timeSinceLastAttempt < 30000) {
+    //     const message = I18nService.translate(
+    //       ADMIN_ERROR_MESSAGES['OTP_VERIFICATION_THROTTLED'],
+    //       language,
+    //     );
+    //     throw new I18nBadRequestException(
+    //       { en: message, ar: message },
+    //       language,
+    //     );
+    //   }
+    // }
 
     // Verify OTP code
     if (otp.code !== verifyInput.code) {

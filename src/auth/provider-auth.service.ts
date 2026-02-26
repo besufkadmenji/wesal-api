@@ -624,21 +624,21 @@ export class ProviderAuthService {
         );
       }
 
-      // Check if last attempt was less than 30 seconds ago (prevent brute force)
-      if (otp.lastAttemptAt && otp.lastAttemptAt instanceof Date) {
-        const timeSinceLastAttempt = Date.now() - otp.lastAttemptAt.getTime();
-        if (timeSinceLastAttempt < 30000) {
-          // 30 seconds
-          const message = I18nService.translate(
-            AUTH_ERROR_MESSAGES['OTP_VERIFICATION_THROTTLED'],
-            language,
-          );
-          throw new I18nBadRequestException(
-            { en: message, ar: message },
-            language,
-          );
-        }
-      }
+      // // Check if last attempt was less than 30 seconds ago (prevent brute force)
+      // if (otp.lastAttemptAt && otp.lastAttemptAt instanceof Date) {
+      //   const timeSinceLastAttempt = Date.now() - otp.lastAttemptAt.getTime();
+      //   if (timeSinceLastAttempt < 30000) {
+      //     // 30 seconds
+      //     const message = I18nService.translate(
+      //       AUTH_ERROR_MESSAGES['OTP_VERIFICATION_THROTTLED'],
+      //       language,
+      //     );
+      //     throw new I18nBadRequestException(
+      //       { en: message, ar: message },
+      //       language,
+      //     );
+      //   }
+      // }
 
       // Verify OTP code
       if (otp.code !== verifyChangeEmailInput.code) {
@@ -768,21 +768,21 @@ export class ProviderAuthService {
         );
       }
 
-      // Check if last attempt was less than 30 seconds ago (prevent brute force)
-      if (otp.lastAttemptAt && otp.lastAttemptAt instanceof Date) {
-        const timeSinceLastAttempt = Date.now() - otp.lastAttemptAt.getTime();
-        if (timeSinceLastAttempt < 30000) {
-          // 30 seconds
-          const message = I18nService.translate(
-            AUTH_ERROR_MESSAGES['OTP_VERIFICATION_THROTTLED'],
-            language,
-          );
-          throw new I18nBadRequestException(
-            { en: message, ar: message },
-            language,
-          );
-        }
-      }
+      // // Check if last attempt was less than 30 seconds ago (prevent brute force)
+      // if (otp.lastAttemptAt && otp.lastAttemptAt instanceof Date) {
+      //   const timeSinceLastAttempt = Date.now() - otp.lastAttemptAt.getTime();
+      //   if (timeSinceLastAttempt < 30000) {
+      //     // 30 seconds
+      //     const message = I18nService.translate(
+      //       AUTH_ERROR_MESSAGES['OTP_VERIFICATION_THROTTLED'],
+      //       language,
+      //     );
+      //     throw new I18nBadRequestException(
+      //       { en: message, ar: message },
+      //       language,
+      //     );
+      //   }
+      // }
 
       // Verify OTP code
       if (otp.code !== verifyChangePhoneInput.code) {
