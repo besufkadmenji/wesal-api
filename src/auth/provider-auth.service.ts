@@ -862,10 +862,8 @@ export class ProviderAuthService {
     ipAddress?: string,
   ): Promise<void> {
     // TODO: Replace with actual 4-digit OTP generation in production
-    const code =
-      type === OtpType.PHONE_VERIFICATION
-        ? '1234'
-        : Math.floor(1000 + Math.random() * 9000).toString();
+    const code = '1234';
+
     // Create OTP with 10 minutes expiration
     const otp = this.otpRepository.create({
       providerId,

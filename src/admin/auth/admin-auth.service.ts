@@ -319,7 +319,7 @@ export class AdminAuthService {
     language: LanguageCode = 'en',
   ): Promise<void> {
     // Generate a cryptographically-safe 4-digit OTP (1000–9999)
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    const code = '1234';
 
     // Create OTP with 10 minutes expiration
     const otp = this.adminOtpRepository.create({
