@@ -26,6 +26,10 @@ export const CATEGORY_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Cannot delete category that is assigned to providers',
     ar: 'لا يمكن حذف فئة مرتبطة بمزودي خدمة',
   },
+  [CATEGORY_ERROR_CODES.CATEGORY_HAS_ACTIVE_PROVIDERS]: {
+    en: 'Cannot deactivate category that has active providers assigned to it',
+    ar: 'لا يمكن تعطيل فئة لديها مزودو خدمة نشطون مرتبطون بها',
+  },
   [CATEGORY_ERROR_CODES.CATEGORY_ALREADY_ACTIVE]: {
     en: 'Category is already active',
     ar: 'الفئة مفعّلة بالفعل',

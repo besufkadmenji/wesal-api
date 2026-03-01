@@ -19,6 +19,7 @@ import { TrackingService } from '../tracking/tracking.service';
 import { TargetType } from '../tracking/enums/target-type.enum';
 import { ActionType } from '../tracking/enums/action-type.enum';
 import { CategoryStatus } from './enum/category.enum';
+import { ProviderStatus } from '../provider/enums/provider-status.enum';
 import { SearchService } from '../search/search.service';
 
 @Injectable()
@@ -304,6 +305,22 @@ export class CategoryService {
     if (category.status === CategoryStatus.INACTIVE) {
       const message = I18nService.translate(
         CATEGORY_ERROR_MESSAGES['CATEGORY_ALREADY_INACTIVE'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Prevent deactivating a category that has active providers assigned to it
+    const activeProviderCount = await this.providerRepository
+      .createQueryBuilder('provider')
+      .innerJoin('provider.categories', 'category')
+      .where('category.id = :categoryId', { categoryId: id })
+      .andWhere('provider.status = :status', { status: ProviderStatus.ACTIVE })
+      .getCount();
+
+    if (activeProviderCount > 0) {
+      const message = I18nService.translate(
+        CATEGORY_ERROR_MESSAGES['CATEGORY_HAS_ACTIVE_PROVIDERS'],
         language,
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);
