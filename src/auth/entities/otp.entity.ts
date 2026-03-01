@@ -27,7 +27,7 @@ export class Otp {
   userId?: string;
 
   @Field(() => User, { nullable: true })
-  @ManyToOne(() => User, { nullable: true })
+  @ManyToOne(() => User, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user?: User;
 
@@ -36,7 +36,7 @@ export class Otp {
   providerId?: string;
 
   @Field(() => Provider, { nullable: true })
-  @ManyToOne(() => Provider, { nullable: true })
+  @ManyToOne(() => Provider, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'providerId' })
   provider?: Provider;
 
