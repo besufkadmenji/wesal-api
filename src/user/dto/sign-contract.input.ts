@@ -1,5 +1,7 @@
 import { Field, ID, InputType } from '@nestjs/graphql';
-import { IsNotEmpty, IsString, IsUUID } from 'class-validator';
+import { IsArray, IsNotEmpty, IsString, IsUUID, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { ContractRuleInput } from '../../signed-contract/contract-rule.type';
 
 @InputType()
 export class SignContractInput {
@@ -8,15 +10,17 @@ export class SignContractInput {
   @IsNotEmpty()
   serviceProviderSignature: string;
 
-  @Field(() => String, { nullable: true })
-  @IsString()
-  @IsNotEmpty()
-  acceptedRulesEn: string | null;
+  @Field(() => [ContractRuleInput], { nullable: true })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ContractRuleInput)
+  acceptedRulesEn: ContractRuleInput[] | null;
 
-  @Field(() => String, { nullable: true })
-  @IsString()
-  @IsNotEmpty()
-  acceptedRulesAr: string | null;
+  @Field(() => [ContractRuleInput], { nullable: true })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ContractRuleInput)
+  acceptedRulesAr: ContractRuleInput[] | null;
 }
 
 @InputType()

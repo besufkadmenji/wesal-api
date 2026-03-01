@@ -123,6 +123,19 @@ export class ProviderAuthService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
+    // Check if account is pending admin approval
+    if (
+      provider.status === ProviderStatus.PENDING_APPROVAL &&
+      provider.emailVerified &&
+      provider.phoneVerified
+    ) {
+      const message = I18nService.translate(
+        AUTH_ERROR_MESSAGES['ACCOUNT_PENDING_APPROVAL'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
     // Check if account is disabled
     if (
       provider.status !== ProviderStatus.ACTIVE &&

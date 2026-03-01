@@ -86,4 +86,8 @@ export const AUTH_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Your account has been disabled. Please contact support',
     ar: 'تم تعطيل حسابك. يرجى التواصل مع الدعم',
   },
+  [AUTH_ERROR_CODES.ACCOUNT_PENDING_APPROVAL]: {
+    en: 'Please wait until your join request is approved by the administration.',
+    ar: 'يرجى الانتظار حتى يتم قبول طلب انضمامك من الإدارة.',
+  },
 };

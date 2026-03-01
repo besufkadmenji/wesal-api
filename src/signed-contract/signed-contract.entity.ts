@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 import { Provider } from '../provider/entities/provider.entity';
 import { SignedContractStatus } from '../provider/enums/contract.enum';
+import { ContractRule } from './contract-rule.type';
 
 @ObjectType()
 @Entity('signed_contracts')
@@ -71,13 +72,13 @@ export class SignedContract {
   @Column({ type: 'text', nullable: true })
   terminationReason: string | null;
 
-  @Field(() => String, { nullable: true })
-  @Column({ type: 'text', nullable: true })
-  acceptedRulesEn: string | null;
+  @Field(() => [ContractRule], { nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
+  acceptedRulesEn: ContractRule[] | null;
 
-  @Field(() => String, { nullable: true })
-  @Column({ type: 'text', nullable: true })
-  acceptedRulesAr: string | null;
+  @Field(() => [ContractRule], { nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
+  acceptedRulesAr: ContractRule[] | null;
 
   @Field()
   @CreateDateColumn()
