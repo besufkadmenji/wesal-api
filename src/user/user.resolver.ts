@@ -20,6 +20,7 @@ import { RequirePermission } from '../admin/decorators/require-permission.decora
 import { DeactivateUserInput } from './dto/deactivate-user.input';
 import { DeleteUserInput } from './dto/delete-user.input';
 import { PaginatedUserResponse } from './dto/paginated-user.response';
+import { UpdateMeInput } from './dto/update-me.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UserPaginationInput } from './dto/user-pagination.input';
 import { User } from './entities/user.entity';
@@ -42,6 +43,31 @@ export class UserResolver {
     @GetLanguage() language: LanguageCode,
   ) {
     return this.userService.findOne(user.sub, language);
+  }
+
+  @Mutation(() => User, { description: 'Update own profile (self-service)' })
+  @UseGuards(JwtAuthGuard)
+  updateMe(
+    @CurrentUser() user: JwtPayload,
+    @Args('updateMeInput') updateMeInput: UpdateMeInput,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.userService.update(
+      user.sub,
+      { ...updateMeInput, id: user.sub },
+      language,
+    );
+  }
+
+  @Mutation(() => Boolean, {
+    description: 'Remove own avatar (self-service)',
+  })
+  @UseGuards(JwtAuthGuard)
+  removeMyAvatar(
+    @CurrentUser() user: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.userService.removeAvatar(user.sub, language);
   }
 
   @Query(() => PaginatedUserResponse, {
