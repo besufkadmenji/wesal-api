@@ -274,6 +274,10 @@ export class UserService {
     }
     user.status = UserStatus.DELETED;
 
+    // Obfuscate email and phone so the same credentials can be re-used on re-registration
+    user.email = `DELETED_${id}_${user.email}`;
+    user.phone = `DELETED_${id}_${user.phone}`;
+
     return this.userRepository.save(user);
   }
 

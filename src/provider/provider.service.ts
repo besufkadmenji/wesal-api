@@ -605,6 +605,11 @@ export class ProviderService {
       provider.deleteReason = reason;
     }
     provider.status = ProviderStatus.DELETED;
+
+    // Obfuscate email and phone so the same credentials can be re-used on re-registration
+    provider.email = `DELETED_${id}_${provider.email}`;
+    provider.phone = `DELETED_${id}_${provider.phone}`;
+
     await this.providerRepository.save(provider);
     return provider;
   }
