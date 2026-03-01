@@ -48,31 +48,37 @@ export class ProviderService {
     createProviderInput: CreateProviderInput,
     language: LanguageCode = 'en',
   ): Promise<Provider> {
-    // Check if provider already exists
-    const existingProvider = await this.providerRepository.findOne({
-      where: [
-        { email: createProviderInput.email },
-        { phone: createProviderInput.phone },
-      ],
+    // Check if a *verified* account already owns this email or phone.
+    // Unverified accounts are stale placeholders; the real owner must be
+    // allowed to re-register, so we only block on verified conflicts.
+    const verifiedEmailOwner = await this.providerRepository.findOne({
+      where: { email: createProviderInput.email, emailVerified: true },
     });
+    if (verifiedEmailOwner) {
+      const message = I18nService.translate(
+        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.EMAIL_ALREADY_IN_USE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
 
-    if (existingProvider) {
-      if (existingProvider.email === createProviderInput.email) {
-        const message = I18nService.translate(
-          PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.EMAIL_ALREADY_IN_USE],
-          language,
-        );
-        throw new I18nBadRequestException(
-          { en: message, ar: message },
-          language,
-        );
-      }
+    const verifiedPhoneOwner = await this.providerRepository.findOne({
+      where: { phone: createProviderInput.phone, phoneVerified: true },
+    });
+    if (verifiedPhoneOwner) {
       const message = I18nService.translate(
         PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PHONE_ALREADY_IN_USE],
         language,
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
+
+    // Remove any stale unverified records that hold the same email/phone so
+    // the unique DB constraint doesn't block the new registration.
+    await this.providerRepository.delete([
+      { email: createProviderInput.email, emailVerified: false },
+      { phone: createProviderInput.phone, phoneVerified: false },
+    ]);
 
     // Hash password
     const hashedPassword = await bcrypt.hash(createProviderInput.password, 10);

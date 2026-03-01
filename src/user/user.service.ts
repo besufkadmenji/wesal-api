@@ -34,31 +34,37 @@ export class UserService {
     createUserInput: CreateUserInput,
     language: LanguageCode = 'en',
   ): Promise<User> {
-    // Check if user already exists
-    const existingUser = await this.userRepository.findOne({
-      where: [
-        { email: createUserInput.email },
-        { phone: createUserInput.phone },
-      ],
+    // Check if a *verified* account already owns this email or phone.
+    // Unverified accounts are stale placeholders; the real owner must be
+    // allowed to re-register, so we only block on verified conflicts.
+    const verifiedEmailOwner = await this.userRepository.findOne({
+      where: { email: createUserInput.email, emailVerified: true },
     });
+    if (verifiedEmailOwner) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.EMAIL_ALREADY_IN_USE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
 
-    if (existingUser) {
-      if (existingUser.email === createUserInput.email) {
-        const message = I18nService.translate(
-          USER_ERROR_MESSAGES[USER_ERROR_CODES.EMAIL_ALREADY_IN_USE],
-          language,
-        );
-        throw new I18nBadRequestException(
-          { en: message, ar: message },
-          language,
-        );
-      }
+    const verifiedPhoneOwner = await this.userRepository.findOne({
+      where: { phone: createUserInput.phone, phoneVerified: true },
+    });
+    if (verifiedPhoneOwner) {
       const message = I18nService.translate(
         USER_ERROR_MESSAGES[USER_ERROR_CODES.PHONE_ALREADY_IN_USE],
         language,
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
+
+    // Remove any stale unverified records that hold the same email/phone so
+    // the unique DB constraint doesn't block the new registration.
+    await this.userRepository.delete([
+      { email: createUserInput.email, emailVerified: false },
+      { phone: createUserInput.phone, phoneVerified: false },
+    ]);
 
     // Hash password
     const hashedPassword = await bcrypt.hash(createUserInput.password, 10);
