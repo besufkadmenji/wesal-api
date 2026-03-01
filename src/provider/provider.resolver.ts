@@ -142,7 +142,6 @@ export class ProviderResolver {
     return this.providerService.rejectJoinRequest(id, reason, language);
   }
 
-
   @Mutation(() => Provider, { description: 'Sign contract as provider' })
   @UseGuards(JwtAuthGuard)
   signProviderContract(

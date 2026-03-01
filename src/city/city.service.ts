@@ -17,6 +17,7 @@ import { CITY_ERROR_MESSAGES } from './errors/city.error-messages';
 import { User } from '../user/entities/user.entity';
 import { Provider } from '../provider/entities/provider.entity';
 import { CityStatus } from './enum/city.enum';
+import { ProviderStatus } from '../provider/enums/provider-status.enum';
 
 @Injectable()
 export class CityService {
@@ -86,7 +87,9 @@ export class CityService {
       );
     }
     if (effectiveStatus) {
-      queryBuilder.andWhere('city.status = :status', { status: effectiveStatus });
+      queryBuilder.andWhere('city.status = :status', {
+        status: effectiveStatus,
+      });
     }
 
     const [items, total] = await queryBuilder
@@ -174,7 +177,9 @@ export class CityService {
     }
 
     if (effectiveStatus) {
-      queryBuilder.andWhere('city.status = :status', { status: effectiveStatus });
+      queryBuilder.andWhere('city.status = :status', {
+        status: effectiveStatus,
+      });
     }
 
     const [items, total] = await queryBuilder
@@ -299,6 +304,19 @@ export class CityService {
     if (city.status === CityStatus.INACTIVE) {
       const message = I18nService.translate(
         CITY_ERROR_MESSAGES[CITY_ERROR_CODES.CITY_ALREADY_INACTIVE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Prevent deactivating a city that has active providers
+    const activeProviderCount = await this.providerRepository.count({
+      where: { cityId: id, status: ProviderStatus.ACTIVE },
+    });
+
+    if (activeProviderCount > 0) {
+      const message = I18nService.translate(
+        CITY_ERROR_MESSAGES[CITY_ERROR_CODES.CITY_HAS_ACTIVE_PROVIDERS],
         language,
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);

@@ -35,6 +35,10 @@ export const CITY_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Cannot delete city that is being used by providers',
     ar: 'لا يمكن حذف مدينة مرتبطة بمزودي خدمات',
   },
+  [CITY_ERROR_CODES.CITY_HAS_ACTIVE_PROVIDERS]: {
+    en: 'Cannot deactivate city that has active providers',
+    ar: 'لا يمكن تعطيل مدينة لديها مزودو خدمات نشطون',
+  },
   [CITY_ERROR_CODES.CITY_ALREADY_ACTIVE]: {
     en: 'City is already active',
     ar: 'المدينة مفعّلة بالفعل',
