@@ -141,7 +141,7 @@ export class UserService {
       .andWhere('user.deletedAt IS NULL')
       .getOne();
 
-    if (!user || user.status !== UserStatus.ACTIVE) {
+    if (!user) {
       const message = I18nService.translate(
         USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_NOT_FOUND],
         language,

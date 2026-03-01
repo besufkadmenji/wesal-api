@@ -172,7 +172,7 @@ export class ProviderService {
       relations: ['country', 'city', 'categories', 'signedContract'],
     });
 
-    if (!provider || provider.status !== ProviderStatus.ACTIVE) {
+    if (!provider) {
       const message = I18nService.translate(
         PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND],
         language,

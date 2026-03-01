@@ -30,6 +30,11 @@ import { AdminTerminateContractInput } from './dto/terminate-contract.input';
 import { UpdateProviderInput } from './dto/update-provider.input';
 import { ProviderService } from './provider.service';
 import { DeleteProviderInput } from './dto/delete-provider.input';
+import { ProviderStatus } from './enums/provider-status.enum';
+import { I18nNotFoundException } from 'lib/errors/i18n.exceptions';
+import { PROVIDER_ERROR_CODES } from './errors/provider.error-codes';
+import { I18nService } from 'lib/i18n';
+import { PROVIDER_ERROR_MESSAGES } from './errors/provider.error-messages';
 
 @Resolver(() => Provider)
 export class ProviderResolver {
@@ -96,7 +101,18 @@ export class ProviderResolver {
     @CurrentProvider() provider: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.providerService.findOne(provider.sub, language);
+    const currentProvider = await this.providerService.findOne(
+      provider.sub,
+      language,
+    );
+    if (currentProvider.status !== ProviderStatus.ACTIVE) {
+      const message = I18nService.translate(
+        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+    return currentProvider;
   }
 
   @Mutation(() => Provider, { description: 'Update provider' })

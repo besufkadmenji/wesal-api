@@ -25,6 +25,11 @@ import { UpdateUserInput } from './dto/update-user.input';
 import { UserPaginationInput } from './dto/user-pagination.input';
 import { User } from './entities/user.entity';
 import { UserService } from './user.service';
+import { I18nNotFoundException } from 'lib/errors';
+import { I18nService } from 'lib/i18n';
+import { UserStatus } from './enums/user-status.enum';
+import { USER_ERROR_CODES } from './errors/user.error-codes';
+import { USER_ERROR_MESSAGES } from './errors/user.error-messages';
 
 @Resolver(() => User)
 export class UserResolver {
@@ -42,7 +47,15 @@ export class UserResolver {
     @CurrentUser() user: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.userService.findOne(user.sub, language);
+    const currentUser = await this.userService.findOne(user.sub, language);
+    if (currentUser.status !== UserStatus.ACTIVE) {
+      const message = I18nService.translate(
+        USER_ERROR_MESSAGES[USER_ERROR_CODES.USER_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+    return currentUser;
   }
 
   @Mutation(() => User, { description: 'Update own profile (self-service)' })
