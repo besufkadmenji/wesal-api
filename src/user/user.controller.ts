@@ -1,8 +1,7 @@
-import { Controller, Get, Query, Res, Headers } from '@nestjs/common';
+import { Controller, Get, Res, Headers } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
-  ApiQuery,
   ApiProduces,
   ApiResponse,
   ApiHeader,
@@ -10,6 +9,9 @@ import {
 import type { Response } from 'express';
 import { UserService } from './user.service';
 import { CsvExportService } from '../../lib/csv-export';
+
+// Fields exported in the users Excel/CSV file
+const USER_EXPORT_FIELDS = ['name', 'phone', 'email', 'avatarFilename'];
 
 @ApiTags('Users', 'Export')
 @Controller('users')
@@ -23,14 +25,7 @@ export class UserController {
   @ApiOperation({
     summary: 'Export users to CSV',
     description:
-      'Export all user records to a CSV file with optional field selection and localization support',
-  })
-  @ApiQuery({
-    name: 'fields',
-    required: false,
-    description:
-      'Comma-separated list of fields to export (e.g., "id,name,email,phone"). If not provided, all fields are exported.',
-    example: 'id,name,email,phone,status,createdAt',
+      'Export user records to a CSV file containing: Username, Mobile Number, Email Address, and Profile Picture.',
   })
   @ApiHeader({
     name: 'Accept-Language',
@@ -46,17 +41,11 @@ export class UserController {
     content: { 'text/csv': { schema: { type: 'string', format: 'binary' } } },
   })
   async export(
-    @Query('fields') fields: string,
     @Headers('accept-language') acceptLanguage: string,
     @Res() res: Response,
   ): Promise<void> {
     const result = await this.userService.findAll({ page: 1, limit: 999999 });
     const users = result.items;
-
-    // Parse fields query parameter (comma-separated)
-    const selectedFields = fields
-      ? fields.split(',').map((f) => f.trim())
-      : undefined;
 
     // Parse language from Accept-Language header (default to Arabic)
     const language = acceptLanguage?.toLowerCase().startsWith('en')
@@ -67,7 +56,7 @@ export class UserController {
       users,
       `users-export-${new Date().toISOString().split('T')[0]}`,
       res,
-      selectedFields,
+      USER_EXPORT_FIELDS,
       language,
     );
   }
