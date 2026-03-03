@@ -4,6 +4,7 @@ import { IsDate, IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
 import { PaginationInput } from 'lib/common/dto/pagination.input';
 import {
   ContactMessageStatus,
+  MessageType,
   SenderType,
 } from '../entities/contact-message.entity';
 
@@ -42,9 +43,10 @@ export class ContactMessagePaginationInput extends PaginationInput {
   @IsEnum(SenderType)
   senderType?: SenderType;
 
-  @Field({ nullable: true })
+  @Field(() => MessageType, { nullable: true })
   @IsOptional()
-  messageType?: string;
+  @IsEnum(MessageType)
+  messageType?: MessageType;
 
   @Field({ nullable: true, description: 'Filter messages from this date' })
   @IsOptional()

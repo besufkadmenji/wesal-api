@@ -1,5 +1,6 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsString, IsEmail, IsOptional } from 'class-validator';
+import { IsString, IsEmail, IsEnum, IsOptional } from 'class-validator';
+import { MessageType } from '../entities/contact-message.entity';
 
 @InputType()
 export class CreateContactMessageInput {
@@ -20,9 +21,9 @@ export class CreateContactMessageInput {
   @IsString()
   phone: string;
 
-  @Field()
-  @IsString()
-  messageType: string;
+  @Field(() => MessageType, { defaultValue: MessageType.REQUEST })
+  @IsEnum(MessageType)
+  messageType: MessageType;
 
   @Field()
   @IsString()

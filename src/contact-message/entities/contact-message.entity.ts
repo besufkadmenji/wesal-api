@@ -19,6 +19,14 @@ export enum ContactMessageStatus {
   REPLIED = 'REPLIED',
 }
 
+export enum MessageType {
+  REQUEST = 'REQUEST',
+  INQUIRY = 'INQUIRY',
+  COMPLAINT = 'COMPLAINT',
+  SUGGESTION = 'SUGGESTION',
+  OTHER = 'OTHER',
+}
+
 registerEnumType(SenderType, {
   name: 'SenderType',
   description: 'Type of contact message sender',
@@ -27,6 +35,11 @@ registerEnumType(SenderType, {
 registerEnumType(ContactMessageStatus, {
   name: 'ContactMessageStatus',
   description: 'Status of a contact message',
+});
+
+registerEnumType(MessageType, {
+  name: 'MessageType',
+  description: 'Type of contact message',
 });
 
 @ObjectType()
@@ -61,9 +74,9 @@ export class ContactMessage {
   @Column({ type: 'varchar', length: 20 })
   phone: string;
 
-  @Field()
-  @Column({ type: 'varchar', length: 100 })
-  messageType: string;
+  @Field(() => MessageType)
+  @Column({ type: 'enum', enum: MessageType, default: MessageType.REQUEST })
+  messageType: MessageType;
 
   @Field()
   @Column({ type: 'text' })
