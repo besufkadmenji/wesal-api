@@ -1,15 +1,20 @@
 import { Field, InputType, registerEnumType } from '@nestjs/graphql';
-import { IsBoolean, IsIn, IsOptional } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsDate, IsEnum, IsIn, IsOptional, IsString } from 'class-validator';
 import { PaginationInput } from 'lib/common/dto/pagination.input';
+import {
+  ContactMessageStatus,
+  SenderType,
+} from '../entities/contact-message.entity';
 
-const CONTACT_MESSAGE_SORTABLE_FIELDS = ['id', 'createdAt', 'isRead'] as const;
+const CONTACT_MESSAGE_SORTABLE_FIELDS = ['id', 'createdAt', 'status'] as const;
 export type ContactMessageSortField =
   (typeof CONTACT_MESSAGE_SORTABLE_FIELDS)[number];
 
 export enum ContactMessageSortFieldEnum {
   id = 'id',
   createdAt = 'createdAt',
-  isRead = 'isRead',
+  status = 'status',
 }
 
 registerEnumType(ContactMessageSortFieldEnum, {
@@ -19,14 +24,39 @@ registerEnumType(ContactMessageSortFieldEnum, {
 
 @InputType()
 export class ContactMessagePaginationInput extends PaginationInput {
-  @Field({ nullable: true })
+  @Field({
+    nullable: true,
+    description: 'Search across name, email, phone, and message content',
+  })
   @IsOptional()
-  @IsBoolean()
-  isRead?: boolean;
+  @IsString()
+  search?: string;
+
+  @Field(() => ContactMessageStatus, { nullable: true })
+  @IsOptional()
+  @IsEnum(ContactMessageStatus)
+  status?: ContactMessageStatus;
+
+  @Field(() => SenderType, { nullable: true })
+  @IsOptional()
+  @IsEnum(SenderType)
+  senderType?: SenderType;
 
   @Field({ nullable: true })
   @IsOptional()
   messageType?: string;
+
+  @Field({ nullable: true, description: 'Filter messages from this date' })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  dateFrom?: Date;
+
+  @Field({ nullable: true, description: 'Filter messages until this date' })
+  @IsOptional()
+  @IsDate()
+  @Type(() => Date)
+  dateTo?: Date;
 
   @Field(() => ContactMessageSortFieldEnum, { nullable: true })
   @IsOptional()

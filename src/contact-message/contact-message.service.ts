@@ -2,11 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmailService } from 'lib/email/email.service';
-import { ContactMessage } from './entities/contact-message.entity';
+import {
+  ContactMessage,
+  ContactMessageStatus,
+  SenderType,
+} from './entities/contact-message.entity';
 import { CreateContactMessageInput } from './dto/create-contact-message.input';
 import { UpdateContactMessageInput } from './dto/update-contact-message.input';
 import { ContactMessagePaginationInput } from './dto/contact-message-pagination.input';
 import { IPaginatedType } from '../../lib/common/dto/paginated-response';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Injectable()
 export class ContactMessageService {
@@ -20,10 +25,22 @@ export class ContactMessageService {
 
   async create(
     createContactMessageInput: CreateContactMessageInput,
+    caller?: JwtPayload,
   ): Promise<ContactMessage> {
-    const message = this.contactMessageRepository.create(
-      createContactMessageInput,
-    );
+    let senderType = SenderType.GUEST;
+    let senderId: string | undefined;
+
+    if (caller) {
+      senderType =
+        caller.type === 'provider' ? SenderType.PROVIDER : SenderType.USER;
+      senderId = caller.sub;
+    }
+
+    const message = this.contactMessageRepository.create({
+      ...createContactMessageInput,
+      senderType,
+      senderId,
+    });
     return this.contactMessageRepository.save(message);
   }
 
@@ -38,15 +55,39 @@ export class ContactMessageService {
     const qb =
       this.contactMessageRepository.createQueryBuilder('contactMessage');
 
-    if (typeof paginationInput?.isRead === 'boolean') {
-      qb.andWhere('contactMessage.isRead = :isRead', {
-        isRead: paginationInput.isRead,
+    if (paginationInput?.search) {
+      qb.andWhere(
+        '(contactMessage.name ILIKE :search OR contactMessage.email ILIKE :search OR contactMessage.phone ILIKE :search OR contactMessage.messageContent ILIKE :search)',
+        { search: `%${paginationInput.search}%` },
+      );
+    }
+
+    if (paginationInput?.status) {
+      qb.andWhere('contactMessage.status = :status', {
+        status: paginationInput.status as string,
       });
     }
 
+    if (paginationInput?.senderType) {
+      qb.andWhere('contactMessage.senderType = :senderType', {
+        senderType: paginationInput.senderType as string,
+      });
+    }
     if (paginationInput?.messageType) {
       qb.andWhere('contactMessage.messageType = :messageType', {
         messageType: paginationInput.messageType,
+      });
+    }
+
+    if (paginationInput?.dateFrom) {
+      qb.andWhere('contactMessage.createdAt >= :dateFrom', {
+        dateFrom: paginationInput.dateFrom,
+      });
+    }
+
+    if (paginationInput?.dateTo) {
+      qb.andWhere('contactMessage.createdAt <= :dateTo', {
+        dateTo: paginationInput.dateTo,
       });
     }
 
@@ -95,7 +136,10 @@ export class ContactMessageService {
     language: 'en' | 'ar' = 'en',
   ): Promise<ContactMessage> {
     const contactMessage = await this.findOne(id);
-    await this.contactMessageRepository.update(id, { reply: message });
+    await this.contactMessageRepository.update(id, {
+      reply: message,
+      status: ContactMessageStatus.REPLIED,
+    });
 
     // Send reply email to the user
     await this.emailService.sendContactReplyEmail(
@@ -114,7 +158,9 @@ export class ContactMessageService {
   }
 
   async markAsRead(id: string): Promise<ContactMessage> {
-    await this.contactMessageRepository.update(id, { isRead: true });
+    await this.contactMessageRepository.update(id, {
+      status: ContactMessageStatus.READ,
+    });
     return this.findOne(id);
   }
 }

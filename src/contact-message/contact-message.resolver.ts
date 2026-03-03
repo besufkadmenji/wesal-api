@@ -11,6 +11,9 @@ import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
 import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
 import type { AdminJwtPayload } from '../admin/types/admin-jwt-payload.type';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 
@@ -21,11 +24,13 @@ export class ContactMessageResolver {
   @Mutation(() => ContactMessage, {
     description: 'Create contact message (public)',
   })
+  @UseGuards(OptionalJwtAuthGuard)
   createContactMessage(
     @Args('createContactMessageInput')
     createContactMessageInput: CreateContactMessageInput,
+    @CurrentUser() user?: JwtPayload,
   ) {
-    return this.contactMessageService.create(createContactMessageInput);
+    return this.contactMessageService.create(createContactMessageInput, user);
   }
 
   @Query(() => PaginatedContactMessageResponse, {

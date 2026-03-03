@@ -1,4 +1,4 @@
-import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Int, registerEnumType } from '@nestjs/graphql';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -6,6 +6,28 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
 } from 'typeorm';
+
+export enum SenderType {
+  GUEST = 'GUEST',
+  USER = 'USER',
+  PROVIDER = 'PROVIDER',
+}
+
+export enum ContactMessageStatus {
+  SENT = 'SENT',
+  READ = 'READ',
+  REPLIED = 'REPLIED',
+}
+
+registerEnumType(SenderType, {
+  name: 'SenderType',
+  description: 'Type of contact message sender',
+});
+
+registerEnumType(ContactMessageStatus, {
+  name: 'ContactMessageStatus',
+  description: 'Status of a contact message',
+});
 
 @ObjectType()
 @Entity('contact_messages')
@@ -55,9 +77,21 @@ export class ContactMessage {
   @Column({ type: 'varchar', length: 255, nullable: true })
   attachmentFilename?: string;
 
-  @Field()
-  @Column({ type: 'boolean', default: false })
-  isRead: boolean;
+  @Field(() => SenderType)
+  @Column({ type: 'enum', enum: SenderType, default: SenderType.GUEST })
+  senderType: SenderType;
+
+  @Field({ nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  senderId?: string;
+
+  @Field(() => ContactMessageStatus)
+  @Column({
+    type: 'enum',
+    enum: ContactMessageStatus,
+    default: ContactMessageStatus.SENT,
+  })
+  status: ContactMessageStatus;
 
   @Field()
   @CreateDateColumn()
