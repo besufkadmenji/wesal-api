@@ -610,6 +610,9 @@ export class ProviderService {
     provider.email = `DELETED_${id}_${provider.email}`;
     provider.phone = `DELETED_${id}_${provider.phone}`;
 
+    // Delete the associated signed contract if it exists
+    await this.signedContractService.deleteByProviderId(id);
+
     await this.providerRepository.save(provider);
     return provider;
   }

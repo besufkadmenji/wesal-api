@@ -120,6 +120,15 @@ export class SignedContractService {
     return contract;
   }
 
+  async deleteByProviderId(providerId: string): Promise<void> {
+    const contract = await this.signedContractRepository.findOneBy({
+      providerId,
+    });
+    if (contract) {
+      await this.signedContractRepository.remove(contract);
+    }
+  }
+
   async findByProviderIdOrCreate(
     providerId: string,
   ): Promise<SignedContract | null> {
