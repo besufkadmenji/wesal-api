@@ -86,8 +86,10 @@ export class ContactMessageService {
     }
 
     if (paginationInput?.dateTo) {
-      qb.andWhere('contactMessage.createdAt <= :dateTo', {
-        dateTo: paginationInput.dateTo,
+      const dateTo = new Date(paginationInput.dateTo);
+      dateTo.setDate(dateTo.getDate() + 1);
+      qb.andWhere('contactMessage.createdAt < :dateTo', {
+        dateTo,
       });
     }
 
