@@ -3,10 +3,12 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsEmail,
+  IsEnum,
   IsOptional,
   IsString,
   ValidateNested,
 } from 'class-validator';
+import { SocialMediaPlatform } from './social-media-link.type';
 
 @InputType()
 export class SettingInput {
@@ -85,9 +87,9 @@ export class SettingInput {
 
 @InputType()
 export class SocialMediaLinkInput {
-  @Field()
-  @IsString()
-  name: string;
+  @Field(() => SocialMediaPlatform)
+  @IsEnum(SocialMediaPlatform)
+  name: SocialMediaPlatform;
 
   @Field()
   @IsString()
