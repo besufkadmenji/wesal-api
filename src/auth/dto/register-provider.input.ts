@@ -97,10 +97,10 @@ export class RegisterProviderInput {
   })
   ibanNumber?: string;
 
-  @Field()
+  @Field({ nullable: true })
   @IsOptional()
   @IsString()
-  commercialRegistrationNumber: string;
+  commercialRegistrationNumber?: string;
 
   @Field({ nullable: true })
   @IsOptional()
