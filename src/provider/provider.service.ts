@@ -357,6 +357,7 @@ export class ProviderService {
   ): Promise<Provider> {
     const provider = await this.providerRepository.findOne({
       where: { id: providerId },
+      relations: ['signedContract'],
     });
 
     if (!provider) {
@@ -367,7 +368,7 @@ export class ProviderService {
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
 
-    // Check if contract is already signed
+    // If a contract exists and is NOT pending, it is already active/terminated — block re-signing
     if (
       provider.signedContract &&
       provider.signedContract.status !== SignedContractStatus.PENDING
@@ -378,6 +379,7 @@ export class ProviderService {
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
+
     const setting = await this.settingService.getSetting();
     if (
       setting.platformManagerSignature === null ||
@@ -391,22 +393,49 @@ export class ProviderService {
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
-    // Create signed contract
-    const signedContract = await this.signedContractService.create({
-      providerId: provider.id,
-      provider: provider,
-      serviceProviderSignature: input.serviceProviderSignature,
-      platformManagerSignature: setting.platformManagerSignature,
-      platformManagerName: setting.platformManagerName,
-      contractSignedAt: new Date(),
-      contractExpiresAt: null,
-      status: SignedContractStatus.ACTIVE,
-      terminationReason: null,
-      acceptedRulesAr: input.acceptedRulesAr ?? null,
-      acceptedRulesEn: input.acceptedRulesEn ?? null,
-    });
 
-    provider.signedContract = signedContract;
+    let signedContract: SignedContract | null = null;
+
+    if (
+      provider.signedContract &&
+      provider.signedContract.status === SignedContractStatus.PENDING
+    ) {
+      // Update the existing pending contract to active
+      const signedUpdatedContract = await this.signedContractService.update(
+        provider.signedContract.id,
+        {
+          serviceProviderSignature: input.serviceProviderSignature,
+          platformManagerSignature: setting.platformManagerSignature,
+          platformManagerName: setting.platformManagerName,
+          contractSignedAt: new Date(),
+          status: SignedContractStatus.ACTIVE,
+          acceptedRulesAr: input.acceptedRulesAr ?? null,
+          acceptedRulesEn: input.acceptedRulesEn ?? null,
+        },
+      );
+      if (signedUpdatedContract) {
+        signedContract = signedUpdatedContract;
+      }
+    } else {
+      // No existing contract — create a new one
+      signedContract = await this.signedContractService.create({
+        providerId: provider.id,
+        provider: provider,
+        serviceProviderSignature: input.serviceProviderSignature,
+        platformManagerSignature: setting.platformManagerSignature,
+        platformManagerName: setting.platformManagerName,
+        contractSignedAt: new Date(),
+        contractExpiresAt: null,
+        status: SignedContractStatus.ACTIVE,
+        terminationReason: null,
+        acceptedRulesAr: input.acceptedRulesAr ?? null,
+        acceptedRulesEn: input.acceptedRulesEn ?? null,
+      });
+    }
+
+    if (signedContract) {
+      provider.signedContract = signedContract;
+    }
     return this.providerRepository.save(provider);
   }
 
