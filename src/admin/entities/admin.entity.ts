@@ -1,4 +1,4 @@
-import { Field, ID, ObjectType, Int } from '@nestjs/graphql';
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
@@ -82,10 +82,6 @@ export class Admin {
   @Field(() => String, { nullable: true })
   @Column({ type: 'varchar', length: 500, nullable: true })
   deactivationReason?: string | null;
-
-  @Field(() => String, { nullable: true })
-  @Column({ type: 'text', nullable: true })
-  platformManagerSignature: string | null;
 
   @Field()
   @CreateDateColumn()

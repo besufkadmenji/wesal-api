@@ -9,32 +9,29 @@ import {
   Subscription,
 } from '@nestjs/graphql';
 import { PubSub } from 'graphql-subscriptions';
+import { I18nNotFoundException } from 'lib/errors/i18n.exceptions';
+import { I18nService } from 'lib/i18n';
 import { PUB_SUB } from 'lib/pubsub/pubsub.module';
 import { CurrentProvider } from 'src/auth/decorators/current-provider.decorator';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
-import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
 import { RequirePermission } from '../admin/decorators/require-permission.decorator';
+import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { Provider } from '../provider/entities/provider.entity';
 import { CreateProviderInput } from './dto/create-provider.input';
+import { DeleteProviderInput } from './dto/delete-provider.input';
 import { PaginatedProviderResponse } from './dto/paginated-provider.response';
 import { ProviderPaginationInput } from './dto/provider-pagination.input';
-import {
-  AdminSignContractInput,
-  SignContractInput,
-} from './dto/sign-contract.input';
+import { SignContractInput } from './dto/sign-contract.input';
 import { AdminTerminateContractInput } from './dto/terminate-contract.input';
 import { UpdateProviderInput } from './dto/update-provider.input';
-import { ProviderService } from './provider.service';
-import { DeleteProviderInput } from './dto/delete-provider.input';
 import { ProviderStatus } from './enums/provider-status.enum';
-import { I18nNotFoundException } from 'lib/errors/i18n.exceptions';
 import { PROVIDER_ERROR_CODES } from './errors/provider.error-codes';
-import { I18nService } from 'lib/i18n';
 import { PROVIDER_ERROR_MESSAGES } from './errors/provider.error-messages';
+import { ProviderService } from './provider.service';
 
 @Resolver(() => Provider)
 export class ProviderResolver {
@@ -166,19 +163,6 @@ export class ProviderResolver {
     @GetLanguage() language: LanguageCode,
   ) {
     return this.providerService.signContract(provider.sub, input, language);
-  }
-
-  @Mutation(() => Provider, {
-    description: 'Admin signs provider contract',
-  })
-  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
-  @RequirePermission('provider', 'update')
-  adminSignProviderContract(
-    @Args('input') input: AdminSignContractInput,
-    @CurrentAdmin() admin: JwtPayload,
-    @GetLanguage() language: LanguageCode,
-  ) {
-    return this.providerService.adminSignContract(admin.sub, input, language);
   }
 
   @Mutation(() => Provider, {

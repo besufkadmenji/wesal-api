@@ -76,4 +76,12 @@ export class Setting {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  platformManagerName: string | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  platformManagerSignature: string | null;
 }

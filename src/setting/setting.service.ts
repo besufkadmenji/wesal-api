@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SettingInput } from './dto/setting.input';
 import { Setting } from './entities/setting.entity';
+import { Admin } from '../admin/entities/admin.entity';
 
 const SETTINGS_ID = '00000000-0000-0000-0000-000000000000'; // Hardcoded ID for the single row
 
@@ -11,6 +12,8 @@ export class SettingService {
   constructor(
     @InjectRepository(Setting)
     private readonly settingRepository: Repository<Setting>,
+    @InjectRepository(Admin)
+    private readonly adminRepository: Repository<Admin>,
   ) {}
 
   /**

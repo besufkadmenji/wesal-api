@@ -13,23 +13,20 @@ import {
 import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Admin } from '../admin/entities/admin.entity';
-import { AdminPermissionType } from '../admin/enums/admin-permission-type.enum';
 import { Category } from '../category/entities/category.entity';
 import { Provider } from '../provider/entities/provider.entity';
 import { ProviderStatus } from '../provider/enums/provider-status.enum';
 import { PROVIDER_ERROR_CODES } from '../provider/errors/provider.error-codes';
 import { PROVIDER_ERROR_MESSAGES } from '../provider/errors/provider.error-messages';
+import { SettingService } from '../setting/setting.service';
+import { SignedContract } from '../signed-contract/signed-contract.entity';
 import { SignedContractService } from '../signed-contract/signed-contract.service';
 import { CreateProviderInput } from './dto/create-provider.input';
 import { ProviderPaginationInput } from './dto/provider-pagination.input';
-import {
-  AdminSignContractInput,
-  SignContractInput,
-} from './dto/sign-contract.input';
+import { SignContractInput } from './dto/sign-contract.input';
 import { AdminTerminateContractInput } from './dto/terminate-contract.input';
 import { UpdateProviderInput } from './dto/update-provider.input';
 import { SignedContractStatus } from './enums/contract.enum';
-import { SignedContract } from '../signed-contract/signed-contract.entity';
 
 @Injectable()
 export class ProviderService {
@@ -44,6 +41,7 @@ export class ProviderService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(SignedContract)
     private readonly signedContractRepository: Repository<SignedContract>,
+    private readonly settingService: SettingService,
     private readonly signedContractService: SignedContractService,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
     private readonly emailService: EmailService,
@@ -377,14 +375,26 @@ export class ProviderService {
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
-
+    const setting = await this.settingService.getSetting();
+    if (
+      setting.platformManagerSignature === null ||
+      setting.platformManagerName === null
+    ) {
+      const message = I18nService.translate(
+        PROVIDER_ERROR_MESSAGES[
+          PROVIDER_ERROR_CODES.PLATFORM_MANAGER_SIGNATURE_MISSING
+        ],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
     // Create signed contract
     const signedContract = await this.signedContractService.create({
       providerId: provider.id,
       provider: provider,
       serviceProviderSignature: input.serviceProviderSignature,
-      platformManagerSignature: null,
-      platformManagerName: null,
+      platformManagerSignature: setting.platformManagerSignature,
+      platformManagerName: setting.platformManagerName,
       contractSignedAt: new Date(),
       contractExpiresAt: null,
       status: SignedContractStatus.ACTIVE,
@@ -394,65 +404,6 @@ export class ProviderService {
     });
 
     provider.signedContract = signedContract;
-    return this.providerRepository.save(provider);
-  }
-
-  async adminSignContract(
-    adminId: string,
-    input: AdminSignContractInput,
-    language: LanguageCode = 'en',
-  ): Promise<Provider> {
-    const admin = await this.adminRepository.findOne({
-      where: { id: adminId, permissionType: AdminPermissionType.SUPER_ADMIN },
-    });
-
-    if (!admin) {
-      const message = I18nService.translate(
-        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    const provider = await this.providerRepository.findOne({
-      where: { id: input.providerId },
-    });
-
-    if (!provider) {
-      const message = I18nService.translate(
-        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    // Check if contract is signed
-    if (!provider.signedContract) {
-      const message = I18nService.translate(
-        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.NO_SIGNED_CONTRACT],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    if (!admin.platformManagerSignature) {
-      const message = I18nService.translate(
-        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    // Update signed contract
-    const updatedContract = await this.signedContractService.update(
-      provider.signedContract.id,
-      {
-        platformManagerName: admin.fullName,
-        platformManagerSignature: admin.platformManagerSignature,
-      },
-    );
-
-    provider.signedContract = updatedContract;
     return this.providerRepository.save(provider);
   }
 

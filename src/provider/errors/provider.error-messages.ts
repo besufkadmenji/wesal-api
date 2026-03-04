@@ -68,4 +68,8 @@ export const PROVIDER_ERROR_MESSAGES: Record<
     en: 'Provider account is already active',
     ar: 'حساب مقدم الخدمة نشط بالفعل',
   },
+  [PROVIDER_ERROR_CODES.PLATFORM_MANAGER_SIGNATURE_MISSING]: {
+    en: 'Platform manager signature is missing',
+    ar: 'توقيع مدير المنصة مفقود',
+  },
 };
