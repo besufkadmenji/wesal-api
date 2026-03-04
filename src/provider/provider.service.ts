@@ -368,7 +368,10 @@ export class ProviderService {
     }
 
     // Check if contract is already signed
-    if (provider.signedContract) {
+    if (
+      provider.signedContract &&
+      provider.signedContract.status !== SignedContractStatus.PENDING
+    ) {
       const message = I18nService.translate(
         PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.CONTRACT_ALREADY_SIGNED],
         language,
@@ -469,7 +472,9 @@ export class ProviderService {
     provider.deleteReason = terminationReason;
     provider.signedContract = updatedContract;
 
-    return this.providerRepository.save(provider);
+    const saved = await this.providerRepository.save(provider);
+    await this.pubSub.publish('providerUpdated', { providerUpdated: saved });
+    return saved;
   }
 
   async adminTerminateContract(
@@ -542,6 +547,9 @@ export class ProviderService {
     provider.deactivationReason = input.terminationReason;
     provider.signedContract = updatedContract;
     const savedProvider = await this.providerRepository.save(provider);
+    await this.pubSub.publish('providerUpdated', {
+      providerUpdated: savedProvider,
+    });
 
     // Notify provider by email (fire-and-forget, non-blocking)
     void this.emailService
