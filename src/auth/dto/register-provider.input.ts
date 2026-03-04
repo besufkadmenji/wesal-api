@@ -1,5 +1,4 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { Transform } from 'class-transformer';
 import {
   IsArray,
   IsEmail,
@@ -100,14 +99,10 @@ export class RegisterProviderInput {
 
   @Field({ nullable: true })
   @IsOptional()
-  @IsString()
-  @Transform(({ value }) => (value === '' ? undefined : (value as string)))
   commercialRegistrationNumber?: string;
 
   @Field({ nullable: true })
   @IsOptional()
-  @IsString()
-  @Transform(({ value }) => (value === '' ? undefined : (value as string)))
   commercialRegistrationFilename?: string;
 
   @Field({ nullable: true })
