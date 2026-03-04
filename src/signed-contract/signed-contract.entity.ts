@@ -72,6 +72,14 @@ export class SignedContract {
   @Column({ type: 'text', nullable: true })
   terminationReason: string | null;
 
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'timestamp', nullable: true })
+  deletedAt: Date | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  deleteReason: string | null;
+
   @Field(() => [ContractRule], { nullable: true })
   @Column({ type: 'jsonb', nullable: true })
   acceptedRulesEn: ContractRule[] | null;

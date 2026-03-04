@@ -214,6 +214,23 @@ export class ProviderResolver {
     );
   }
 
+  @Mutation(() => Provider, {
+    description: 'Admin reactivates a provider whose contract was terminated by admin',
+  })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('provider', 'update')
+  adminReactivateProvider(
+    @Args('providerId', { type: () => ID }) providerId: string,
+    @CurrentAdmin() admin: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.providerService.adminReactivateProvider(
+      admin.sub,
+      providerId,
+      language,
+    );
+  }
+
   @Mutation(() => Provider, { description: 'Remove provider' })
   @UseGuards(JwtAuthGuard, AdminPermissionGuard)
   @RequirePermission('provider', 'delete')

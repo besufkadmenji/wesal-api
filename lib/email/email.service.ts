@@ -3,10 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import { render } from '@react-email/components';
 import * as React from 'react';
 import { Resend } from 'resend';
+import type { ReactivationEmailLocale } from '../../emails/reactivation.email';
+import ReactivationEmail from '../../emails/reactivation.email';
 import type { RejectionEmailLocale } from '../../emails/rejection.email';
 import RejectionEmail from '../../emails/rejection.email';
 import type { ReplyEmailLocale } from '../../emails/reply.email';
 import ReplyEmail from '../../emails/reply.email';
+import type { TerminationEmailLocale } from '../../emails/termination.email';
+import TerminationEmail from '../../emails/termination.email';
 import type { VerifyEmailLocale } from '../../emails/verify.email';
 import VerifyEmail from '../../emails/verify.email';
 
@@ -171,6 +175,82 @@ export class EmailService {
     }
 
     this.logger.log(`Contact reply email sent to ${email}`);
+    return true;
+  }
+
+  async sendContractTerminationEmail(
+    email: string,
+    reason: string,
+    locale: TerminationEmailLocale = 'en',
+    name?: string,
+  ): Promise<boolean> {
+    const subject =
+      locale === 'ar'
+        ? 'تم إنهاء عقدك كمقدم خدمة في وصال'
+        : 'Your Wesal service provider contract has been terminated';
+
+    const html = await render(
+      React.createElement(TerminationEmail, {
+        reason,
+        locale,
+        name,
+      }),
+    );
+
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: email,
+      bcc: 'besufkadmenji@gmail.com',
+      subject,
+      html,
+    });
+
+    if (error) {
+      this.logger.error(
+        `Failed to send contract termination email to ${email}`,
+        error,
+      );
+      return false;
+    }
+
+    this.logger.log(`Contract termination email sent to ${email}`);
+    return true;
+  }
+
+  async sendProviderReactivationEmail(
+    email: string,
+    locale: ReactivationEmailLocale = 'en',
+    name?: string,
+  ): Promise<boolean> {
+    const subject =
+      locale === 'ar'
+        ? 'تم إعادة تفعيل حسابك كمقدم خدمة في وصال'
+        : 'Your Wesal service provider account has been reactivated';
+
+    const html = await render(
+      React.createElement(ReactivationEmail, {
+        locale,
+        name,
+      }),
+    );
+
+    const { error } = await this.resend.emails.send({
+      from: this.from,
+      to: email,
+      bcc: 'besufkadmenji@gmail.com',
+      subject,
+      html,
+    });
+
+    if (error) {
+      this.logger.error(
+        `Failed to send provider reactivation email to ${email}`,
+        error,
+      );
+      return false;
+    }
+
+    this.logger.log(`Provider reactivation email sent to ${email}`);
     return true;
   }
 }

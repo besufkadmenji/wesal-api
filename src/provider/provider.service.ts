@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { PubSub } from 'graphql-subscriptions';
@@ -32,6 +32,8 @@ import { SignedContractStatus } from './enums/contract.enum';
 
 @Injectable()
 export class ProviderService {
+  private readonly logger = new Logger(ProviderService.name);
+
   constructor(
     @InjectRepository(Provider)
     private readonly providerRepository: Repository<Provider>,
@@ -494,16 +496,25 @@ export class ProviderService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    // Terminate contract
+    // Terminate contract via soft-delete: mark status, set deletedAt, obfuscate credentials
     const updatedContract = await this.signedContractService.update(
       provider.signedContract.id,
       {
         status: SignedContractStatus.TERMINATED_BY_PROVIDER,
         terminationReason,
+        deletedAt: new Date(),
+        deleteReason: terminationReason,
       },
     );
 
+    // Obfuscate provider credentials so the same email/phone can be re-used on re-registration
+    provider.email = `DELETED_${provider.id}_${provider.email}`;
+    provider.phone = `DELETED_${provider.id}_${provider.phone}`;
+    provider.status = ProviderStatus.DELETED;
+    provider.deletedAt = new Date();
+    provider.deleteReason = terminationReason;
     provider.signedContract = updatedContract;
+
     return this.providerRepository.save(provider);
   }
 
@@ -522,14 +533,6 @@ export class ProviderService {
         language,
       );
       throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    if (admin.permissionType !== AdminPermissionType.SUPER_ADMIN) {
-      const message = I18nService.translate(
-        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
     const provider = await this.providerRepository.findOne({
@@ -579,8 +582,89 @@ export class ProviderService {
       },
     );
 
+    // Deactivate provider account
+    provider.isActive = false;
+    provider.status = ProviderStatus.INACTIVE;
+    provider.deactivationReason = input.terminationReason;
     provider.signedContract = updatedContract;
-    return this.providerRepository.save(provider);
+    const savedProvider = await this.providerRepository.save(provider);
+
+    // Notify provider by email (fire-and-forget, non-blocking)
+    void this.emailService
+      .sendContractTerminationEmail(
+        provider.email,
+        input.terminationReason,
+        (provider.languageCode as 'en' | 'ar') ?? 'en',
+        provider.name ?? undefined,
+      )
+      .catch((err) =>
+        this.logger.error(
+          `Failed to send termination email to ${provider.email}`,
+          err,
+        ),
+      );
+
+    return savedProvider;
+  }
+
+  async adminReactivateProvider(
+    adminId: string,
+    providerId: string,
+    language: LanguageCode = 'en',
+  ): Promise<Provider> {
+    const admin = await this.adminRepository.findOne({
+      where: { id: adminId },
+    });
+
+    if (!admin) {
+      const message = I18nService.translate(
+        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    const provider = await this.providerRepository.findOne({
+      where: { id: providerId },
+    });
+
+    if (!provider) {
+      const message = I18nService.translate(
+        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    if (provider.status !== ProviderStatus.INACTIVE) {
+      const message = I18nService.translate(
+        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Reactivate provider account
+    provider.isActive = true;
+    provider.status = ProviderStatus.ACTIVE;
+    provider.deactivationReason = null;
+    const savedProvider = await this.providerRepository.save(provider);
+
+    // Notify provider by email (fire-and-forget, non-blocking)
+    void this.emailService
+      .sendProviderReactivationEmail(
+        provider.email,
+        (provider.languageCode as 'en' | 'ar') ?? 'en',
+        provider.name ?? undefined,
+      )
+      .catch((err) =>
+        this.logger.error(
+          `Failed to send reactivation email to ${provider.email}`,
+          err,
+        ),
+      );
+
+    return savedProvider;
   }
 
   async remove(
