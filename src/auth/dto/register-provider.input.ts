@@ -98,7 +98,7 @@ export class RegisterProviderInput {
   ibanNumber?: string;
 
   @Field()
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   commercialRegistrationNumber: string;
 
