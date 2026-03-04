@@ -61,14 +61,6 @@ export class ProviderAuthService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    if (!registerInput.commercialRegistrationNumber) {
-      const message = I18nService.translate(
-        AUTH_ERROR_MESSAGES['COMMERCIAL_REGISTRATION_REQUIRED'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
     // Create provider using ProviderService
     const savedProvider = await this.providerService.create(
       registerInput,

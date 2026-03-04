@@ -99,10 +99,12 @@ export class RegisterProviderInput {
 
   @Field({ nullable: true })
   @IsOptional()
+  @IsString()
   commercialRegistrationNumber?: string;
 
   @Field({ nullable: true })
   @IsOptional()
+  @IsString()
   commercialRegistrationFilename?: string;
 
   @Field({ nullable: true })
