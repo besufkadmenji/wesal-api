@@ -215,7 +215,8 @@ export class ProviderResolver {
   }
 
   @Mutation(() => Provider, {
-    description: 'Admin reactivates a provider whose contract was terminated by admin',
+    description:
+      'Admin reactivates a provider whose contract was terminated by admin',
   })
   @UseGuards(JwtAuthGuard, AdminPermissionGuard)
   @RequirePermission('provider', 'update')

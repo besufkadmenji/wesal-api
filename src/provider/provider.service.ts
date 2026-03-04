@@ -29,6 +29,7 @@ import {
 import { AdminTerminateContractInput } from './dto/terminate-contract.input';
 import { UpdateProviderInput } from './dto/update-provider.input';
 import { SignedContractStatus } from './enums/contract.enum';
+import { SignedContract } from '../signed-contract/signed-contract.entity';
 
 @Injectable()
 export class ProviderService {
@@ -41,6 +42,8 @@ export class ProviderService {
     private readonly adminRepository: Repository<Admin>,
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
+    @InjectRepository(SignedContract)
+    private readonly signedContractRepository: Repository<SignedContract>,
     private readonly signedContractService: SignedContractService,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
     private readonly emailService: EmailService,
@@ -649,6 +652,15 @@ export class ProviderService {
     provider.status = ProviderStatus.ACTIVE;
     provider.deactivationReason = null;
     const savedProvider = await this.providerRepository.save(provider);
+
+    await this.signedContractRepository.update(
+      {
+        providerId: provider.id,
+      },
+      {
+        status: SignedContractStatus.PENDING,
+      },
+    );
 
     // Notify provider by email (fire-and-forget, non-blocking)
     void this.emailService
