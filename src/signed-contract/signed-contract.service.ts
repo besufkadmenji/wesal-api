@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository } from 'typeorm';
 import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { SortOrder } from '../../lib/common/dto/pagination.input';
 import { SignedContractPaginationInput } from './dto/signed-contract-pagination.input';
 import { SignedContract } from './signed-contract.entity';
+import { SignedContractStatus } from 'src/provider/enums/contract.enum';
 
 @Injectable()
 export class SignedContractService {
@@ -29,7 +30,9 @@ export class SignedContractService {
     const queryBuilder = this.signedContractRepository
       .createQueryBuilder('signedContract')
       .leftJoinAndSelect('signedContract.provider', 'provider')
-      .where('1 = 1');
+      .where('signedContract.status != :terminatedStatus', {
+        terminatedStatus: SignedContractStatus.TERMINATED_BY_PROVIDER,
+      });
 
     if (providerId) {
       queryBuilder.andWhere('signedContract.providerId = :providerId', {
@@ -87,7 +90,7 @@ export class SignedContractService {
 
   async findById(id: string): Promise<SignedContract | null> {
     return this.signedContractRepository.findOne({
-      where: { id },
+      where: { id, status: Not(SignedContractStatus.TERMINATED_BY_PROVIDER) },
       relations: [
         'provider',
         'provider.categories',
