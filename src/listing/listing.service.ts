@@ -114,6 +114,7 @@ export class ListingService {
     const skip = (page - 1) * limit;
     const {
       status,
+      type,
       sortBy = 'createdAt',
       sortOrder = 'DESC',
       search,
@@ -134,6 +135,7 @@ export class ListingService {
         limit,
         {
           status,
+          type,
           categoryId: categoryId ?? undefined,
           cityId: cityId ?? undefined,
           minPrice: minPrice ?? undefined,
@@ -154,6 +156,10 @@ export class ListingService {
 
       if (status) {
         query = query.where('listing.status = :status', { status });
+      }
+
+      if (type) {
+        query = query.andWhere('listing.type = :type', { type });
       }
 
       if (search) {

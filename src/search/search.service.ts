@@ -4,7 +4,7 @@ import { In, Repository } from 'typeorm';
 import { ElasticsearchService } from '../../lib/elasticsearch/elasticsearch.service';
 import { Category } from '../category/entities/category.entity';
 import { Listing } from '../listing/entities/listing.entity';
-import { ListingStatus } from '../listing/enums/listing.enum';
+import { ListingStatus, ListingType } from '../listing/enums/listing.enum';
 
 const CATEGORIES_INDEX =
   process.env.ELASTIC_CATEGORIES_INDEX ?? 'categories_v1';
@@ -22,6 +22,7 @@ export interface SearchListingsResult {
 
 export interface ListingSearchFilters {
   status?: ListingStatus;
+  type?: ListingType;
   categoryId?: string;
   cityId?: string;
   minPrice?: number;
@@ -61,7 +62,9 @@ export class SearchService {
       index: CATEGORIES_INDEX,
       mappings: {
         properties: {
-          id: { type: 'keyword' },          publicId: { type: 'integer' },          nameEn: {
+          id: { type: 'keyword' },
+          publicId: { type: 'integer' },
+          nameEn: {
             type: 'text',
             analyzer: 'english',
             fields: { raw: { type: 'keyword' } },
@@ -361,6 +364,9 @@ export class SearchService {
 
     if (filters.status) {
       filter.push({ term: { status: filters.status } });
+    }
+    if (filters.type) {
+      filter.push({ term: { type: filters.type } });
     }
     if (filters.categoryId) {
       filter.push({ term: { categoryId: filters.categoryId } });

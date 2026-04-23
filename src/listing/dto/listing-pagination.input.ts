@@ -1,7 +1,7 @@
 import { Field, InputType, registerEnumType } from '@nestjs/graphql';
 import { IsEnum, IsIn, IsInt, IsOptional, IsString } from 'class-validator';
 import { PaginationInput } from 'lib/common/dto/pagination.input';
-import { ListingStatus } from '../enums/listing.enum';
+import { ListingStatus, ListingType } from '../enums/listing.enum';
 
 const LISTING_SORTABLE_FIELDS = [
   'id',
@@ -34,6 +34,11 @@ export class ListingPaginationInput extends PaginationInput {
   @IsOptional()
   @IsEnum(ListingStatus)
   status?: ListingStatus;
+
+  @Field(() => ListingType, { nullable: true })
+  @IsOptional()
+  @IsEnum(ListingType)
+  type?: ListingType;
 
   @Field(() => ListingSortFieldEnum, {
     nullable: true,
