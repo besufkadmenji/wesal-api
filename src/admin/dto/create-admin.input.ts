@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MinLength,
 } from 'class-validator';
 import { AdminPermissionType } from '../enums/admin-permission-type.enum';
@@ -15,7 +16,10 @@ import { AdminUserType } from '../enums/admin-user-type.enum';
 export class CreateAdminInput {
   @Field()
   @IsNotEmpty()
-  @IsEmail()
+  @IsEmail({ allow_utf8_local_part: false, require_tld: true })
+  @Matches(/^[\x00-\x7F]+$/, {
+    message: 'email must contain only ASCII characters',
+  })
   email: string;
 
   @Field()
@@ -26,6 +30,10 @@ export class CreateAdminInput {
   @Field()
   @IsOptional()
   @IsString()
+  @Matches(/^05\d{8}$/, {
+    message:
+      'phoneNumber must be a valid Saudi mobile number starting with 05 and containing 10 digits',
+  })
   phoneNumber: string;
 
   @Field({ nullable: true })

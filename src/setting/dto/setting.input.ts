@@ -6,6 +6,7 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  Matches,
   ValidateNested,
 } from 'class-validator';
 import { SocialMediaPlatform } from './social-media-link.type';
@@ -49,7 +50,10 @@ export class SettingInput {
 
   @Field({ nullable: true })
   @IsOptional()
-  @IsEmail()
+  @IsEmail({ allow_utf8_local_part: false, require_tld: true })
+  @Matches(/^[\x00-\x7F]+$/, {
+    message: 'email must contain only ASCII characters',
+  })
   email?: string;
 
   @Field({ nullable: true })

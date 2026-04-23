@@ -1,5 +1,11 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { IsEmail, IsEnum, IsOptional, IsString } from 'class-validator';
+import {
+  IsEmail,
+  IsEnum,
+  IsOptional,
+  IsString,
+  Matches,
+} from 'class-validator';
 import { AdminPermissionType } from '../enums/admin-permission-type.enum';
 import { AdminStatus } from '../enums/admin-status.enum';
 import { AdminUserType } from '../enums/admin-user-type.enum';
@@ -8,7 +14,10 @@ import { AdminUserType } from '../enums/admin-user-type.enum';
 export class UpdateAdminInput {
   @Field({ nullable: true })
   @IsOptional()
-  @IsEmail()
+  @IsEmail({ allow_utf8_local_part: false, require_tld: true })
+  @Matches(/^[\x00-\x7F]+$/, {
+    message: 'email must contain only ASCII characters',
+  })
   email?: string;
 
   @Field({ nullable: true })
@@ -44,6 +53,10 @@ export class UpdateAdminInput {
   @Field()
   @IsOptional()
   @IsString()
+  @Matches(/^05\d{8}$/, {
+    message:
+      'phoneNumber must be a valid Saudi mobile number starting with 05 and containing 10 digits',
+  })
   phoneNumber: string;
 
   @Field({ nullable: true })
