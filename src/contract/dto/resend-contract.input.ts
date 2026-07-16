@@ -11,10 +11,10 @@ import {
 } from 'class-validator';
 
 @InputType()
-export class CreateContractInput {
+export class ResendContractInput {
   @Field()
   @IsUUID()
-  conversationId: string;
+  rejectedContractId: string;
 
   @Field(() => Float)
   @IsNumber()

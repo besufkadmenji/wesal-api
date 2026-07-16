@@ -5,13 +5,16 @@ import {
   CreateDateColumn,
   ManyToOne,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { ObjectType, Field, ID } from '@nestjs/graphql';
 import { Contract } from './contract.entity';
-import { User } from '../../user/entities/user.entity';
+import { ContractSignerType } from '../enums/contract-signer-type.enum';
+import { ContractSignatureType } from '../enums/contract-signature-type.enum';
 
 @ObjectType()
 @Entity('contract_signatures')
+@Unique(['contractId', 'signatureType'])
 export class ContractSignature {
   @Field(() => ID)
   @PrimaryGeneratedColumn('uuid')
@@ -30,12 +33,15 @@ export class ContractSignature {
 
   @Field()
   @Column({ type: 'uuid' })
-  userId: string;
+  signerId: string;
 
-  @Field(() => User)
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'userId' })
-  user: User;
+  @Field(() => ContractSignerType)
+  @Column({ type: 'enum', enum: ContractSignerType })
+  signerType: ContractSignerType;
+
+  @Field(() => ContractSignatureType)
+  @Column({ type: 'enum', enum: ContractSignatureType })
+  signatureType: ContractSignatureType;
 
   @Field()
   @Column({ type: 'text' })

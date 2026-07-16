@@ -38,4 +38,28 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'A contract already exists for this conversation',
     ar: 'يوجد عقد بالفعل لهذه المحادثة',
   },
+  [CONTRACT_ERROR_CODES.CONTRACT_NOT_LATEST]: {
+    en: 'Only the latest contract version can be changed',
+    ar: 'يمكن تغيير أحدث نسخة من العقد فقط',
+  },
+  [CONTRACT_ERROR_CODES.INVALID_DELIVERY_TIME]: {
+    en: 'Delivery time exceeds the configured contract limit',
+    ar: 'مدة التوصيل تتجاوز الحد المحدد للعقد',
+  },
+  [CONTRACT_ERROR_CODES.DELIVERY_COMPANY_NOT_FOUND]: {
+    en: 'Delivery company not found or inactive',
+    ar: 'شركة التوصيل غير موجودة أو غير مفعلة',
+  },
+  [CONTRACT_ERROR_CODES.CATEGORY_NOT_FOUND]: {
+    en: 'Contract category not found',
+    ar: 'قسم العقد غير موجود',
+  },
+  [CONTRACT_ERROR_CODES.SIGNATURE_ALREADY_EXISTS]: {
+    en: 'This contract signature has already been submitted',
+    ar: 'تم إرسال هذا التوقيع مسبقًا',
+  },
+  [CONTRACT_ERROR_CODES.REJECTION_REASON_REQUIRED]: {
+    en: 'A rejection reason is required',
+    ar: 'سبب الرفض مطلوب',
+  },
 };
