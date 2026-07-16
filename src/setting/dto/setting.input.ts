@@ -1,12 +1,15 @@
-import { Field, InputType } from '@nestjs/graphql';
+import { Field, Float, InputType } from '@nestjs/graphql';
 import { Type } from 'class-transformer';
 import {
   IsArray,
   IsEmail,
   IsEnum,
+  IsNumber,
   IsOptional,
   IsString,
   Matches,
+  Max,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { SocialMediaPlatform } from './social-media-link.type';
@@ -87,6 +90,13 @@ export class SettingInput {
   @IsOptional()
   @IsString()
   platformManagerSignature?: string | null;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  vatRate?: number;
 }
 
 @InputType()
