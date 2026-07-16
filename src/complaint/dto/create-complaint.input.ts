@@ -5,18 +5,12 @@ import {
   IsEnum,
   IsString,
   MinLength,
-  IsOptional,
 } from 'class-validator';
 import { ComplaintReason } from '../enums/complaint-reason.enum';
-import { ComplaintStatus } from '../enums/complaint-status.enum';
 
 @InputType()
 export class CreateComplaintInput {
-  @Field()
-  @IsNotEmpty()
-  @IsUUID()
-  userId: string;
-
+  // The reporter (userId) is taken from the authenticated token, not input.
   @Field()
   @IsNotEmpty()
   @IsUUID()
@@ -32,9 +26,4 @@ export class CreateComplaintInput {
   @IsString()
   @MinLength(10)
   description: string;
-
-  @Field(() => ComplaintStatus, { nullable: true })
-  @IsOptional()
-  @IsEnum(ComplaintStatus)
-  status?: ComplaintStatus;
 }

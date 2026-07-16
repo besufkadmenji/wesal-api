@@ -18,6 +18,8 @@ import { User } from '../user/entities/user.entity';
 import { Listing } from '../listing/entities/listing.entity';
 import { ComplaintStatus } from './enums/complaint-status.enum';
 import { COMPLAINT_ERROR_MESSAGES } from './errors/complaint.error-messages';
+import { COMPLAINT_ERROR_CODES } from './errors/complaint.error-codes';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Injectable()
 export class ComplaintService {
@@ -32,8 +34,19 @@ export class ComplaintService {
 
   async create(
     createComplaintInput: CreateComplaintInput,
+    principal: JwtPayload,
     language: LanguageCode = 'en',
   ): Promise<Complaint> {
+    // The complaint reporter is modeled as a User. Provider-filed complaints
+    // need the same polymorphic treatment as messages and are a follow-up.
+    if (principal.type === 'provider') {
+      const message = I18nService.translate(
+        COMPLAINT_ERROR_MESSAGES[COMPLAINT_ERROR_CODES.UNAUTHORIZED_ACCESS],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
     // Validate description
     if (!createComplaintInput.description.trim()) {
       const message = I18nService.translate(
@@ -43,9 +56,9 @@ export class ComplaintService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    // Validate user exists
+    // Validate reporter (the authenticated user) exists
     const user = await this.userRepository.findOne({
-      where: { id: createComplaintInput.userId },
+      where: { id: principal.sub },
     });
     if (!user) {
       const message = I18nService.translate(
@@ -67,7 +80,12 @@ export class ComplaintService {
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
 
-    const complaint = this.complaintRepository.create(createComplaintInput);
+    const complaint = this.complaintRepository.create({
+      userId: principal.sub,
+      listingId: createComplaintInput.listingId,
+      reason: createComplaintInput.reason,
+      description: createComplaintInput.description,
+    });
     return await this.complaintRepository.save(complaint);
   }
 

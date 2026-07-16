@@ -1,3 +1,4 @@
+import { UseGuards } from '@nestjs/common';
 import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { ComplaintService } from './complaint.service';
 import { Complaint } from './entities/complaint.entity';
@@ -9,17 +10,26 @@ import { PaginatedComplaintResponse } from './dto/paginated-complaint.response';
 import { GetLanguage } from '../../lib/i18n';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CurrentPrincipal } from '../auth/decorators/current-principal.decorator';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Resolver(() => Complaint)
 export class ComplaintResolver {
   constructor(private readonly complaintService: ComplaintService) {}
 
   @Mutation(() => Complaint)
+  @UseGuards(JwtAuthGuard)
   async createComplaint(
     @Args('input') createComplaintInput: CreateComplaintInput,
+    @CurrentPrincipal() principal: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ): Promise<Complaint> {
-    return this.complaintService.create(createComplaintInput, language);
+    return this.complaintService.create(
+      createComplaintInput,
+      principal,
+      language,
+    );
   }
 
   @Query(() => PaginatedComplaintResponse, { name: 'complaints' })
