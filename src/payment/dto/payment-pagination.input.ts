@@ -3,6 +3,7 @@ import { IsOptional, IsUUID, IsEnum, IsIn } from 'class-validator';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 import { PaymentStatus } from '../enums/payment-status.enum';
 import { PaymentMethod } from '../enums/payment-method.enum';
+import { PaymentPurpose } from '../enums/payment-purpose.enum';
 
 const PAYMENT_SORTABLE_FIELDS = [
   'id',
@@ -39,7 +40,12 @@ export class PaymentPaginationInput extends PaginationInput {
   @Field({ nullable: true })
   @IsOptional()
   @IsUUID()
-  userId?: string;
+  conversationId?: string;
+
+  @Field(() => PaymentPurpose, { nullable: true })
+  @IsOptional()
+  @IsEnum(PaymentPurpose)
+  purpose?: PaymentPurpose;
 
   @Field(() => PaymentStatus, { nullable: true })
   @IsOptional()

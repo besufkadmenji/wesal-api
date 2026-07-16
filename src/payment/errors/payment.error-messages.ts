@@ -10,6 +10,10 @@ export const PAYMENT_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Contract not found',
     ar: 'العقد غير موجود',
   },
+  [PAYMENT_ERROR_CODES.CONVERSATION_NOT_FOUND]: {
+    en: 'Conversation not found',
+    ar: 'المحادثة غير موجودة',
+  },
   [PAYMENT_ERROR_CODES.USER_NOT_FOUND]: {
     en: 'User not found',
     ar: 'المستخدم غير موجود',
@@ -33,5 +37,9 @@ export const PAYMENT_ERROR_MESSAGES: Record<string, TranslatedError> = {
   [PAYMENT_ERROR_CODES.GATEWAY_ERROR]: {
     en: 'Payment gateway error occurred',
     ar: 'حدث خطأ في بوابة الدفع',
+  },
+  [PAYMENT_ERROR_CODES.UNAUTHORIZED_ACCESS]: {
+    en: 'You are not authorized to pay for this contract',
+    ar: 'ليس لديك صلاحية للدفع مقابل هذا العقد',
   },
 };

@@ -1,141 +1,378 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import {
-  I18nNotFoundException,
   I18nBadRequestException,
+  I18nNotFoundException,
 } from '../../lib/errors';
 import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { SortOrder } from '../../lib/common/dto/pagination.input';
-import { CreatePaymentInput } from './dto/create-payment.input';
-import { UpdatePaymentInput } from './dto/update-payment.input';
 import { PaymentPaginationInput } from './dto/payment-pagination.input';
+import { ContractPaymentResponse } from './dto/contract-payment.response';
+import { ConversationFeePaymentResponse } from './dto/conversation-fee-payment.response';
 import { Payment } from './entities/payment.entity';
 import { Contract } from '../contract/entities/contract.entity';
+import { ContractStatus } from '../contract/enums/contract-status.enum';
+import { Conversation } from '../conversation/entities/conversation.entity';
 import { User } from '../user/entities/user.entity';
+import { Provider } from '../provider/entities/provider.entity';
+import { Listing } from '../listing/entities/listing.entity';
+import { Category } from '../category/entities/category.entity';
 import { PaymentStatus } from './enums/payment-status.enum';
+import { PaymentMethod } from './enums/payment-method.enum';
+import { PaymentPurpose } from './enums/payment-purpose.enum';
+import { PayerType } from './enums/payer-type.enum';
 import { PAYMENT_ERROR_MESSAGES } from './errors/payment.error-messages';
+import { PAYMENT_ERROR_CODES } from './errors/payment.error-codes';
+import { ContractService } from '../contract/contract.service';
+import {
+  MessageAddedPayload,
+  MessageService,
+} from '../conversation/message.service';
+import { MessageKind } from '../conversation/enums/message-kind.enum';
+import { ConversationStatus } from '../conversation/enums/conversation-status.enum';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+
+export type PaymentPayer = User | Provider;
 
 @Injectable()
 export class PaymentService {
+  private readonly logger = new Logger(PaymentService.name);
+
   constructor(
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
-    @InjectRepository(Contract)
-    private readonly contractRepository: Repository<Contract>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Provider)
+    private readonly providerRepository: Repository<Provider>,
+    private readonly dataSource: DataSource,
+    private readonly contractService: ContractService,
+    private readonly messageService: MessageService,
   ) {}
 
-  async create(
-    createPaymentInput: CreatePaymentInput,
+  async settleContractPayment(
+    contractId: string,
+    principal: JwtPayload,
     language: LanguageCode = 'en',
-  ): Promise<Payment> {
-    // Validate contract exists
-    const contract = await this.contractRepository.findOne({
-      where: { id: createPaymentInput.contractId },
-    });
-    if (!contract) {
-      const message = I18nService.translate(
-        PAYMENT_ERROR_MESSAGES['CONTRACT_NOT_FOUND'],
+  ): Promise<ContractPaymentResponse> {
+    if (principal.type === 'provider') {
+      throw this.unauthorized(language);
+    }
+    const result = await this.dataSource.transaction(async (manager) => {
+      const contract = await manager.getRepository(Contract).findOne({
+        where: { id: contractId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!contract) {
+        throw this.notFound('CONTRACT_NOT_FOUND', language);
+      }
+      if (contract.clientId !== principal.sub) {
+        throw this.unauthorized(language);
+      }
+      const obligationKey = this.obligationKey(
+        PaymentPurpose.CONTRACT,
+        contract.id,
+        PayerType.USER,
+        principal.sub,
+      );
+      const repository = manager.getRepository(Payment);
+      const existing = await repository.findOne({ where: { obligationKey } });
+      if (existing) {
+        const wasCompleted = existing.status === PaymentStatus.COMPLETED;
+        if (!wasCompleted) {
+          Object.assign(existing, {
+            amount: Number(contract.agreedPrice),
+            commissionPercent: Number(contract.commissionPercent),
+            commissionAmount: Number(contract.commissionAmount),
+            vatRate: Number(contract.vatRate),
+            vatAmount: Number(contract.vatAmount),
+            paymentMethod: PaymentMethod.MOCK,
+            status: PaymentStatus.COMPLETED,
+            transactionReference: `MOCK:${obligationKey}`,
+            gatewayResponse: JSON.stringify({
+              success: true,
+              gateway: 'mock',
+            }),
+          });
+          await repository.save(existing);
+        }
+        const requiresTransition =
+          contract.status !== ContractStatus.IN_PROGRESS;
+        const currentContract = !requiresTransition
+          ? contract
+          : await this.contractService.transitionAfterPayment(
+              contract.id,
+              manager,
+              language,
+            );
+        const event =
+          requiresTransition || !wasCompleted
+            ? await this.messageService.persistSystemEvent(
+                contract.conversationId,
+                MessageKind.CONTRACT_PAID,
+                {
+                  contractId: contract.id,
+                  paymentId: existing.id,
+                  amount: Number(existing.amount),
+                },
+                manager,
+              )
+            : null;
+        return {
+          payment: existing,
+          contract: currentContract,
+          event,
+        };
+      }
+
+      const payment = repository.create({
+        purpose: PaymentPurpose.CONTRACT,
+        payerId: principal.sub,
+        payerType: PayerType.USER,
+        obligationKey,
+        contractId: contract.id,
+        conversationId: contract.conversationId,
+        categoryId: contract.categoryId,
+        amount: Number(contract.agreedPrice),
+        commissionPercent: Number(contract.commissionPercent),
+        commissionAmount: Number(contract.commissionAmount),
+        vatRate: Number(contract.vatRate),
+        vatAmount: Number(contract.vatAmount),
+        configSnapshot: {
+          contractVersion: contract.version,
+          depositPercent: Number(contract.depositPercent),
+          downPayment: Number(contract.downPayment),
+        },
+        paymentMethod: PaymentMethod.MOCK,
+        status: PaymentStatus.COMPLETED,
+        transactionReference: `MOCK:${obligationKey}`,
+        gatewayResponse: JSON.stringify({ success: true, gateway: 'mock' }),
+        notes: 'Sprint 3 mock contract settlement; no money moved.',
+      });
+      const savedPayment = await repository.save(payment);
+      const updatedContract = await this.contractService.transitionAfterPayment(
+        contract.id,
+        manager,
         language,
       );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    // Validate user exists
-    const user = await this.userRepository.findOne({
-      where: { id: createPaymentInput.userId },
-    });
-    if (!user) {
-      const message = I18nService.translate(
-        PAYMENT_ERROR_MESSAGES['USER_NOT_FOUND'],
-        language,
+      const event = await this.messageService.persistSystemEvent(
+        contract.conversationId,
+        MessageKind.CONTRACT_PAID,
+        {
+          contractId: contract.id,
+          paymentId: savedPayment.id,
+          amount: Number(savedPayment.amount),
+        },
+        manager,
       );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    // Validate amount
-    if (createPaymentInput.amount <= 0) {
-      const message = I18nService.translate(
-        PAYMENT_ERROR_MESSAGES['INVALID_AMOUNT'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    // Create payment with fake gateway response
-    const transactionRef =
-      createPaymentInput.transactionReference ||
-      `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    const payment = this.paymentRepository.create({
-      ...createPaymentInput,
-      transactionReference: transactionRef,
-      gatewayResponse: JSON.stringify({
-        success: true,
-        message: 'Payment processed successfully (simulated)',
-        timestamp: new Date().toISOString(),
-        gateway: 'fake-gateway',
-      }),
+      return { payment: savedPayment, contract: updatedContract, event };
     });
+    if (result.event) {
+      await this.publishSafely(result.event);
+    }
+    return { payment: result.payment, contract: result.contract };
+  }
 
-    return await this.paymentRepository.save(payment);
+  async settleConversationFee(
+    conversationId: string,
+    principal: JwtPayload,
+    language: LanguageCode = 'en',
+  ): Promise<ConversationFeePaymentResponse> {
+    const result = await this.dataSource.transaction(async (manager) => {
+      const conversation = await manager.getRepository(Conversation).findOne({
+        where: { id: conversationId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!conversation) {
+        throw this.notFound('CONVERSATION_NOT_FOUND', language);
+      }
+      const isProvider = principal.type === 'provider';
+      const isParticipant = isProvider
+        ? conversation.providerId === principal.sub
+        : conversation.userId === principal.sub;
+      if (!isParticipant) {
+        throw this.unauthorized(language);
+      }
+      const listing = await manager.getRepository(Listing).findOne({
+        where: { id: conversation.listingId },
+      });
+      const category = listing
+        ? await manager.getRepository(Category).findOne({
+            where: { id: listing.categoryId },
+          })
+        : null;
+      const enabled = isProvider
+        ? Boolean(category?.providerConversationFeeEnabled)
+        : Boolean(category?.customerConversationFeeEnabled);
+      const amount = Number(
+        isProvider
+          ? (category?.providerConversationFee ?? 0)
+          : (category?.customerConversationFee ?? 0),
+      );
+      const paidAt = isProvider
+        ? conversation.providerFeePaidAt
+        : conversation.customerFeePaidAt;
+      const feeRequired = enabled && amount > 0;
+      const purpose = isProvider
+        ? PaymentPurpose.CHAT_PROVIDER
+        : PaymentPurpose.CHAT_CUSTOMER;
+      const payerType = isProvider ? PayerType.PROVIDER : PayerType.USER;
+      const obligationKey = this.obligationKey(
+        purpose,
+        conversation.id,
+        payerType,
+        principal.sub,
+      );
+      const repository = manager.getRepository(Payment);
+      const existing = await repository.findOne({ where: { obligationKey } });
+
+      if (!feeRequired || paidAt) {
+        return {
+          payment: existing,
+          conversation,
+          access: {
+            feeRequired,
+            feeAmount: amount,
+            paidAt,
+            canSend: conversation.status === ConversationStatus.ACTIVE,
+          },
+          event: null as MessageAddedPayload | null,
+        };
+      }
+
+      let payment = existing;
+      if (!payment) {
+        payment = await repository.save(
+          repository.create({
+            purpose,
+            payerId: principal.sub,
+            payerType,
+            obligationKey,
+            contractId: null,
+            conversationId: conversation.id,
+            categoryId: category?.id ?? null,
+            amount,
+            commissionPercent: 0,
+            commissionAmount: 0,
+            vatRate: 0,
+            vatAmount: 0,
+            configSnapshot: { enabled, amount },
+            paymentMethod: PaymentMethod.MOCK,
+            status: PaymentStatus.COMPLETED,
+            transactionReference: `MOCK:${obligationKey}`,
+            gatewayResponse: JSON.stringify({ success: true, gateway: 'mock' }),
+            notes: 'Sprint 3 mock conversation fee; no money moved.',
+          }),
+        );
+      } else if (payment.status !== PaymentStatus.COMPLETED) {
+        Object.assign(payment, {
+          amount,
+          commissionPercent: 0,
+          commissionAmount: 0,
+          vatRate: 0,
+          vatAmount: 0,
+          configSnapshot: { enabled, amount },
+          paymentMethod: PaymentMethod.MOCK,
+          status: PaymentStatus.COMPLETED,
+          transactionReference: `MOCK:${obligationKey}`,
+          gatewayResponse: JSON.stringify({ success: true, gateway: 'mock' }),
+        });
+        payment = await repository.save(payment);
+      }
+      const now = new Date();
+      if (isProvider) {
+        conversation.providerFeePaidAt = now;
+      } else {
+        conversation.customerFeePaidAt = now;
+      }
+      const savedConversation = await manager
+        .getRepository(Conversation)
+        .save(conversation);
+      const event = await this.messageService.persistSystemEvent(
+        conversation.id,
+        MessageKind.CHAT_FEE_PAID,
+        {
+          paymentId: payment.id,
+          payerType,
+          amount,
+        },
+        manager,
+      );
+      return {
+        payment,
+        conversation: savedConversation,
+        access: {
+          feeRequired: true,
+          feeAmount: amount,
+          paidAt: now,
+          canSend: savedConversation.status === ConversationStatus.ACTIVE,
+        },
+        event,
+      };
+    });
+    if (result.event) {
+      await this.publishSafely(result.event);
+    }
+    return {
+      payment: result.payment,
+      conversation: result.conversation,
+      access: result.access,
+    };
   }
 
   async findAll(
-    paginationInput: PaymentPaginationInput,
+    input: PaymentPaginationInput,
+    principal?: JwtPayload,
   ): Promise<IPaginatedType<Payment>> {
     const {
       page = 1,
       limit = 10,
       contractId,
-      userId,
+      conversationId,
+      purpose,
       status,
       paymentMethod,
       sortBy,
       sortOrder = SortOrder.ASC,
-    } = paginationInput;
-    const skip = (page - 1) * limit;
-
-    const queryBuilder = this.paymentRepository
+    } = input;
+    const query = this.paymentRepository
       .createQueryBuilder('payment')
       .leftJoinAndSelect('payment.contract', 'contract')
-      .leftJoinAndSelect('payment.user', 'user');
-
-    if (contractId) {
-      queryBuilder.andWhere('payment.contractId = :contractId', {
-        contractId,
+      .leftJoinAndSelect('payment.conversation', 'conversation');
+    if (principal) {
+      query.andWhere('payment.payerId = :payerId', {
+        payerId: principal.sub,
+      });
+      query.andWhere('payment.payerType = :payerType', {
+        payerType:
+          principal.type === 'provider' ? PayerType.PROVIDER : PayerType.USER,
       });
     }
-
-    if (userId) {
-      queryBuilder.andWhere('payment.userId = :userId', { userId });
+    if (contractId) {
+      query.andWhere('payment.contractId = :contractId', { contractId });
     }
-
-    if (status) {
-      queryBuilder.andWhere('payment.status = :status', { status });
-    }
-
-    if (paymentMethod) {
-      queryBuilder.andWhere('payment.paymentMethod = :paymentMethod', {
+    if (conversationId)
+      query.andWhere('payment.conversationId = :conversationId', {
+        conversationId,
+      });
+    if (purpose) query.andWhere('payment.purpose = :purpose', { purpose });
+    if (status) query.andWhere('payment.status = :status', { status });
+    if (paymentMethod)
+      query.andWhere('payment.paymentMethod = :paymentMethod', {
         paymentMethod,
       });
-    }
-
-    const orderByField = sortBy ? `payment.${sortBy}` : 'payment.createdAt';
-    const orderDirection = sortOrder === SortOrder.DESC ? 'DESC' : 'ASC';
-
-    const [items, total] = await queryBuilder
-      .skip(skip)
+    const [items, total] = await query
+      .orderBy(
+        sortBy ? `payment.${sortBy}` : 'payment.createdAt',
+        sortOrder === SortOrder.DESC ? 'DESC' : 'ASC',
+      )
+      .skip((page - 1) * limit)
       .take(limit)
-      .orderBy(orderByField, orderDirection)
       .getManyAndCount();
-
     const totalPages = Math.ceil(total / limit);
-
     return {
       items,
       meta: {
@@ -149,99 +386,67 @@ export class PaymentService {
     };
   }
 
-  async findOne(id: string, language: LanguageCode = 'en'): Promise<Payment> {
+  async findOne(
+    id: string,
+    principal: JwtPayload,
+    language: LanguageCode = 'en',
+  ): Promise<Payment> {
     const payment = await this.paymentRepository.findOne({
       where: { id },
-      relations: ['contract', 'user'],
+      relations: ['contract', 'conversation'],
     });
-
     if (!payment) {
-      const message = I18nService.translate(
-        PAYMENT_ERROR_MESSAGES['PAYMENT_NOT_FOUND'],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
+      throw this.notFound('PAYMENT_NOT_FOUND', language);
     }
-
+    const payerType =
+      principal.type === 'provider' ? PayerType.PROVIDER : PayerType.USER;
+    if (payment.payerId !== principal.sub || payment.payerType !== payerType) {
+      throw this.unauthorized(language);
+    }
     return payment;
   }
 
-  async update(
-    updatePaymentInput: UpdatePaymentInput,
-    language: LanguageCode = 'en',
-  ): Promise<Payment> {
-    const payment = await this.findOne(updatePaymentInput.id, language);
-
-    // Prevent updates to completed or refunded payments
-    if (payment.status === PaymentStatus.COMPLETED) {
-      const message = I18nService.translate(
-        PAYMENT_ERROR_MESSAGES['PAYMENT_ALREADY_COMPLETED'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    if (payment.status === PaymentStatus.REFUNDED) {
-      const message = I18nService.translate(
-        PAYMENT_ERROR_MESSAGES['PAYMENT_ALREADY_REFUNDED'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    // Validate amount if being updated
-    if (
-      updatePaymentInput.amount !== undefined &&
-      updatePaymentInput.amount <= 0
-    ) {
-      const message = I18nService.translate(
-        PAYMENT_ERROR_MESSAGES['INVALID_AMOUNT'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    Object.assign(payment, updatePaymentInput);
-    return await this.paymentRepository.save(payment);
+  async resolvePayer(payment: Payment): Promise<PaymentPayer | null> {
+    return payment.payerType === PayerType.PROVIDER
+      ? this.providerRepository.findOne({ where: { id: payment.payerId } })
+      : this.userRepository.findOne({ where: { id: payment.payerId } });
   }
 
-  async remove(id: string, language: LanguageCode = 'en'): Promise<Payment> {
-    const payment = await this.findOne(id, language);
-    await this.paymentRepository.remove(payment);
-    return payment;
+  private obligationKey(
+    purpose: PaymentPurpose,
+    targetId: string,
+    payerType: PayerType,
+    payerId: string,
+  ): string {
+    return `${purpose}:${targetId}:${payerType}:${payerId}`;
   }
 
-  async processRefund(
-    id: string,
-    language: LanguageCode = 'en',
-  ): Promise<Payment> {
-    const payment = await this.findOne(id, language);
+  private unauthorized(language: LanguageCode): I18nBadRequestException {
+    const message = I18nService.translate(
+      PAYMENT_ERROR_MESSAGES[PAYMENT_ERROR_CODES.UNAUTHORIZED_ACCESS],
+      language,
+    );
+    return new I18nBadRequestException({ en: message, ar: message }, language);
+  }
 
-    if (payment.status === PaymentStatus.REFUNDED) {
-      const message = I18nService.translate(
-        PAYMENT_ERROR_MESSAGES['PAYMENT_ALREADY_REFUNDED'],
-        language,
+  private notFound(
+    code: 'PAYMENT_NOT_FOUND' | 'CONTRACT_NOT_FOUND' | 'CONVERSATION_NOT_FOUND',
+    language: LanguageCode,
+  ): I18nNotFoundException {
+    const message = I18nService.translate(
+      PAYMENT_ERROR_MESSAGES[PAYMENT_ERROR_CODES[code]],
+      language,
+    );
+    return new I18nNotFoundException({ en: message, ar: message }, language);
+  }
+
+  private async publishSafely(payload: MessageAddedPayload): Promise<void> {
+    try {
+      await this.messageService.publish(payload);
+    } catch (error) {
+      this.logger.warn(
+        `Payment event persisted but realtime publish failed: ${String(error)}`,
       );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
-
-    if (payment.status !== PaymentStatus.COMPLETED) {
-      const message = I18nService.translate(
-        PAYMENT_ERROR_MESSAGES['INVALID_STATUS_TRANSITION'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    payment.status = PaymentStatus.REFUNDED;
-    payment.gatewayResponse = JSON.stringify({
-      success: true,
-      message: 'Refund processed successfully (simulated)',
-      timestamp: new Date().toISOString(),
-      gateway: 'fake-gateway',
-      originalTransaction: payment.transactionReference,
-    });
-
-    return await this.paymentRepository.save(payment);
   }
 }
