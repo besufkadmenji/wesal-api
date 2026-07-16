@@ -5,6 +5,37 @@ import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import GraphQLJSON from 'graphql-type-json';
 import * as jwt from 'jsonwebtoken';
+import type { JwtPayload } from '../../src/auth/strategies/jwt.strategy';
+
+export function verifySubscriptionPrincipal(
+  connectionParams?: Record<string, unknown>,
+): JwtPayload {
+  const authorization =
+    connectionParams?.Authorization ?? connectionParams?.authorization;
+  if (
+    typeof authorization !== 'string' ||
+    !authorization.startsWith('Bearer ')
+  ) {
+    throw new Error('Unauthorized: missing token');
+  }
+
+  try {
+    const decoded = jwt.verify(
+      authorization.slice('Bearer '.length),
+      process.env.JWT_SECRET || 'your-secret-key',
+    );
+    if (
+      typeof decoded === 'string' ||
+      typeof decoded.sub !== 'string' ||
+      (decoded.type !== 'user' && decoded.type !== 'provider')
+    ) {
+      throw new Error('Invalid principal');
+    }
+    return decoded as JwtPayload;
+  } catch {
+    throw new Error('Unauthorized: invalid token');
+  }
+}
 
 @Module({
   imports: [
@@ -21,24 +52,10 @@ import * as jwt from 'jsonwebtoken';
         'graphql-ws': {
           onConnect: (ctx: any) => {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            const auth = ctx.connectionParams?.Authorization as
-              | string
-              | undefined;
-            if (!auth) {
-              throw new Error('Unauthorized: missing token');
-            }
-            const token = auth.replace('Bearer ', '');
-            try {
-              const decoded = jwt.verify(
-                token,
-                process.env.JWT_SECRET || 'your-secret-key',
-              ) as { sub: string };
-              // Store userId in extra so the context factory can read it
+            ctx.extra.principal = verifySubscriptionPrincipal(
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              ctx.extra.userId = decoded.sub;
-            } catch {
-              throw new Error('Unauthorized: invalid token');
-            }
+              ctx.connectionParams as Record<string, unknown> | undefined,
+            );
           },
         },
       },
@@ -48,7 +65,7 @@ import * as jwt from 'jsonwebtoken';
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (ctx.extra) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          return { userId: ctx.extra.userId };
+          return { principal: ctx.extra.principal };
         }
         // HTTP request context
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

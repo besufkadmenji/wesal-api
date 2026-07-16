@@ -22,4 +22,12 @@ export const MESSAGE_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Message content cannot be empty',
     ar: 'لا يمكن أن يكون محتوى الرسالة فارغًا',
   },
+  [MESSAGE_ERROR_CODES.CHAT_FEE_REQUIRED]: {
+    en: 'Conversation fee must be paid before sending messages',
+    ar: 'يجب دفع رسوم المحادثة قبل إرسال الرسائل',
+  },
+  [MESSAGE_ERROR_CODES.CONVERSATION_CLOSED]: {
+    en: 'This conversation is closed',
+    ar: 'هذه المحادثة مغلقة',
+  },
 };

@@ -8,11 +8,7 @@ export class CreateMessageInput {
   @IsUUID()
   conversationId: string;
 
-  @Field()
-  @IsNotEmpty()
-  @IsUUID()
-  senderId: string;
-
+  // The sender is taken from the authenticated token, never from the client.
   @Field()
   @IsNotEmpty()
   @IsString()

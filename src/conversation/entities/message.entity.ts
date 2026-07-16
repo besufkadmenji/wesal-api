@@ -1,5 +1,5 @@
 import { Field, ID, ObjectType, Int } from '@nestjs/graphql';
-import { User } from 'src/user/entities/user.entity';
+import GraphQLJSON from 'graphql-type-json';
 import {
   Column,
   CreateDateColumn,
@@ -10,6 +10,8 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Conversation } from './conversation.entity';
+import { ConversationSenderType } from '../enums/sender-type.enum';
+import { MessageKind } from '../enums/message-kind.enum';
 
 @ObjectType()
 @Entity('messages')
@@ -36,18 +38,34 @@ export class Message {
   @JoinColumn({ name: 'conversationId' })
   conversation: Conversation;
 
-  @Field()
-  @Column({ type: 'uuid' })
-  senderId: string;
+  // Sender is polymorphic: either the customer (User) or the Provider. The id
+  // has no DB-level FK because it can reference either table; `senderType`
+  // discriminates. The resolved `sender` object is exposed via a @ResolveField.
+  @Field(() => ID, { nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  senderId: string | null;
 
-  @Field(() => User)
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'senderId' })
-  sender: User;
+  // Defaults to USER so `synchronize` can backfill legacy rows (all of which
+  // were User-sent under the previous single-relation model) safely.
+  @Field(() => ConversationSenderType)
+  @Column({
+    type: 'enum',
+    enum: ConversationSenderType,
+    default: ConversationSenderType.USER,
+  })
+  senderType: ConversationSenderType;
+
+  @Field(() => MessageKind)
+  @Column({ type: 'enum', enum: MessageKind, default: MessageKind.TEXT })
+  kind: MessageKind;
 
   @Field()
-  @Column({ type: 'text' })
+  @Column({ type: 'text', default: '' })
   content: string;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: Record<string, unknown> | null;
 
   @Field()
   @CreateDateColumn()

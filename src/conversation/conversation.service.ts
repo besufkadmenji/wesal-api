@@ -10,14 +10,18 @@ import type { LanguageCode } from '../../lib/i18n/language.types';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { SortOrder } from '../../lib/common/dto/pagination.input';
 import { CreateConversationInput } from './dto/create-conversation.input';
-import { UpdateConversationInput } from './dto/update-conversation.input';
 import { ConversationPaginationInput } from './dto/conversation-pagination.input';
 import { Conversation } from './entities/conversation.entity';
 import { Listing } from '../listing/entities/listing.entity';
-import { User } from '../user/entities/user.entity';
+import { Provider } from '../provider/entities/provider.entity';
 import { CONVERSATION_ERROR_MESSAGES } from './errors/conversation.error-messages';
 import { CONVERSATION_ERROR_CODES } from './errors/conversation.error-codes';
-import { Contract } from '../contract/entities/contract.entity';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { Category } from '../category/entities/category.entity';
+import { Message } from './entities/message.entity';
+import { ConversationAccess } from './dto/conversation-access.response';
+import { ConversationSenderType } from './enums/sender-type.enum';
+import { ConversationStatus } from './enums/conversation-status.enum';
 
 @Injectable()
 export class ConversationService {
@@ -26,17 +30,57 @@ export class ConversationService {
     private readonly conversationRepository: Repository<Conversation>,
     @InjectRepository(Listing)
     private readonly listingRepository: Repository<Listing>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    @InjectRepository(Contract)
-    private readonly contractRepository: Repository<Contract>,
+    @InjectRepository(Provider)
+    private readonly providerRepository: Repository<Provider>,
+    @InjectRepository(Category)
+    private readonly categoryRepository: Repository<Category>,
+    @InjectRepository(Message)
+    private readonly messageRepository: Repository<Message>,
   ) {}
+
+  /**
+   * Throws UNAUTHORIZED_ACCESS unless the principal is a participant of the
+   * conversation: the customer (User === userId) or the provider
+   * (Provider === providerId).
+   */
+  assertParticipant(
+    conversation: Conversation,
+    principal: JwtPayload,
+    language: LanguageCode = 'en',
+  ): void {
+    const isCustomer =
+      principal.type !== 'provider' && principal.sub === conversation.userId;
+    const isProvider =
+      principal.type === 'provider' &&
+      principal.sub === conversation.providerId;
+    if (!isCustomer && !isProvider) {
+      const message = I18nService.translate(
+        CONVERSATION_ERROR_MESSAGES[
+          CONVERSATION_ERROR_CODES.UNAUTHORIZED_ACCESS
+        ],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+  }
 
   async create(
     createConversationInput: CreateConversationInput,
+    principal: JwtPayload,
     language: LanguageCode = 'en',
   ): Promise<Conversation> {
-    // Validate listing exists
+    // Only a customer (User) can start a conversation with a provider's listing.
+    if (principal.type === 'provider') {
+      const message = I18nService.translate(
+        CONVERSATION_ERROR_MESSAGES[
+          CONVERSATION_ERROR_CODES.UNAUTHORIZED_ACCESS
+        ],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+
+    // Validate listing exists; the provider participant is the listing owner.
     const listing = await this.listingRepository.findOne({
       where: { id: createConversationInput.listingId },
     });
@@ -48,21 +92,9 @@ export class ConversationService {
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
 
-    // Validate user exists
-    const user = await this.userRepository.findOne({
-      where: { id: createConversationInput.userId },
-    });
-    if (!user) {
-      const message = I18nService.translate(
-        CONVERSATION_ERROR_MESSAGES['USER_NOT_FOUND'],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    // Validate provider exists
-    const provider = await this.userRepository.findOne({
-      where: { id: createConversationInput.providerId },
+    // Validate provider (listing owner) exists
+    const provider = await this.providerRepository.findOne({
+      where: { id: listing.providerId },
     });
     if (!provider) {
       const message = I18nService.translate(
@@ -72,39 +104,39 @@ export class ConversationService {
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
 
-    // Check for duplicate conversation
+    // Check for duplicate conversation (same customer + listing + provider)
     const existingConversation = await this.conversationRepository.findOne({
       where: {
         listingId: createConversationInput.listingId,
-        userId: createConversationInput.userId,
-        providerId: createConversationInput.providerId,
+        userId: principal.sub,
+        providerId: listing.providerId,
       },
     });
 
     if (existingConversation) {
-      const message = I18nService.translate(
-        CONVERSATION_ERROR_MESSAGES['DUPLICATE_CONVERSATION'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
+      return existingConversation;
     }
 
-    const conversation = this.conversationRepository.create(
-      createConversationInput,
-    );
+    const conversation = this.conversationRepository.create({
+      listingId: createConversationInput.listingId,
+      userId: principal.sub,
+      providerId: listing.providerId,
+    });
     return await this.conversationRepository.save(conversation);
   }
 
   async findAll(
     paginationInput: ConversationPaginationInput,
+    // Optional: the GraphQL resolver always passes a principal (guard-enforced)
+    // so results are scoped to the caller. The admin CSV-export controller
+    // calls this without a principal to export all conversations.
+    principal?: JwtPayload,
   ): Promise<IPaginatedType<Conversation>> {
     const {
       page = 1,
       limit = 10,
       listingId,
-      userId,
-      providerId,
-      isPaid,
+      status,
       sortBy,
       sortOrder = SortOrder.ASC,
     } = paginationInput;
@@ -114,8 +146,20 @@ export class ConversationService {
       .createQueryBuilder('conversation')
       .leftJoinAndSelect('conversation.listing', 'listing')
       .leftJoinAndSelect('conversation.user', 'user')
-      .leftJoinAndSelect('conversation.provider', 'provider')
-      .leftJoinAndSelect('conversation.messages', 'messages');
+      .leftJoinAndSelect('conversation.provider', 'provider');
+
+    // Scope to the caller's own conversations (customer or provider side).
+    if (principal) {
+      if (principal.type === 'provider') {
+        queryBuilder.andWhere('conversation.providerId = :principalId', {
+          principalId: principal.sub,
+        });
+      } else {
+        queryBuilder.andWhere('conversation.userId = :principalId', {
+          principalId: principal.sub,
+        });
+      }
+    }
 
     if (listingId) {
       queryBuilder.andWhere('conversation.listingId = :listingId', {
@@ -123,18 +167,8 @@ export class ConversationService {
       });
     }
 
-    if (userId) {
-      queryBuilder.andWhere('conversation.userId = :userId', { userId });
-    }
-
-    if (providerId) {
-      queryBuilder.andWhere('conversation.providerId = :providerId', {
-        providerId,
-      });
-    }
-
-    if (isPaid !== undefined) {
-      queryBuilder.andWhere('conversation.isPaid = :isPaid', { isPaid });
+    if (status) {
+      queryBuilder.andWhere('conversation.status = :status', { status });
     }
 
     const orderByField = sortBy
@@ -165,6 +199,7 @@ export class ConversationService {
 
   async findOne(
     id: string,
+    principal: JwtPayload,
     language: LanguageCode = 'en',
   ): Promise<Conversation> {
     const conversation = await this.conversationRepository.findOne({
@@ -180,38 +215,98 @@ export class ConversationService {
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
 
+    this.assertParticipant(conversation, principal, language);
     return conversation;
   }
 
-  async update(
-    updateConversationInput: UpdateConversationInput,
+  async getAccess(
+    conversation: Conversation,
+    principal: JwtPayload,
     language: LanguageCode = 'en',
-  ): Promise<Conversation> {
-    const conversation = await this.findOne(
-      updateConversationInput.id,
-      language,
+  ): Promise<ConversationAccess> {
+    this.assertParticipant(conversation, principal, language);
+    const listing =
+      conversation.listing ??
+      (await this.listingRepository.findOne({
+        where: { id: conversation.listingId },
+      }));
+    const category = listing
+      ? await this.categoryRepository.findOne({
+          where: { id: listing.categoryId },
+        })
+      : null;
+
+    const isProvider = principal.type === 'provider';
+    const enabled = isProvider
+      ? Boolean(category?.providerConversationFeeEnabled)
+      : Boolean(category?.customerConversationFeeEnabled);
+    const amount = Number(
+      isProvider
+        ? (category?.providerConversationFee ?? 0)
+        : (category?.customerConversationFee ?? 0),
     );
+    const paidAt = isProvider
+      ? conversation.providerFeePaidAt
+      : conversation.customerFeePaidAt;
+    const feeRequired = enabled && amount > 0;
 
-    Object.assign(conversation, updateConversationInput);
-    return await this.conversationRepository.save(conversation);
+    return {
+      feeRequired,
+      feeAmount: amount,
+      paidAt,
+      canSend:
+        conversation.status === ConversationStatus.ACTIVE &&
+        (!feeRequired || Boolean(paidAt)),
+    };
   }
 
-  async remove(
+  async markRead(
     id: string,
+    principal: JwtPayload,
     language: LanguageCode = 'en',
   ): Promise<Conversation> {
-    const conversation = await this.findOne(id, language);
-
-    const contractCount = await this.contractRepository.count({ where: { conversationId: id } });
-    if (contractCount > 0) {
-      const message = I18nService.translate(
-        CONVERSATION_ERROR_MESSAGES[CONVERSATION_ERROR_CODES.CONVERSATION_HAS_CONTRACTS],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    const conversation = await this.findOne(id, principal, language);
+    if (principal.type === 'provider') {
+      conversation.providerLastReadAt = new Date();
+    } else {
+      conversation.customerLastReadAt = new Date();
     }
+    return this.conversationRepository.save(conversation);
+  }
 
-    await this.conversationRepository.remove(conversation);
-    return conversation;
+  async getLastMessage(conversationId: string): Promise<Message | null> {
+    return this.messageRepository.findOne({
+      where: { conversationId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async getUnreadCount(
+    conversation: Conversation,
+    principal: JwtPayload,
+    language: LanguageCode = 'en',
+  ): Promise<number> {
+    this.assertParticipant(conversation, principal, language);
+    const lastReadAt =
+      principal.type === 'provider'
+        ? conversation.providerLastReadAt
+        : conversation.customerLastReadAt;
+    const senderType =
+      principal.type === 'provider'
+        ? ConversationSenderType.PROVIDER
+        : ConversationSenderType.USER;
+    const query = this.messageRepository
+      .createQueryBuilder('message')
+      .where('message.conversationId = :conversationId', {
+        conversationId: conversation.id,
+      })
+      .andWhere(
+        '(message.senderType != :senderType OR message.senderId IS NULL OR message.senderId != :senderId)',
+        { senderType, senderId: principal.sub },
+      );
+    if (lastReadAt) {
+      query.andWhere('message.createdAt > :lastReadAt', { lastReadAt });
+    }
+    return query.getCount();
   }
 }
