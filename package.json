@@ -124,16 +124,5 @@
       "^lib/(.*)$": "<rootDir>/lib/$1",
       "^src/(.*)$": "<rootDir>/src/$1"
     }
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@apollo/protobufjs",
-      "@nestjs/core",
-      "unrs-resolver",
-      "bcrypt",
-      "@scarf/scarf",
-      "esbuild",
-      "sharp"
-    ]
   }
 }
