@@ -15,7 +15,10 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         database: configService.get<string>('DB_NAME'),
         entities: [`${__dirname}/../../src/**/*.entity.ts`],
         migrations: [`${__dirname}/../../src/migrations/*.ts`],
-        synchronize: true,
+        synchronize:
+          configService.get<string>('DB_SYNCHRONIZE') !== undefined
+            ? configService.get<string>('DB_SYNCHRONIZE') === 'true'
+            : configService.get<string>('NODE_ENV') !== 'production',
         logging: true,
         // Enable enum support for PostgreSQL
         supportBigNumbers: true,

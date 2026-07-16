@@ -73,7 +73,10 @@ function getDatabaseConfig() {
       ...getDatabaseConfig(),
       entities: [__dirname + '/**/*.entity{.ts,.js}'],
       migrations: [__dirname + '/migrations/*{.ts,.js}'],
-      synchronize: true,
+      synchronize:
+        process.env.DB_SYNCHRONIZE !== undefined
+          ? process.env.DB_SYNCHRONIZE === 'true'
+          : process.env.NODE_ENV !== 'production',
     }),
     ServeStaticModule.forRoot({
       rootPath:
