@@ -32,7 +32,7 @@ describe('AppController', () => {
   });
 
   describe('uploadFile', () => {
-    it('should upload a file', () => {
+    it('should upload a file', async () => {
       const mockFile = {
         buffer: Buffer.from('test content'),
         originalname: 'test.txt',
@@ -40,15 +40,20 @@ describe('AppController', () => {
 
       const mockResult = {
         filename: 'test-1234567890.txt',
+        path: 'test-1234567890.txt',
         url: 'http://localhost:4000/uploads/test-1234567890.txt',
         size: 12,
       };
 
-      jest.spyOn(fileUploadService, 'saveFile').mockReturnValue(mockResult);
+      jest.spyOn(fileUploadService, 'saveFile').mockResolvedValue(mockResult);
 
-      const result = appController.uploadFile(mockFile, undefined);
+      const result = await appController.uploadFile(mockFile, undefined);
 
-      expect(result).toEqual(mockResult);
+      expect(result).toEqual({
+        filename: mockResult.filename,
+        url: `/files/${encodeURIComponent(mockResult.path)}`,
+        size: mockResult.size,
+      });
       expect(fileUploadService.saveFile).toHaveBeenCalledWith(
         mockFile.buffer,
         mockFile.originalname,
@@ -56,8 +61,10 @@ describe('AppController', () => {
       );
     });
 
-    it('should throw error if no file provided', () => {
-      expect(() => appController.uploadFile(undefined, undefined)).toThrow();
+    it('should throw error if no file provided', async () => {
+      await expect(
+        appController.uploadFile(undefined, undefined),
+      ).rejects.toThrow();
     });
   });
 });

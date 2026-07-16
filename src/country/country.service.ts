@@ -132,7 +132,9 @@ export class CountryService {
   async remove(id: string, language: LanguageCode = 'en'): Promise<Country> {
     const country = await this.findOne(id, language);
 
-    const cityCount = await this.cityRepository.count({ where: { countryId: id } });
+    const cityCount = await this.cityRepository.count({
+      where: { countryId: id },
+    });
     if (cityCount > 0) {
       const message = I18nService.translate(
         COUNTRY_ERROR_MESSAGES[COUNTRY_ERROR_CODES.COUNTRY_HAS_CITIES],
@@ -141,7 +143,9 @@ export class CountryService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    const providerCount = await this.providerRepository.count({ where: { countryId: id } });
+    const providerCount = await this.providerRepository.count({
+      where: { countryId: id },
+    });
     if (providerCount > 0) {
       const message = I18nService.translate(
         COUNTRY_ERROR_MESSAGES[COUNTRY_ERROR_CODES.COUNTRY_HAS_PROVIDERS],
@@ -150,7 +154,9 @@ export class CountryService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    const userCount = await this.userRepository.count({ where: { countryId: id } });
+    const userCount = await this.userRepository.count({
+      where: { countryId: id },
+    });
     if (userCount > 0) {
       const message = I18nService.translate(
         COUNTRY_ERROR_MESSAGES[COUNTRY_ERROR_CODES.COUNTRY_HAS_USERS],

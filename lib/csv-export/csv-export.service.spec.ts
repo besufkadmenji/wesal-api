@@ -29,13 +29,12 @@ describe('CsvExportService - Sensitive Field Protection', () => {
 
       service.exportToCsv(data, 'test', mockResponse as Response);
 
-      const sentData =
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        (mockResponse.send as jest.Mock).mock.calls[0][0] as unknown;
+      const sentData = (mockResponse.send as jest.Mock).mock
+        .calls[0][0] as unknown;
       expect(sentData).not.toContain('password');
       expect(sentData).not.toContain('secret123');
-      expect(sentData).toContain('name');
-      expect(sentData).toContain('email');
+      expect(sentData).toContain('User 1');
+      expect(sentData).toContain('user@example.com');
     });
 
     it('should remove password from nested provider object', () => {
@@ -82,7 +81,7 @@ describe('CsvExportService - Sensitive Field Protection', () => {
       expect(sentData).not.toContain('accessToken');
       expect(sentData).not.toContain('apiKey');
       expect(sentData).not.toContain('resetToken');
-      expect(sentData).toContain('name');
+      expect(sentData).toContain('User');
     });
 
     it('should handle deeply nested sensitive fields', () => {

@@ -52,6 +52,7 @@
     "graphql-subscriptions": "^3.0.0",
     "graphql-type-json": "^0.3.2",
     "graphql-upload-ts": "^2.1.3",
+    "graphql-ws": "^6.1.0",
     "jsonwebtoken": "^9.0.3",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -62,7 +63,8 @@
     "resend": "^6.9.3",
     "rxjs": "^7.8.2",
     "typeorm": "^0.3.28",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "ws": "^8.21.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.4",
@@ -80,6 +82,7 @@
     "@types/react": "^19.2.14",
     "@types/supertest": "^7.2.0",
     "@types/uuid": "^11.0.0",
+    "@types/ws": "^8.18.1",
     "eslint": "^10.0.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
@@ -100,7 +103,8 @@
     "moduleFileExtensions": [
       "js",
       "json",
-      "ts"
+      "ts",
+      "tsx"
     ],
     "rootDir": "./",
     "roots": [
@@ -109,7 +113,7 @@
     ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
+      "^.+\\.(t|j)sx?$": "ts-jest"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
