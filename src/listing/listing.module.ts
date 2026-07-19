@@ -15,6 +15,7 @@ import { ListingController } from './listing.controller';
 import { TrackingModule } from '../tracking/tracking.module';
 import { SearchModule } from '../search/search.module';
 import { AdminPermission } from 'src/admin-permission/entities/admin-permission.entity';
+import { SettingModule } from '../setting/setting.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { AdminPermission } from 'src/admin-permission/entities/admin-permission.
     TrackingModule,
     SearchModule,
     AdminPermissionGuardModule,
+    SettingModule,
   ],
   controllers: [ListingController],
   providers: [ListingResolver, ListingService],

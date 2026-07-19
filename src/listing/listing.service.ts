@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThanOrEqual, Repository } from 'typeorm';
+import { Interval } from '@nestjs/schedule';
 import {
   I18nBadRequestException,
   I18nNotFoundException,
@@ -23,9 +24,14 @@ import { ListingPaginationInput } from './dto/listing-pagination.input';
 import { PaginatedListingResponse } from './dto/paginated-listings.response';
 import { UpdateListingInput } from './dto/update-listing.input';
 import { Listing } from './entities/listing.entity';
-import { ListingStatus } from './enums/listing.enum';
+import {
+  ListingStatus,
+  ListingType,
+  PromotionStatus,
+} from './enums/listing.enum';
 import { LISTING_ERROR_CODES } from './errors/listing.error-codes';
 import { LISTING_ERROR_MESSAGES } from './errors/listing.error-messages';
+import { SettingService } from '../setting/setting.service';
 
 @Injectable()
 export class ListingService {
@@ -48,6 +54,7 @@ export class ListingService {
     private readonly ratingRepository: Repository<Rating>,
     private readonly trackingService: TrackingService,
     private readonly searchService: SearchService,
+    private readonly settingService: SettingService,
   ) {}
 
   async create(
@@ -87,11 +94,30 @@ export class ListingService {
         language,
       );
     }
-    // Create listing
+    const setting = await this.settingService.getSetting();
+    if (
+      createListingInput.type === ListingType.FEATURED &&
+      !setting.premiumAdEnabled
+    ) {
+      throw new I18nBadRequestException(
+        {
+          en: 'Featured advertisements are disabled',
+          ar: 'الإعلانات المميزة معطلة',
+        },
+        language,
+      );
+    }
+    const isFeatured = createListingInput.type === ListingType.FEATURED;
     const listing = this.listingRepository.create({
       ...createListingInput,
       providerId,
-      status: createListingInput.status || ListingStatus.ACTIVE,
+      status: isFeatured ? ListingStatus.PENDING_PAYMENT : ListingStatus.ACTIVE,
+      promotionStatus: isFeatured
+        ? PromotionStatus.PENDING_PAYMENT
+        : PromotionStatus.NONE,
+      promotionCycle: isFeatured ? 1 : 0,
+      featuredStartsAt: null,
+      featuredEndsAt: null,
       story: createListingInput.story,
       photos: createListingInput.photos,
       tags: '',
@@ -113,7 +139,7 @@ export class ListingService {
     const limit = paginationInput.limit ?? 10;
     const skip = (page - 1) * limit;
     const {
-      status,
+      status = ListingStatus.ACTIVE,
       type,
       sortBy = 'createdAt',
       sortOrder = 'DESC',
@@ -266,6 +292,13 @@ export class ListingService {
       );
     }
 
+    if (listing.status !== ListingStatus.ACTIVE) {
+      throw new I18nNotFoundException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_NOT_FOUND],
+        language,
+      );
+    }
+
     // Track view for logged-in users
     if (userId) {
       this.trackingService
@@ -280,6 +313,64 @@ export class ListingService {
     }
 
     return listing;
+  }
+
+  async requestFeaturedPromotion(
+    id: string,
+    providerId: string,
+    language: LanguageCode = 'en',
+  ): Promise<Listing> {
+    const listing = await this.listingRepository.findOne({ where: { id } });
+    if (!listing) {
+      throw new I18nNotFoundException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_NOT_FOUND],
+        language,
+      );
+    }
+    if (listing.providerId !== providerId) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.UNAUTHORIZED],
+        language,
+      );
+    }
+    const setting = await this.settingService.getSetting();
+    if (!setting.premiumAdEnabled || Number(setting.premiumAdFee) <= 0) {
+      throw new I18nBadRequestException(
+        {
+          en: 'Featured advertisements are disabled',
+          ar: 'الإعلانات المميزة معطلة',
+        },
+        language,
+      );
+    }
+    if (
+      listing.promotionStatus === PromotionStatus.ACTIVE ||
+      listing.promotionStatus === PromotionStatus.PENDING_PAYMENT
+    ) {
+      return listing;
+    }
+    listing.promotionCycle += 1;
+    listing.promotionStatus = PromotionStatus.PENDING_PAYMENT;
+    if (!listing.featuredStartsAt)
+      listing.status = ListingStatus.PENDING_PAYMENT;
+    return this.listingRepository.save(listing);
+  }
+
+  @Interval(60_000)
+  async expireFeaturedPromotions(): Promise<void> {
+    const expired = await this.listingRepository.find({
+      where: {
+        promotionStatus: PromotionStatus.ACTIVE,
+        featuredEndsAt: LessThanOrEqual(new Date()),
+      },
+    });
+    for (const listing of expired) {
+      listing.type = ListingType.FREE;
+      listing.status = ListingStatus.ACTIVE;
+      listing.promotionStatus = PromotionStatus.EXPIRED;
+      await this.listingRepository.save(listing);
+      void this.searchService.indexListing(listing).catch(() => undefined);
+    }
   }
 
   async findByProvider(
@@ -377,10 +468,15 @@ export class ListingService {
       }
     }
 
-    // Update listing
+    // Publication and promotion state only change through the promotion/payment
+    // lifecycle, never through a general provider update.
+    const providerChanges = { ...updateListingInput };
+    Reflect.deleteProperty(providerChanges, 'status');
+    Reflect.deleteProperty(providerChanges, 'type');
+    Reflect.deleteProperty(providerChanges, 'id');
     const updatedListing = this.listingRepository.merge(
       listing,
-      updateListingInput,
+      providerChanges,
     );
     const saved = await this.listingRepository.save(updatedListing);
     // Keep Elasticsearch index in sync
@@ -429,16 +525,6 @@ export class ListingService {
     if (conversationCount > 0) {
       throw new I18nBadRequestException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_HAS_CONVERSATIONS],
-        language,
-      );
-    }
-
-    const favoriteCount = await this.favoriteRepository.count({
-      where: { listingId: id },
-    });
-    if (favoriteCount > 0) {
-      throw new I18nBadRequestException(
-        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_HAS_FAVORITES],
         language,
       );
     }

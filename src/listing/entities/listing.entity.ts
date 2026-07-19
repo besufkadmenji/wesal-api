@@ -1,4 +1,4 @@
-import { Field, ObjectType } from '@nestjs/graphql';
+import { Field, Int, ObjectType } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
@@ -11,7 +11,11 @@ import {
 import { Category } from '../../category/entities/category.entity';
 import { City } from '../../city/entities/city.entity';
 import { Provider } from '../../provider/entities/provider.entity';
-import { ListingStatus, ListingType } from '../enums/listing.enum';
+import {
+  ListingStatus,
+  ListingType,
+  PromotionStatus,
+} from '../enums/listing.enum';
 import { ListingMedia } from './listing-media';
 
 @ObjectType()
@@ -74,6 +78,26 @@ export class Listing {
     enum: ListingType,
   })
   type: ListingType;
+
+  @Field(() => PromotionStatus)
+  @Column({
+    type: 'enum',
+    enum: PromotionStatus,
+    default: PromotionStatus.NONE,
+  })
+  promotionStatus: PromotionStatus;
+
+  @Field(() => Int)
+  @Column({ type: 'int', default: 0 })
+  promotionCycle: number;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  featuredStartsAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  featuredEndsAt: Date | null;
 
   @Field(() => ListingMedia)
   @Column('jsonb')
