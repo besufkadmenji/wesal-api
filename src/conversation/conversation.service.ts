@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { LessThanOrEqual, Repository } from 'typeorm';
+import { Interval } from '@nestjs/schedule';
 import {
   I18nNotFoundException,
   I18nBadRequestException,
@@ -22,6 +23,7 @@ import { Message } from './entities/message.entity';
 import { ConversationAccess } from './dto/conversation-access.response';
 import { ConversationSenderType } from './enums/sender-type.enum';
 import { ConversationStatus } from './enums/conversation-status.enum';
+import { SettingService } from '../setting/setting.service';
 
 @Injectable()
 export class ConversationService {
@@ -36,6 +38,7 @@ export class ConversationService {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(Message)
     private readonly messageRepository: Repository<Message>,
+    private readonly settingService: SettingService,
   ) {}
 
   /**
@@ -49,7 +52,7 @@ export class ConversationService {
     language: LanguageCode = 'en',
   ): void {
     const isCustomer =
-      principal.type !== 'provider' && principal.sub === conversation.userId;
+      principal.type === 'user' && principal.sub === conversation.userId;
     const isProvider =
       principal.type === 'provider' &&
       principal.sub === conversation.providerId;
@@ -70,7 +73,7 @@ export class ConversationService {
     language: LanguageCode = 'en',
   ): Promise<Conversation> {
     // Only a customer (User) can start a conversation with a provider's listing.
-    if (principal.type === 'provider') {
+    if (principal.type !== 'user') {
       const message = I18nService.translate(
         CONVERSATION_ERROR_MESSAGES[
           CONVERSATION_ERROR_CODES.UNAUTHORIZED_ACCESS
@@ -117,10 +120,18 @@ export class ConversationService {
       return existingConversation;
     }
 
+    const setting = await this.settingService.getSetting();
+    const expiresAt = setting.contractAcceptanceWindowEnabled
+      ? new Date(Date.now() + setting.contractAcceptanceWindowDays * 86_400_000)
+      : null;
     const conversation = this.conversationRepository.create({
       listingId: createConversationInput.listingId,
       userId: principal.sub,
       providerId: listing.providerId,
+      expiresAt,
+      closedAt: null,
+      closeReason: null,
+      feeCycle: 1,
     });
     return await this.conversationRepository.save(conversation);
   }
@@ -216,7 +227,25 @@ export class ConversationService {
     }
 
     this.assertParticipant(conversation, principal, language);
-    return conversation;
+    return this.enforceExpiry(conversation);
+  }
+
+  async findOneAdmin(
+    id: string,
+    language: LanguageCode = 'en',
+  ): Promise<Conversation> {
+    const conversation = await this.conversationRepository.findOne({
+      where: { id },
+      relations: ['listing', 'user', 'provider', 'messages'],
+    });
+    if (!conversation) {
+      const message = I18nService.translate(
+        CONVERSATION_ERROR_MESSAGES['CONVERSATION_NOT_FOUND'],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+    return this.enforceExpiry(conversation);
   }
 
   async getAccess(
@@ -225,6 +254,7 @@ export class ConversationService {
     language: LanguageCode = 'en',
   ): Promise<ConversationAccess> {
     this.assertParticipant(conversation, principal, language);
+    conversation = await this.enforceExpiry(conversation);
     const listing =
       conversation.listing ??
       (await this.listingRepository.findOne({
@@ -257,7 +287,73 @@ export class ConversationService {
       canSend:
         conversation.status === ConversationStatus.ACTIVE &&
         (!feeRequired || Boolean(paidAt)),
+      expiresAt: conversation.expiresAt,
+      feeCycle: conversation.feeCycle,
     };
+  }
+
+  async restart(
+    id: string,
+    principal: JwtPayload,
+    language: LanguageCode = 'en',
+  ): Promise<Conversation> {
+    const conversation = await this.findOne(id, principal, language);
+    if (
+      conversation.status !== ConversationStatus.CLOSED ||
+      conversation.closeReason !== 'EXPIRED'
+    ) {
+      throw new I18nBadRequestException(
+        {
+          en: 'Only an expired conversation can be restarted',
+          ar: 'يمكن إعادة تشغيل المحادثة المنتهية فقط',
+        },
+        language,
+      );
+    }
+    const setting = await this.settingService.getSetting();
+    conversation.status = ConversationStatus.ACTIVE;
+    conversation.closedAt = null;
+    conversation.closeReason = null;
+    conversation.feeCycle += 1;
+    conversation.customerFeePaidAt = null;
+    conversation.providerFeePaidAt = null;
+    conversation.customerLastReadAt = null;
+    conversation.providerLastReadAt = null;
+    conversation.expiresAt = setting.contractAcceptanceWindowEnabled
+      ? new Date(Date.now() + setting.contractAcceptanceWindowDays * 86_400_000)
+      : null;
+    return this.conversationRepository.save(conversation);
+  }
+
+  private async enforceExpiry(
+    conversation: Conversation,
+  ): Promise<Conversation> {
+    if (
+      conversation.status === ConversationStatus.ACTIVE &&
+      conversation.expiresAt &&
+      conversation.expiresAt.getTime() <= Date.now()
+    ) {
+      conversation.status = ConversationStatus.CLOSED;
+      conversation.closedAt = new Date();
+      conversation.closeReason = 'EXPIRED';
+      return this.conversationRepository.save(conversation);
+    }
+    return conversation;
+  }
+
+  @Interval(60_000)
+  async closeExpiredConversations(): Promise<void> {
+    await this.conversationRepository.update(
+      {
+        status: ConversationStatus.ACTIVE,
+        expiresAt: LessThanOrEqual(new Date()),
+      },
+      {
+        status: ConversationStatus.CLOSED,
+        closedAt: new Date(),
+        closeReason: 'EXPIRED',
+      },
+    );
   }
 
   async markRead(

@@ -13,4 +13,10 @@ export class ConversationAccess {
 
   @Field()
   canSend: boolean;
+
+  @Field(() => Date, { nullable: true })
+  expiresAt: Date | null;
+
+  @Field()
+  feeCycle: number;
 }

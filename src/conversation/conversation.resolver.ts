@@ -21,6 +21,9 @@ import { CurrentPrincipal } from '../auth/decorators/current-principal.decorator
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { ConversationAccess } from './dto/conversation-access.response';
 import { Message } from './entities/message.entity';
+import { AdminAuthGuard } from '../admin/guards/admin-auth.guard';
+import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
+import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 
 @Resolver(() => Conversation)
 @UseGuards(JwtAuthGuard)
@@ -57,6 +60,25 @@ export class ConversationResolver {
     return this.conversationService.findOne(id, principal, language);
   }
 
+  @Query(() => PaginatedConversationResponse, { name: 'adminConversations' })
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('conversation', 'read')
+  adminFindAll(
+    @Args('input', { nullable: true }) input?: ConversationPaginationInput,
+  ): Promise<IPaginatedType<Conversation>> {
+    return this.conversationService.findAll(input ?? {});
+  }
+
+  @Query(() => Conversation, { name: 'adminConversation' })
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('conversation', 'read')
+  adminFindOne(
+    @Args('id') id: string,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Conversation> {
+    return this.conversationService.findOneAdmin(id, language);
+  }
+
   @Mutation(() => Conversation, {
     description: 'Mark the conversation as read for the authenticated side',
   })
@@ -72,12 +94,28 @@ export class ConversationResolver {
     );
   }
 
-  @ResolveField(() => ConversationAccess)
+  @Mutation(() => Conversation, {
+    description: 'Restart an expired conversation using a new fee cycle',
+  })
+  async restartConversation(
+    @Args('conversationId') conversationId: string,
+    @CurrentPrincipal() principal: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Conversation> {
+    return this.conversationService.restart(
+      conversationId,
+      principal,
+      language,
+    );
+  }
+
+  @ResolveField(() => ConversationAccess, { nullable: true })
   async access(
     @Parent() conversation: Conversation,
     @CurrentPrincipal() principal: JwtPayload,
     @GetLanguage() language: LanguageCode,
-  ): Promise<ConversationAccess> {
+  ): Promise<ConversationAccess | null> {
+    if (!principal.type) return null;
     return this.conversationService.getAccess(
       conversation,
       principal,
@@ -98,6 +136,7 @@ export class ConversationResolver {
     @CurrentPrincipal() principal: JwtPayload,
     @GetLanguage() language: LanguageCode,
   ): Promise<number> {
+    if (!principal.type) return 0;
     return this.conversationService.getUnreadCount(
       conversation,
       principal,

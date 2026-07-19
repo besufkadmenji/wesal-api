@@ -68,6 +68,22 @@ export class Conversation {
 
   @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamptz', nullable: true })
+  expiresAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  closedAt: Date | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  closeReason: string | null;
+
+  @Field(() => Int)
+  @Column({ type: 'int', default: 1 })
+  feeCycle: number;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
   customerFeePaidAt: Date | null;
 
   @Field(() => Date, { nullable: true })

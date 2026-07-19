@@ -10,6 +10,8 @@ import { Listing } from '../listing/entities/listing.entity';
 import { User } from '../user/entities/user.entity';
 import { Provider } from '../provider/entities/provider.entity';
 import { Category } from '../category/entities/category.entity';
+import { SettingModule } from '../setting/setting.module';
+import { AdminPermissionGuardModule } from '../../lib/common/admin-permission-guard.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { Category } from '../category/entities/category.entity';
       Provider,
       Category,
     ]),
+    SettingModule,
+    AdminPermissionGuardModule,
   ],
   providers: [
     ConversationService,
