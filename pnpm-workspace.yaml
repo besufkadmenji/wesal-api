@@ -3,8 +3,11 @@ allowBuilds:
   '@nestjs/core': true
   '@scarf/scarf': true
   bcrypt: true
+  cpu-features: false
   esbuild: true
+  protobufjs: false
   sharp: true
+  ssh2: false
   unrs-resolver: true
 minimumReleaseAgeExclude:
   - '@aws-sdk/checksums@3.1000.18'
