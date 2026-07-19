@@ -67,21 +67,41 @@ export class Category {
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   commissionPercent: number | null;
 
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  commissionEnabled: boolean;
+
   @Field(() => Float, { nullable: true })
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   minCommissionAmount: number | null;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  minCommissionEnabled: boolean;
 
   @Field(() => Float, { nullable: true })
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   depositPercent: number | null;
 
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  depositEnabled: boolean;
+
   @Field(() => Int, { nullable: true })
   @Column({ type: 'int', nullable: true })
   maxCompletionDays: number | null;
 
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  maxCompletionDaysEnabled: boolean;
+
   @Field(() => Int, { nullable: true })
   @Column({ type: 'int', nullable: true })
   maxTerminationDays: number | null;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  maxTerminationDaysEnabled: boolean;
 
   @Field(() => Float, { nullable: true })
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
