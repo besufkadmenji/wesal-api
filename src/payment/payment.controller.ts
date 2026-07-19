@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { PaymentService } from './payment.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('Payments', 'Export')
 @Controller('payments')
+@AdminExport('payment')
 export class PaymentController {
   constructor(
     private readonly paymentService: PaymentService,

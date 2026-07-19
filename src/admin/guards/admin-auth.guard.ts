@@ -8,17 +8,18 @@ import { AuthGuard } from '@nestjs/passport';
 
 @Injectable()
 export class AdminAuthGuard extends AuthGuard('jwt') {
-  getRequest(context: ExecutionContext) {
+  getRequest(context: ExecutionContext): unknown {
+    if (context.getType() === 'http') {
+      return context.switchToHttp().getRequest<unknown>();
+    }
     const ctx = GqlExecutionContext.create(context);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-    return ctx.getContext().req;
+    return ctx.getContext<{ req?: unknown }>().req;
   }
 
-  handleRequest(err: any, user: any) {
-    if (err || !user) {
-      throw err || new UnauthorizedException();
-    }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  handleRequest<TUser = unknown>(err: unknown, user: TUser): TUser {
+    const principal = user as { type?: string } | undefined;
+    if (err instanceof Error) throw err;
+    if (err || !principal || principal.type) throw new UnauthorizedException();
     return user;
   }
 }

@@ -1860,4 +1860,48 @@ export const seedData = [
     createdAt: '2026-02-26T00:00:00.000Z',
     updatedAt: '2026-02-26T00:00:00.000Z',
   },
+  // Sprint 3 API oversight and management permissions.
+  ...[
+    ['conversation', 'read', 'Read Conversation', 'عرض المحادثات'],
+    [
+      'conversation',
+      'full_access',
+      'Full Access Conversation',
+      'وصول كامل للمحادثات',
+    ],
+    ['complaint', 'read', 'Read Complaint', 'عرض الشكاوى'],
+    ['complaint', 'update', 'Update Complaint', 'تحديث الشكاوى'],
+    ['complaint', 'full_access', 'Full Access Complaint', 'وصول كامل للشكاوى'],
+    ['contract', 'read', 'Read Contract', 'عرض العقود'],
+    ['contract', 'full_access', 'Full Access Contract', 'وصول كامل للعقود'],
+    [
+      'listing_promotion',
+      'read',
+      'Read Listing Promotion',
+      'عرض ترويج الإعلانات',
+    ],
+    [
+      'listing_promotion',
+      'update',
+      'Update Listing Promotion',
+      'تحديث ترويج الإعلانات',
+    ],
+    [
+      'listing_promotion',
+      'full_access',
+      'Full Access Listing Promotion',
+      'وصول كامل لترويج الإعلانات',
+    ],
+  ].map(([module, action, name, nameAr], index) => ({
+    id: 325 + index,
+    name,
+    nameAr,
+    description: `Can ${action} ${module}`,
+    module,
+    action,
+    resource: module,
+    permissionPlatform: 'ADMIN',
+    createdAt: '2026-07-19T00:00:00.000Z',
+    updatedAt: '2026-07-19T00:00:00.000Z',
+  })),
 ];

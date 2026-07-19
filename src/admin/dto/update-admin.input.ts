@@ -15,7 +15,7 @@ export class UpdateAdminInput {
   @Field({ nullable: true })
   @IsOptional()
   @IsEmail({ allow_utf8_local_part: false, require_tld: true })
-  @Matches(/^[\x00-\x7F]+$/, {
+  @Matches(/^\p{ASCII}+$/u, {
     message: 'email must contain only ASCII characters',
   })
   email?: string;

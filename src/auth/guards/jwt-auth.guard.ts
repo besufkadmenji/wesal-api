@@ -8,32 +8,39 @@ import { AuthGuard } from '@nestjs/passport';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
-  getRequest(context: ExecutionContext) {
+  getRequest(context: ExecutionContext): unknown {
+    if (context.getType() === 'http') {
+      return context.switchToHttp().getRequest<unknown>();
+    }
     const ctx = GqlExecutionContext.create(context);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
-    return ctx.getContext().req;
+    return ctx.getContext<{ req?: unknown }>().req;
   }
 
-  handleRequest(err: any, user: any, info: any, context: ExecutionContext) {
-    if (err || !user) {
-      throw err || new UnauthorizedException();
-    }
+  handleRequest<TUser extends { type?: string }>(
+    err: unknown,
+    user: TUser,
+    _info: unknown,
+    context: ExecutionContext,
+  ): TUser {
+    if (err instanceof Error) throw err;
+    if (err || !user) throw new UnauthorizedException();
 
     // Set user or provider on request based on token type
-    const ctx = GqlExecutionContext.create(context);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    const request = ctx.getContext().req;
+    const request: { user?: TUser; provider?: TUser } =
+      context.getType() === 'http'
+        ? context
+            .switchToHttp()
+            .getRequest<{ user?: TUser; provider?: TUser }>()
+        : GqlExecutionContext.create(context).getContext<{
+            req: { user?: TUser; provider?: TUser };
+          }>().req;
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (user.type === 'provider') {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
       request.provider = user;
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
       request.user = user;
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return user;
   }
 }

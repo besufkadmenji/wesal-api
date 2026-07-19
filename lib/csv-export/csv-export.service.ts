@@ -224,7 +224,7 @@ export class CsvExportService {
     const cleanedData = data.map((row) => this.removeSensitiveData(row));
 
     // Get headers from first object or use provided fields
-    let headers = fields || Object.keys(cleanedData[0]);
+    let headers = fields || Object.keys(cleanedData[0] as object);
 
     // Always filter out sensitive fields from headers
     headers = this.filterSensitiveFields(headers);

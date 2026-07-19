@@ -7,8 +7,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { GqlExecutionContext } from '@nestjs/graphql';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { AdminPermission } from '../../admin-permission/entities/admin-permission.entity';
 import { AdminPermissionType } from '../enums/admin-permission-type.enum';
 import type { AdminJwtPayload } from '../types/admin-jwt-payload.type';
@@ -28,8 +27,7 @@ const BYPASS_ROLES = new Set<AdminPermissionType>([
 export class AdminPermissionGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
-    @InjectRepository(AdminPermission)
-    private readonly adminPermissionRepository: Repository<AdminPermission>,
+    private readonly dataSource: DataSource,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -42,11 +40,13 @@ export class AdminPermissionGuard implements CanActivate {
       return true;
     }
 
-    const gqlCtx = GqlExecutionContext.create(context);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
-    const req = gqlCtx.getContext().req;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const admin = req?.user as AdminJwtPayload | undefined;
+    const req =
+      context.getType() === 'http'
+        ? context.switchToHttp().getRequest<{ user?: AdminJwtPayload }>()
+        : GqlExecutionContext.create(context).getContext<{
+            req?: { user?: AdminJwtPayload };
+          }>().req;
+    const admin = req?.user;
 
     if (!admin?.sub) {
       throw new UnauthorizedException('Not authenticated');
@@ -58,7 +58,8 @@ export class AdminPermissionGuard implements CanActivate {
     }
 
     // For MODERATOR, VIEWER, CUSTOM — do a DB lookup
-    const hasPermission = await this.adminPermissionRepository
+    const hasPermission = await this.dataSource
+      .getRepository(AdminPermission)
       .createQueryBuilder('ap')
       .innerJoin('ap.permission', 'p')
       .where('ap.adminId = :adminId', { adminId: admin.sub })

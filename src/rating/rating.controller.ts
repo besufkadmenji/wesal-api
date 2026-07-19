@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { RatingService } from './rating.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('Ratings', 'Export')
 @Controller('ratings')
+@AdminExport('rating')
 export class RatingController {
   constructor(
     private readonly ratingService: RatingService,

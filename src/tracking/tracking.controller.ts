@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { TrackingService } from './tracking.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('Tracking', 'Export')
 @Controller('tracking')
+@AdminExport('tracking')
 export class TrackingController {
   constructor(
     private readonly trackingService: TrackingService,

@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { BankService } from './bank.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('Banks', 'Export')
 @Controller('banks')
+@AdminExport('bank')
 export class BankController {
   constructor(
     private readonly bankService: BankService,
