@@ -1,29 +1,35 @@
-import { InputType, Field } from '@nestjs/graphql';
+import { Field, ID, InputType } from '@nestjs/graphql';
 import {
   IsNotEmpty,
-  IsUUID,
-  IsEnum,
+  IsOptional,
   IsString,
+  IsUUID,
+  MaxLength,
   MinLength,
 } from 'class-validator';
-import { ComplaintReason } from '../enums/complaint-reason.enum';
 
 @InputType()
 export class CreateComplaintInput {
-  // The reporter (userId) is taken from the authenticated token, not input.
-  @Field()
-  @IsNotEmpty()
+  @Field(() => ID)
   @IsUUID()
-  listingId: string;
+  conversationId: string;
 
-  @Field(() => ComplaintReason)
-  @IsNotEmpty()
-  @IsEnum(ComplaintReason)
-  reason: ComplaintReason;
+  @Field(() => ID, { nullable: true })
+  @IsOptional()
+  @IsUUID()
+  contractId?: string;
 
   @Field()
-  @IsNotEmpty()
   @IsString()
+  @IsNotEmpty()
+  @MinLength(3)
+  @MaxLength(200)
+  title: string;
+
+  @Field()
+  @IsString()
+  @IsNotEmpty()
   @MinLength(10)
+  @MaxLength(5000)
   description: string;
 }

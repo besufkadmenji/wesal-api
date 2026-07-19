@@ -1,64 +1,37 @@
-import { InputType, Field, registerEnumType } from '@nestjs/graphql';
-import { IsOptional, IsUUID, IsEnum, IsIn } from 'class-validator';
+import { Field, InputType, registerEnumType } from '@nestjs/graphql';
+import { IsEnum, IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 import { ComplaintStatus } from '../enums/complaint-status.enum';
-import { ComplaintReason } from '../enums/complaint-reason.enum';
 
-const COMPLAINT_SORTABLE_FIELDS = [
-  'id',
-  'status',
-  'reason',
-  'createdAt',
-  'updatedAt',
-] as const;
-
-export type ComplaintSortField = (typeof COMPLAINT_SORTABLE_FIELDS)[number];
+const SORTABLE_FIELDS = ['status', 'createdAt', 'updatedAt'] as const;
+type ComplaintSortField = (typeof SORTABLE_FIELDS)[number];
 
 export enum ComplaintSortFieldEnum {
-  id = 'id',
   status = 'status',
-  reason = 'reason',
   createdAt = 'createdAt',
   updatedAt = 'updatedAt',
 }
-
-registerEnumType(ComplaintSortFieldEnum, {
-  name: 'ComplaintSortField',
-  description: 'Available fields to sort complaints by',
-});
+registerEnumType(ComplaintSortFieldEnum, { name: 'ComplaintSortField' });
 
 @InputType()
 export class ComplaintPaginationInput extends PaginationInput {
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsUUID()
-  userId?: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsUUID()
-  listingId?: string;
-
   @Field(() => ComplaintStatus, { nullable: true })
   @IsOptional()
   @IsEnum(ComplaintStatus)
   status?: ComplaintStatus;
 
-  @Field(() => ComplaintReason, { nullable: true })
-  @IsOptional()
-  @IsEnum(ComplaintReason)
-  reason?: ComplaintReason;
-
   @Field({ nullable: true })
   @IsOptional()
   @IsUUID()
-  reviewedBy?: string;
+  conversationId?: string;
 
-  @Field(() => ComplaintSortFieldEnum, {
-    nullable: true,
-    description: 'Sort field name',
-  })
+  @Field({ nullable: true })
   @IsOptional()
-  @IsIn(COMPLAINT_SORTABLE_FIELDS)
+  @IsString()
+  search?: string;
+
+  @Field(() => ComplaintSortFieldEnum, { nullable: true })
+  @IsOptional()
+  @IsIn(SORTABLE_FIELDS)
   sortBy?: ComplaintSortField;
 }
