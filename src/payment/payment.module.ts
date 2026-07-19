@@ -11,6 +11,8 @@ import { Category } from '../category/entities/category.entity';
 import { ContractModule } from '../contract/contract.module';
 import { Conversation } from '../conversation/entities/conversation.entity';
 import { ConversationModule } from '../conversation/conversation.module';
+import { SettingModule } from '../setting/setting.module';
+import { SearchModule } from '../search/search.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { ConversationModule } from '../conversation/conversation.module';
     ]),
     ContractModule,
     ConversationModule,
+    SettingModule,
+    SearchModule,
   ],
   providers: [PaymentResolver, PaymentService],
   exports: [PaymentService],

@@ -11,6 +11,7 @@ import { ObjectType, Field, ID, Float, Int } from '@nestjs/graphql';
 import GraphQLJSON from 'graphql-type-json';
 import { Contract } from '../../contract/entities/contract.entity';
 import { Conversation } from '../../conversation/entities/conversation.entity';
+import { Listing } from '../../listing/entities/listing.entity';
 import { PaymentStatus } from '../enums/payment-status.enum';
 import { PaymentMethod } from '../enums/payment-method.enum';
 import { PaymentPurpose } from '../enums/payment-purpose.enum';
@@ -64,6 +65,15 @@ export class Payment {
   @ManyToOne(() => Conversation, { nullable: true })
   @JoinColumn({ name: 'conversationId' })
   conversation: Conversation | null;
+
+  @Field(() => ID, { nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  listingId: string | null;
+
+  @Field(() => Listing, { nullable: true })
+  @ManyToOne(() => Listing, { nullable: true })
+  @JoinColumn({ name: 'listingId' })
+  listing: Listing | null;
 
   @Field(() => ID, { nullable: true })
   @Column({ type: 'uuid', nullable: true })

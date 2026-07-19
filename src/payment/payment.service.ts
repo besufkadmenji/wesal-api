@@ -12,6 +12,7 @@ import { SortOrder } from '../../lib/common/dto/pagination.input';
 import { PaymentPaginationInput } from './dto/payment-pagination.input';
 import { ContractPaymentResponse } from './dto/contract-payment.response';
 import { ConversationFeePaymentResponse } from './dto/conversation-fee-payment.response';
+import { PremiumAdPaymentResponse } from './dto/premium-ad-payment.response';
 import { Payment } from './entities/payment.entity';
 import { Contract } from '../contract/entities/contract.entity';
 import { ContractStatus } from '../contract/enums/contract-status.enum';
@@ -34,6 +35,13 @@ import {
 import { MessageKind } from '../conversation/enums/message-kind.enum';
 import { ConversationStatus } from '../conversation/enums/conversation-status.enum';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { SettingService } from '../setting/setting.service';
+import { SearchService } from '../search/search.service';
+import {
+  ListingStatus,
+  ListingType,
+  PromotionStatus,
+} from '../listing/enums/listing.enum';
 
 export type PaymentPayer = User | Provider;
 
@@ -51,6 +59,8 @@ export class PaymentService {
     private readonly dataSource: DataSource,
     private readonly contractService: ContractService,
     private readonly messageService: MessageService,
+    private readonly settingService: SettingService,
+    private readonly searchService: SearchService,
   ) {}
 
   async settleContractPayment(
@@ -58,7 +68,7 @@ export class PaymentService {
     principal: JwtPayload,
     language: LanguageCode = 'en',
   ): Promise<ContractPaymentResponse> {
-    if (principal.type === 'provider') {
+    if (principal.type !== 'user') {
       throw this.unauthorized(language);
     }
     const result = await this.dataSource.transaction(async (manager) => {
@@ -84,7 +94,7 @@ export class PaymentService {
         const wasCompleted = existing.status === PaymentStatus.COMPLETED;
         if (!wasCompleted) {
           Object.assign(existing, {
-            amount: Number(contract.agreedPrice),
+            amount: Number(contract.totalPayable),
             commissionPercent: Number(contract.commissionPercent),
             commissionAmount: Number(contract.commissionAmount),
             vatRate: Number(contract.vatRate),
@@ -136,7 +146,7 @@ export class PaymentService {
         contractId: contract.id,
         conversationId: contract.conversationId,
         categoryId: contract.categoryId,
-        amount: Number(contract.agreedPrice),
+        amount: Number(contract.totalPayable),
         commissionPercent: Number(contract.commissionPercent),
         commissionAmount: Number(contract.commissionAmount),
         vatRate: Number(contract.vatRate),
@@ -190,10 +200,16 @@ export class PaymentService {
         throw this.notFound('CONVERSATION_NOT_FOUND', language);
       }
       const isProvider = principal.type === 'provider';
+      if (principal.type !== 'provider' && principal.type !== 'user') {
+        throw this.unauthorized(language);
+      }
       const isParticipant = isProvider
         ? conversation.providerId === principal.sub
         : conversation.userId === principal.sub;
       if (!isParticipant) {
+        throw this.unauthorized(language);
+      }
+      if (conversation.status !== ConversationStatus.ACTIVE) {
         throw this.unauthorized(language);
       }
       const listing = await manager.getRepository(Listing).findOne({
@@ -222,7 +238,7 @@ export class PaymentService {
       const payerType = isProvider ? PayerType.PROVIDER : PayerType.USER;
       const obligationKey = this.obligationKey(
         purpose,
-        conversation.id,
+        `${conversation.id}:${conversation.feeCycle}`,
         payerType,
         principal.sub,
       );
@@ -238,6 +254,8 @@ export class PaymentService {
             feeAmount: amount,
             paidAt,
             canSend: conversation.status === ConversationStatus.ACTIVE,
+            expiresAt: conversation.expiresAt,
+            feeCycle: conversation.feeCycle,
           },
           event: null as MessageAddedPayload | null,
         };
@@ -259,7 +277,11 @@ export class PaymentService {
             commissionAmount: 0,
             vatRate: 0,
             vatAmount: 0,
-            configSnapshot: { enabled, amount },
+            configSnapshot: {
+              enabled,
+              amount,
+              feeCycle: conversation.feeCycle,
+            },
             paymentMethod: PaymentMethod.MOCK,
             status: PaymentStatus.COMPLETED,
             transactionReference: `MOCK:${obligationKey}`,
@@ -274,7 +296,11 @@ export class PaymentService {
           commissionAmount: 0,
           vatRate: 0,
           vatAmount: 0,
-          configSnapshot: { enabled, amount },
+          configSnapshot: {
+            enabled,
+            amount,
+            feeCycle: conversation.feeCycle,
+          },
           paymentMethod: PaymentMethod.MOCK,
           status: PaymentStatus.COMPLETED,
           transactionReference: `MOCK:${obligationKey}`,
@@ -309,6 +335,8 @@ export class PaymentService {
           feeAmount: amount,
           paidAt: now,
           canSend: savedConversation.status === ConversationStatus.ACTIVE,
+          expiresAt: savedConversation.expiresAt,
+          feeCycle: savedConversation.feeCycle,
         },
         event,
       };
@@ -321,6 +349,96 @@ export class PaymentService {
       conversation: result.conversation,
       access: result.access,
     };
+  }
+
+  async settlePremiumAd(
+    listingId: string,
+    principal: JwtPayload,
+    language: LanguageCode = 'en',
+  ): Promise<PremiumAdPaymentResponse> {
+    if (principal.type !== 'provider') throw this.unauthorized(language);
+    const setting = await this.settingService.getSetting();
+    if (
+      !setting.premiumAdEnabled ||
+      Number(setting.premiumAdFee) <= 0 ||
+      setting.premiumAdDurationDays < 1
+    ) {
+      throw this.badRequest('PREMIUM_AD_DISABLED', language);
+    }
+    const result = await this.dataSource.transaction(async (manager) => {
+      const listing = await manager.getRepository(Listing).findOne({
+        where: { id: listingId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!listing) throw this.notFound('LISTING_NOT_FOUND', language);
+      if (listing.providerId !== principal.sub)
+        throw this.unauthorized(language);
+      if (
+        listing.promotionStatus === PromotionStatus.NONE ||
+        listing.promotionStatus === PromotionStatus.EXPIRED
+      ) {
+        listing.promotionStatus = PromotionStatus.PENDING_PAYMENT;
+        listing.promotionCycle = Math.max(1, listing.promotionCycle + 1);
+      }
+      const obligationKey = this.obligationKey(
+        PaymentPurpose.PREMIUM_AD,
+        `${listing.id}:${listing.promotionCycle}`,
+        PayerType.PROVIDER,
+        principal.sub,
+      );
+      const repository = manager.getRepository(Payment);
+      let payment = await repository.findOne({ where: { obligationKey } });
+      const now = new Date();
+      const endsAt = new Date(
+        now.getTime() + setting.premiumAdDurationDays * 86_400_000,
+      );
+      if (!payment) {
+        payment = await repository.save(
+          repository.create({
+            purpose: PaymentPurpose.PREMIUM_AD,
+            payerId: principal.sub,
+            payerType: PayerType.PROVIDER,
+            obligationKey,
+            contractId: null,
+            conversationId: null,
+            listingId: listing.id,
+            categoryId: listing.categoryId,
+            amount: Number(setting.premiumAdFee),
+            commissionPercent: 0,
+            commissionAmount: 0,
+            vatRate: 0,
+            vatAmount: 0,
+            configSnapshot: {
+              fee: Number(setting.premiumAdFee),
+              durationDays: setting.premiumAdDurationDays,
+              promotionCycle: listing.promotionCycle,
+            },
+            paymentMethod: PaymentMethod.MOCK,
+            status: PaymentStatus.COMPLETED,
+            transactionReference: `MOCK:${obligationKey}`,
+            gatewayResponse: JSON.stringify({ success: true, gateway: 'mock' }),
+            notes: 'Sprint 3 mock premium advertisement; no money moved.',
+          }),
+        );
+      }
+      if (listing.promotionStatus !== PromotionStatus.ACTIVE) {
+        listing.type = ListingType.FEATURED;
+        listing.status = ListingStatus.ACTIVE;
+        listing.promotionStatus = PromotionStatus.ACTIVE;
+        listing.featuredStartsAt = now;
+        listing.featuredEndsAt = endsAt;
+        await manager.getRepository(Listing).save(listing);
+      }
+      return { payment, listing };
+    });
+    void this.searchService
+      .indexListing(result.listing)
+      .catch((error) =>
+        this.logger.warn(
+          `Premium listing index refresh failed: ${String(error)}`,
+        ),
+      );
+    return result;
   }
 
   async findAll(
@@ -430,7 +548,11 @@ export class PaymentService {
   }
 
   private notFound(
-    code: 'PAYMENT_NOT_FOUND' | 'CONTRACT_NOT_FOUND' | 'CONVERSATION_NOT_FOUND',
+    code:
+      | 'PAYMENT_NOT_FOUND'
+      | 'CONTRACT_NOT_FOUND'
+      | 'CONVERSATION_NOT_FOUND'
+      | 'LISTING_NOT_FOUND',
     language: LanguageCode,
   ): I18nNotFoundException {
     const message = I18nService.translate(
@@ -438,6 +560,17 @@ export class PaymentService {
       language,
     );
     return new I18nNotFoundException({ en: message, ar: message }, language);
+  }
+
+  private badRequest(
+    code: 'PREMIUM_AD_DISABLED',
+    language: LanguageCode,
+  ): I18nBadRequestException {
+    const message = I18nService.translate(
+      PAYMENT_ERROR_MESSAGES[PAYMENT_ERROR_CODES[code]],
+      language,
+    );
+    return new I18nBadRequestException({ en: message, ar: message }, language);
   }
 
   private async publishSafely(payload: MessageAddedPayload): Promise<void> {

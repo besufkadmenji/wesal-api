@@ -10,6 +10,11 @@ import { ConversationStatus } from '../conversation/enums/conversation-status.en
 import { PaymentPurpose } from './enums/payment-purpose.enum';
 import { PayerType } from './enums/payer-type.enum';
 import { PaymentStatus } from './enums/payment-status.enum';
+import {
+  ListingStatus,
+  ListingType,
+  PromotionStatus,
+} from '../listing/enums/listing.enum';
 
 describe('PaymentService', () => {
   const paymentRepository = {
@@ -22,7 +27,10 @@ describe('PaymentService', () => {
     findOne: jest.fn(),
     save: jest.fn(async (value) => value),
   };
-  const listingRepository = { findOne: jest.fn() };
+  const listingRepository = {
+    findOne: jest.fn(),
+    save: jest.fn(async (value) => value),
+  };
   const categoryRepository = { findOne: jest.fn() };
   const manager = {
     getRepository: jest.fn((entity) => {
@@ -50,6 +58,8 @@ describe('PaymentService', () => {
     })),
     publish: jest.fn(),
   };
+  const settingService = { getSetting: jest.fn() };
+  const searchService = { indexListing: jest.fn(async () => undefined) };
   const service = new PaymentService(
     paymentRepository as never,
     { findOne: jest.fn() } as never,
@@ -57,6 +67,8 @@ describe('PaymentService', () => {
     dataSource as never,
     contractService as never,
     messageService as never,
+    settingService as never,
+    searchService as never,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -76,6 +88,7 @@ describe('PaymentService', () => {
       commissionAmount: 10,
       vatRate: 15,
       vatAmount: 1.5,
+      totalPayable: 575,
     };
     contractRepository.findOne.mockResolvedValue(contract);
     paymentRepository.findOne.mockResolvedValue(null);
@@ -89,7 +102,7 @@ describe('PaymentService', () => {
     expect(result.payment).toMatchObject({
       purpose: PaymentPurpose.CONTRACT,
       payerType: PayerType.USER,
-      amount: 500,
+      amount: 575,
       commissionAmount: 10,
       vatAmount: 1.5,
     });
@@ -158,5 +171,74 @@ describe('PaymentService', () => {
     expect(result.conversation.providerFeePaidAt).toBeInstanceOf(Date);
     expect(result.conversation.customerFeePaidAt).toBeNull();
     expect(result.access.canSend).toBe(true);
+  });
+
+  it('activates a premium listing atomically and reuses the cycle payment', async () => {
+    const listing = {
+      id: 'listing-id',
+      providerId: 'provider-id',
+      categoryId: 'category-id',
+      type: ListingType.FEATURED,
+      status: ListingStatus.PENDING_PAYMENT,
+      promotionStatus: PromotionStatus.PENDING_PAYMENT,
+      promotionCycle: 1,
+      featuredStartsAt: null,
+      featuredEndsAt: null,
+    };
+    listingRepository.findOne.mockResolvedValue(listing);
+    settingService.getSetting.mockResolvedValue({
+      premiumAdEnabled: true,
+      premiumAdFee: 75,
+      premiumAdDurationDays: 30,
+    });
+    paymentRepository.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'payment-id',
+        status: PaymentStatus.COMPLETED,
+      });
+
+    const principal = {
+      sub: listing.providerId,
+      email: 'provider@example.com',
+      type: 'provider' as const,
+    };
+    const first = await service.settlePremiumAd(listing.id, principal);
+    const retry = await service.settlePremiumAd(listing.id, principal);
+
+    expect(first.payment).toMatchObject({
+      purpose: PaymentPurpose.PREMIUM_AD,
+      amount: 75,
+      configSnapshot: { durationDays: 30, promotionCycle: 1 },
+    });
+    expect(first.listing).toMatchObject({
+      status: ListingStatus.ACTIVE,
+      promotionStatus: PromotionStatus.ACTIVE,
+    });
+    expect(retry.payment).toMatchObject({ id: 'payment-id' });
+    expect(paymentRepository.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects premium payment from a non-owner provider', async () => {
+    listingRepository.findOne.mockResolvedValue({
+      id: 'listing-id',
+      providerId: 'owner-id',
+      promotionStatus: PromotionStatus.PENDING_PAYMENT,
+      promotionCycle: 1,
+    });
+    settingService.getSetting.mockResolvedValue({
+      premiumAdEnabled: true,
+      premiumAdFee: 75,
+      premiumAdDurationDays: 30,
+    });
+
+    await expect(
+      service.settlePremiumAd('listing-id', {
+        sub: 'different-provider',
+        email: 'provider@example.com',
+        type: 'provider',
+      }),
+    ).rejects.toThrow();
+    expect(paymentRepository.save).not.toHaveBeenCalled();
   });
 });
