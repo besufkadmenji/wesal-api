@@ -80,14 +80,22 @@ describe('ContractService', () => {
     categoryRepository.findOne.mockResolvedValue({
       id: conversation.listing.categoryId,
       depositPercent: 10,
+      depositEnabled: true,
       commissionPercent: 2,
+      commissionEnabled: true,
       minCommissionAmount: 100,
+      minCommissionEnabled: true,
       contractDocumentEnabled: true,
       contractDocumentText: 'Binding terms',
       maxCompletionDays: 30,
+      maxCompletionDaysEnabled: true,
       maxTerminationDays: 5,
+      maxTerminationDaysEnabled: true,
     });
-    settingService.getSetting.mockResolvedValue({ vatRate: 15 });
+    settingService.getSetting.mockResolvedValue({
+      vatEnabled: true,
+      vatRate: 15,
+    });
     signatureRepository.findOne.mockResolvedValue(null);
   });
 
@@ -108,7 +116,9 @@ describe('ContractService', () => {
       commissionPercent: 2,
       commissionAmount: 10,
       vatRate: 15,
-      vatAmount: 1.5,
+      vatAmount: 75,
+      totalPayable: 575,
+      providerNetAmount: 490,
       contractDocumentText: 'Binding terms',
     });
   });

@@ -16,6 +16,9 @@ import { ContractQuote } from './dto/contract-quote.response';
 import { AcceptContractInput } from './dto/accept-contract.input';
 import { RejectContractInput } from './dto/reject-contract.input';
 import { ResendContractInput } from './dto/resend-contract.input';
+import { AdminAuthGuard } from '../admin/guards/admin-auth.guard';
+import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
+import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 
 @Resolver(() => Contract)
 @UseGuards(JwtAuthGuard)
@@ -50,6 +53,25 @@ export class ContractResolver {
     @GetLanguage() language: LanguageCode,
   ): Promise<Contract> {
     return this.contractService.findOne(id, principal, language);
+  }
+
+  @Query(() => PaginatedContractResponse, { name: 'adminContracts' })
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('contract', 'read')
+  adminFindAll(
+    @Args('input', { nullable: true }) input?: ContractPaginationInput,
+  ): Promise<IPaginatedType<Contract>> {
+    return this.contractService.findAll(input ?? {});
+  }
+
+  @Query(() => Contract, { name: 'adminContract' })
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('contract', 'read')
+  adminFindOne(
+    @Args('id') id: string,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Contract> {
+    return this.contractService.findOneAdmin(id, language);
   }
 
   @Query(() => ContractQuote, {

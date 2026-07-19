@@ -12,6 +12,7 @@ import { Category } from '../category/entities/category.entity';
 import { DeliveryCompany } from '../delivery-company/entities/delivery-company.entity';
 import { SettingModule } from '../setting/setting.module';
 import { ConversationModule } from '../conversation/conversation.module';
+import { AdminPermissionGuardModule } from '../../lib/common/admin-permission-guard.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { ConversationModule } from '../conversation/conversation.module';
     ]),
     SettingModule,
     ConversationModule,
+    AdminPermissionGuardModule,
   ],
   providers: [ContractResolver, ContractService],
   exports: [ContractService],

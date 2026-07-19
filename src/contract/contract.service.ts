@@ -97,7 +97,7 @@ export class ContractService {
     language: LanguageCode,
   ): void {
     const isClient =
-      principal.type !== 'provider' && principal.sub === contract.clientId;
+      principal.type === 'user' && principal.sub === contract.clientId;
     const isProvider =
       principal.type === 'provider' && principal.sub === contract.providerId;
     if (!isClient && !isProvider) {
@@ -120,7 +120,7 @@ export class ContractService {
     principal: JwtPayload,
     language: LanguageCode = 'en',
   ): Promise<ContractQuote> {
-    if (principal.type === 'provider') {
+    if (principal.type !== 'user') {
       throw this.unauthorized(language);
     }
     const conversation = await this.loadConversation(
@@ -146,7 +146,7 @@ export class ContractService {
     principal: JwtPayload,
     language: LanguageCode = 'en',
   ): Promise<Contract> {
-    if (principal.type === 'provider') {
+    if (principal.type !== 'user') {
       throw this.unauthorized(language);
     }
 
@@ -176,6 +176,7 @@ export class ContractService {
       const contract = manager.getRepository(Contract).create({
         ...this.contractValues(snapshot, conversation, input),
         version: 1,
+        pricingVersion: 2,
         supersedesContractId: null,
         status: ContractStatus.PENDING,
       });
@@ -207,7 +208,7 @@ export class ContractService {
     principal: JwtPayload,
     language: LanguageCode = 'en',
   ): Promise<Contract> {
-    if (principal.type === 'provider') {
+    if (principal.type !== 'user') {
       throw this.unauthorized(language);
     }
     const result = await this.dataSource.transaction(async (manager) => {
@@ -238,6 +239,7 @@ export class ContractService {
       const contract = manager.getRepository(Contract).create({
         ...this.contractValues(snapshot, conversation, input),
         version: rejected.version + 1,
+        pricingVersion: 2,
         supersedesContractId: rejected.id,
         status: ContractStatus.PENDING,
       });
@@ -440,6 +442,24 @@ export class ContractService {
     return contract;
   }
 
+  async findOneAdmin(
+    id: string,
+    language: LanguageCode = 'en',
+  ): Promise<Contract> {
+    const contract = await this.contractRepository.findOne({
+      where: { id },
+      relations: [
+        'conversation',
+        'client',
+        'provider',
+        'signatures',
+        'supersedesContract',
+      ],
+    });
+    if (!contract) throw this.notFound(language);
+    return contract;
+  }
+
   async transitionAfterPayment(
     contractId: string,
     manager: EntityManager,
@@ -555,14 +575,21 @@ export class ContractService {
     }
     const setting = await this.settingService.getSetting();
     const price = Number(agreedPrice);
-    const depositPercent = Number(category.depositPercent ?? 0);
-    const commissionPercent = Number(category.commissionPercent ?? 0);
-    const threshold = Number(category.minCommissionAmount ?? 0);
+    const depositPercent = category.depositEnabled
+      ? Number(category.depositPercent ?? 0)
+      : 0;
+    const commissionPercent = category.commissionEnabled
+      ? Number(category.commissionPercent ?? 0)
+      : 0;
+    const threshold = category.minCommissionEnabled
+      ? Number(category.minCommissionAmount ?? 0)
+      : 0;
     const commissionApplies = threshold <= 0 || price >= threshold;
     const commissionAmount = commissionApplies
       ? this.round(price * (commissionPercent / 100))
       : 0;
-    const vatRate = Number(setting?.vatRate ?? 0);
+    const vatRate = setting.vatEnabled ? Number(setting.vatRate ?? 0) : 0;
+    const vatAmount = this.round(price * (vatRate / 100));
     return {
       listingId: listing.id,
       categoryId: category.id,
@@ -578,12 +605,18 @@ export class ContractService {
       commissionPercent,
       commissionAmount,
       vatRate,
-      vatAmount: this.round(commissionAmount * (vatRate / 100)),
+      vatAmount,
+      totalPayable: this.round(price + vatAmount),
+      providerNetAmount: this.round(price - commissionAmount),
       contractDocumentText: category.contractDocumentEnabled
         ? category.contractDocumentText
         : '',
-      maxCompletionDays: category.maxCompletionDays,
-      maxTerminationDays: category.maxTerminationDays,
+      maxCompletionDays: category.maxCompletionDaysEnabled
+        ? category.maxCompletionDays
+        : null,
+      maxTerminationDays: category.maxTerminationDaysEnabled
+        ? category.maxTerminationDays
+        : null,
     };
   }
 
@@ -605,6 +638,8 @@ export class ContractService {
       commissionAmount: snapshot.commissionAmount,
       vatRate: snapshot.vatRate,
       vatAmount: snapshot.vatAmount,
+      totalPayable: snapshot.totalPayable,
+      providerNetAmount: snapshot.providerNetAmount,
       customerAddress: input.customerAddress.trim(),
       customerLatitude: input.customerLatitude ?? null,
       customerLongitude: input.customerLongitude ?? null,
@@ -635,6 +670,8 @@ export class ContractService {
       commissionAmount: snapshot.commissionAmount,
       vatRate: snapshot.vatRate,
       vatAmount: snapshot.vatAmount,
+      totalPayable: snapshot.totalPayable,
+      providerNetAmount: snapshot.providerNetAmount,
       contractDocumentText: snapshot.contractDocumentText,
       maxCompletionDays: snapshot.maxCompletionDays,
       maxTerminationDays: snapshot.maxTerminationDays,

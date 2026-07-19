@@ -72,6 +72,10 @@ export class Contract {
   @Column({ type: 'int', default: 1 })
   version: number;
 
+  @Field(() => Int)
+  @Column({ type: 'int', default: 2 })
+  pricingVersion: number;
+
   @Field(() => ID, { nullable: true })
   @Column({ type: 'uuid', nullable: true })
   supersedesContractId: string | null;
@@ -108,6 +112,14 @@ export class Contract {
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   vatAmount: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  totalPayable: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  providerNetAmount: number;
 
   @Field()
   @Column({ type: 'text' })

@@ -23,6 +23,12 @@ export class ContractQuote {
   @Field(() => Float)
   vatAmount: number;
 
+  @Field(() => Float)
+  totalPayable: number;
+
+  @Field(() => Float)
+  providerNetAmount: number;
+
   @Field()
   contractDocumentText: string;
 
