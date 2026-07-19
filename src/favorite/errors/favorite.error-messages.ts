@@ -14,6 +14,10 @@ export const FAVORITE_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Listing not found',
     ar: 'الإعلان غير موجود',
   },
+  [FAVORITE_ERROR_CODES.PROVIDER_NOT_FOUND]: {
+    en: 'Provider not found',
+    ar: 'مقدم الخدمة غير موجود',
+  },
   [FAVORITE_ERROR_CODES.DUPLICATE_FAVORITE]: {
     en: 'This listing is already in your favorites',
     ar: 'هذا الإعلان موجود بالفعل في المفضلة',
