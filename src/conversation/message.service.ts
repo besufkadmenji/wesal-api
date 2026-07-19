@@ -24,6 +24,7 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { MessageKind } from './enums/message-kind.enum';
 import { ConversationService } from './conversation.service';
 import { ConversationStatus } from './enums/conversation-status.enum';
+import { redactContactDetails } from '../../lib/security/contact-redaction';
 
 export const MESSAGE_ADDED_EVENT = 'messageAdded';
 
@@ -125,7 +126,7 @@ export class MessageService {
       conversationId: createMessageInput.conversationId,
       senderId: principal.sub,
       senderType,
-      content: createMessageInput.content,
+      content: redactContactDetails(createMessageInput.content),
       kind: MessageKind.TEXT,
       metadata: null,
     });
