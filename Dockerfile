@@ -29,6 +29,10 @@ RUN pnpm run build
 
 FROM node:24-bookworm-slim AS runtime
 
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV DB_SYNCHRONIZE=false
@@ -51,6 +55,6 @@ USER node
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-  CMD ["node", "-e", "fetch(`http://127.0.0.1:${process.env.PORT || 3000}/api`).then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+  CMD curl --fail --silent --show-error "http://127.0.0.1:${PORT:-3000}/api" > /dev/null || exit 1
 
 ENTRYPOINT ["./docker-entrypoint.sh"]
