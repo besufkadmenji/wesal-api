@@ -9,11 +9,11 @@ import {
 } from 'typeorm';
 import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
 import { User } from '../../user/entities/user.entity';
-import { Listing } from '../../listing/entities/listing.entity';
+import { Provider } from '../../provider/entities/provider.entity';
 
 @ObjectType()
 @Entity('favorites')
-@Unique(['userId', 'listingId'])
+@Unique(['userId', 'providerId'])
 export class Favorite {
   @Field(() => ID)
   @PrimaryGeneratedColumn('uuid')
@@ -39,12 +39,12 @@ export class Favorite {
 
   @Field()
   @Column({ type: 'uuid' })
-  listingId: string;
+  providerId: string;
 
-  @Field(() => Listing)
-  @ManyToOne(() => Listing)
-  @JoinColumn({ name: 'listingId' })
-  listing: Listing;
+  @Field(() => Provider)
+  @ManyToOne(() => Provider)
+  @JoinColumn({ name: 'providerId' })
+  provider: Provider;
 
   @Field()
   @CreateDateColumn()

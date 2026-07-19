@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { ContactMessageService } from './contact-message.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('Contact Messages', 'Export')
 @Controller('contact-messages')
+@AdminExport('contact_message')
 export class ContactMessageController {
   constructor(
     private readonly contactMessageService: ContactMessageService,

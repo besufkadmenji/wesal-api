@@ -1,5 +1,5 @@
 import { InputType, Field, registerEnumType } from '@nestjs/graphql';
-import { IsOptional, IsUUID, IsIn } from 'class-validator';
+import { IsOptional, IsIn } from 'class-validator';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 
 const FAVORITE_SORTABLE_FIELDS = ['id', 'createdAt'] as const;
@@ -18,16 +18,6 @@ registerEnumType(FavoriteSortFieldEnum, {
 
 @InputType()
 export class FavoritePaginationInput extends PaginationInput {
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsUUID()
-  userId?: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsUUID()
-  listingId?: string;
-
   @Field(() => FavoriteSortFieldEnum, {
     nullable: true,
     description: 'Sort field name',

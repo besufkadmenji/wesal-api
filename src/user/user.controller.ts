@@ -9,12 +9,14 @@ import {
 import type { Response } from 'express';
 import { UserService } from './user.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 // Fields exported in the users Excel/CSV file
 const USER_EXPORT_FIELDS = ['name', 'phone', 'email', 'avatarFilename'];
 
 @ApiTags('Users', 'Export')
 @Controller('users')
+@AdminExport('user')
 export class UserController {
   constructor(
     private readonly userService: UserService,

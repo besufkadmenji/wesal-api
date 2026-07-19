@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { SettingInput } from './dto/setting.input';
@@ -45,7 +45,25 @@ export class SettingService {
       where: { id: SETTINGS_ID },
     });
 
-    // Convert null/undefined to empty string for text fields and empty array for array fields
+    const current =
+      setting ?? this.settingRepository.create({ id: SETTINGS_ID });
+    const next = { ...current, ...input };
+    if (
+      next.premiumAdEnabled &&
+      (Number(next.premiumAdFee) <= 0 || next.premiumAdDurationDays < 1)
+    ) {
+      throw new BadRequestException(
+        'Enabled premium ads require a positive fee and duration',
+      );
+    }
+    if (
+      next.contractAcceptanceWindowEnabled &&
+      next.contractAcceptanceWindowDays < 1
+    ) {
+      throw new BadRequestException(
+        'Enabled contract acceptance window requires at least one day',
+      );
+    }
 
     if (setting) {
       // Update existing settings

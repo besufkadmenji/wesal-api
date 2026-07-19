@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { FaqService } from './faq.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('FAQs', 'Export')
 @Controller('faqs')
+@AdminExport('faq')
 export class FaqController {
   constructor(
     private readonly faqService: FaqService,

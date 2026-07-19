@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { NotificationService } from './notification.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('Notifications', 'Export')
 @Controller('notifications')
+@AdminExport('notification')
 export class NotificationController {
   constructor(
     private readonly notificationService: NotificationService,

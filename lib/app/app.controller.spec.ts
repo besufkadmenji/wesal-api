@@ -2,6 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { FileUploadService } from '../file-upload';
+import { AdminAuthGuard } from '../../src/admin/guards/admin-auth.guard';
+import { AdminPermissionGuard } from '../../src/admin/guards/admin-permission.guard';
+import { JwtAuthGuard } from '../../src/auth/guards/jwt-auth.guard';
+import { DataSource } from 'typeorm';
 
 describe('AppController', () => {
   let appController: AppController;
@@ -12,6 +16,22 @@ describe('AppController', () => {
       controllers: [AppController],
       providers: [
         AppService,
+        {
+          provide: AdminAuthGuard,
+          useValue: { canActivate: jest.fn(() => true) },
+        },
+        {
+          provide: AdminPermissionGuard,
+          useValue: { canActivate: jest.fn(() => true) },
+        },
+        {
+          provide: JwtAuthGuard,
+          useValue: { canActivate: jest.fn(() => true) },
+        },
+        {
+          provide: DataSource,
+          useValue: {},
+        },
         {
           provide: FileUploadService,
           useValue: {
@@ -32,7 +52,7 @@ describe('AppController', () => {
   });
 
   describe('uploadFile', () => {
-    it('should upload a file', () => {
+    it('should upload a file', async () => {
       const mockFile = {
         buffer: Buffer.from('test content'),
         originalname: 'test.txt',
@@ -40,24 +60,33 @@ describe('AppController', () => {
 
       const mockResult = {
         filename: 'test-1234567890.txt',
+        path: 'test-1234567890.txt',
         url: 'http://localhost:4000/uploads/test-1234567890.txt',
         size: 12,
       };
 
-      jest.spyOn(fileUploadService, 'saveFile').mockReturnValue(mockResult);
+      const saveFile = jest
+        .spyOn(fileUploadService, 'saveFile')
+        .mockResolvedValue(mockResult);
 
-      const result = appController.uploadFile(mockFile, undefined);
+      const result = await appController.uploadFile(mockFile, undefined);
 
-      expect(result).toEqual(mockResult);
-      expect(fileUploadService.saveFile).toHaveBeenCalledWith(
+      expect(result).toEqual({
+        filename: mockResult.filename,
+        url: `/files/${encodeURIComponent(mockResult.path)}`,
+        size: mockResult.size,
+      });
+      expect(saveFile).toHaveBeenCalledWith(
         mockFile.buffer,
         mockFile.originalname,
         undefined,
       );
     });
 
-    it('should throw error if no file provided', () => {
-      expect(() => appController.uploadFile(undefined, undefined)).toThrow();
+    it('should throw error if no file provided', async () => {
+      await expect(
+        appController.uploadFile(undefined, undefined),
+      ).rejects.toThrow();
     });
   });
 });

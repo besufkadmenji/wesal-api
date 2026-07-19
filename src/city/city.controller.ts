@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { CityService } from './city.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('Cities', 'Export')
 @Controller('cities')
+@AdminExport('city')
 export class CityController {
   constructor(
     private readonly cityService: CityService,

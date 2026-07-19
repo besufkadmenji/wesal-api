@@ -1,4 +1,4 @@
-import { Field, ObjectType, Int } from '@nestjs/graphql';
+import { Field, Float, ObjectType, Int } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
@@ -84,4 +84,34 @@ export class Setting {
   @Field(() => String, { nullable: true })
   @Column({ type: 'text', nullable: true })
   platformManagerSignature: string | null;
+
+  // Global VAT rate (country-rule based), as a percentage e.g. 15.00 = 15%.
+  // Applied in contract price calculations; per-section fees live on Category.
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  vatRate: number;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  vatEnabled: boolean;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  contractAcceptanceWindowEnabled: boolean;
+
+  @Field(() => Int)
+  @Column({ type: 'int', default: 0 })
+  contractAcceptanceWindowDays: number;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  premiumAdEnabled: boolean;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  premiumAdFee: number;
+
+  @Field(() => Int)
+  @Column({ type: 'int', default: 30 })
+  premiumAdDurationDays: number;
 }

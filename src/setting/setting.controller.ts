@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { SettingService } from './setting.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('Settings', 'Export')
 @Controller('settings')
+@AdminExport('setting')
 export class SettingController {
   constructor(
     private readonly settingService: SettingService,

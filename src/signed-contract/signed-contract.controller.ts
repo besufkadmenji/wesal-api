@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { SignedContractService } from './signed-contract.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('Signed Contracts', 'Export')
 @Controller('signed-contracts')
+@AdminExport('signed_contract')
 export class SignedContractController {
   constructor(
     private readonly signedContractService: SignedContractService,

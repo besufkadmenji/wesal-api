@@ -1,56 +1,52 @@
-import { InputType, Field, Float } from '@nestjs/graphql';
+import { Field, Float, InputType } from '@nestjs/graphql';
 import {
   IsNotEmpty,
-  IsUUID,
   IsNumber,
-  Min,
-  IsEnum,
   IsOptional,
-  IsArray,
-  ValidateNested,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+  MinLength,
 } from 'class-validator';
-import { Type } from 'class-transformer';
-import { ContractStatus } from '../enums/contract-status.enum';
-import { ContractSignatureInput } from './contract-signature.input';
 
 @InputType()
 export class CreateContractInput {
   @Field()
-  @IsNotEmpty()
   @IsUUID()
   conversationId: string;
 
-  @Field()
-  @IsNotEmpty()
-  @IsUUID()
-  clientId: string;
-
-  @Field()
-  @IsNotEmpty()
-  @IsUUID()
-  providerId: string;
-
   @Field(() => Float)
-  @IsNotEmpty()
   @IsNumber()
-  @Min(0)
+  @Min(0.01)
   agreedPrice: number;
 
-  @Field(() => Float)
+  @Field()
+  @IsString()
   @IsNotEmpty()
+  customerAddress: string;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
   @IsNumber()
-  @Min(0)
-  downPayment: number;
+  @Min(-90)
+  @Max(90)
+  customerLatitude?: number;
 
-  @Field(() => ContractStatus, { nullable: true })
+  @Field(() => Float, { nullable: true })
   @IsOptional()
-  @IsEnum(ContractStatus)
-  status?: ContractStatus;
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  customerLongitude?: number;
 
-  @Field(() => [ContractSignatureInput], { nullable: true })
+  @Field({ nullable: true })
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ContractSignatureInput)
-  signatures?: ContractSignatureInput[];
+  @IsUUID()
+  deliveryCompanyId?: string;
+
+  @Field()
+  @IsString()
+  @MinLength(1)
+  signatureData: string;
 }

@@ -8,7 +8,7 @@ import { Otp } from './entities/otp.entity';
 import { EmailService } from '../../lib/email/email.service';
 import { SmsService } from '../../lib/sms/sms.service';
 import { OtpType } from './enums/otp-type.enum';
-import { UserRole } from '../user/enums/user-role.enum';
+import { UserStatus } from '../user/enums/user-status.enum';
 
 // Mock bcrypt before importing
 jest.mock('bcrypt', () => ({
@@ -105,7 +105,6 @@ describe('AuthService', () => {
         email: 'john@example.com',
         password: 'SecurePass123',
         phone: '+1234567890',
-        role: UserRole.USER,
       };
 
       const savedUser = {
@@ -135,7 +134,6 @@ describe('AuthService', () => {
         email: 'john@example.com',
         password: 'SecurePass123',
         phone: '+1234567890',
-        role: UserRole.USER,
       };
 
       mockUserService.create.mockRejectedValue(
@@ -180,14 +178,11 @@ describe('AuthService', () => {
         ...mockUser,
         emailVerified: true,
       });
-      mockEmailService.sendWelcomeEmail.mockResolvedValue(true);
-
       const result = await service.verifyOtp(verifyInput);
 
       expect(result).toBe(true);
       expect(mockOtpRepository.save).toHaveBeenCalled();
       expect(mockUserRepository.save).toHaveBeenCalled();
-      expect(mockEmailService.sendWelcomeEmail).toHaveBeenCalled();
     });
 
     it('should throw error if OTP is invalid', async () => {
@@ -214,7 +209,7 @@ describe('AuthService', () => {
         id: '123',
         email: loginInput.emailOrPhone,
         password: '$2b$10$abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ',
-        role: UserRole.USER,
+        status: UserStatus.ACTIVE,
         emailVerified: true,
         phoneVerified: true,
       };

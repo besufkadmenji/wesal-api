@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { AdminPermissionService } from './admin-permission.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('Admin Permissions', 'Export')
 @Controller('admin-permissions')
+@AdminExport('admin_permission')
 export class AdminPermissionController {
   constructor(
     private readonly adminPermissionService: AdminPermissionService,

@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { ConversationService } from './conversation.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('Conversations', 'Export')
 @Controller('conversations')
+@AdminExport('conversation')
 export class ConversationController {
   constructor(
     private readonly conversationService: ConversationService,

@@ -1,4 +1,4 @@
-import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
+import { Field, Float, ID, Int, ObjectType } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
@@ -59,6 +59,73 @@ export class Category {
     default: CategoryStatus.ACTIVE,
   })
   status: CategoryStatus;
+
+  // --- Per-section fee & contract rules (admin-editable). See BRD § Section
+  // Management. Percentages are decimals (e.g. 2.00 = 2%); amounts/fees are in
+  // the platform currency; day-limits are whole days. Nullable so admins opt in.
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  commissionPercent: number | null;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  commissionEnabled: boolean;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  minCommissionAmount: number | null;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  minCommissionEnabled: boolean;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  depositPercent: number | null;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  depositEnabled: boolean;
+
+  @Field(() => Int, { nullable: true })
+  @Column({ type: 'int', nullable: true })
+  maxCompletionDays: number | null;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  maxCompletionDaysEnabled: boolean;
+
+  @Field(() => Int, { nullable: true })
+  @Column({ type: 'int', nullable: true })
+  maxTerminationDays: number | null;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  maxTerminationDaysEnabled: boolean;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  customerConversationFee: number | null;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  customerConversationFeeEnabled: boolean;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  providerConversationFee: number | null;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  providerConversationFeeEnabled: boolean;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  contractDocumentEnabled: boolean;
+
+  @Field()
+  @Column({ type: 'text', default: '' })
+  contractDocumentText: string;
 
   @Field()
   @CreateDateColumn()

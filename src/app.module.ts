@@ -34,6 +34,9 @@ import { BankModule } from './bank/bank.module';
 import { DeliveryCompanyModule } from './delivery-company/delivery-company.module';
 import { ProviderModule } from './provider/provider.module';
 import { TrackingModule } from './tracking/tracking.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ReportModule } from './report/report.module';
+import { AdminPermissionGuardModule } from '../lib/common/admin-permission-guard.module';
 
 // Parse DATABASE_URL if available, otherwise use individual env variables
 function getDatabaseConfig() {
@@ -69,11 +72,18 @@ function getDatabaseConfig() {
       isGlobal: true,
       envFilePath: '.env',
     }),
-    TypeOrmModule.forRoot({
-      ...getDatabaseConfig(),
-      entities: [__dirname + '/**/*.entity{.ts,.js}'],
-      migrations: [__dirname + '/migrations/*{.ts,.js}'],
-      synchronize: true,
+    ScheduleModule.forRoot(),
+    AdminPermissionGuardModule,
+    TypeOrmModule.forRootAsync({
+      useFactory: () => ({
+        ...getDatabaseConfig(),
+        entities: [__dirname + '/**/*.entity{.ts,.js}'],
+        migrations: [__dirname + '/migrations/*{.ts,.js}'],
+        synchronize:
+          process.env.DB_SYNCHRONIZE !== undefined
+            ? process.env.DB_SYNCHRONIZE === 'true'
+            : process.env.NODE_ENV !== 'production',
+      }),
     }),
     ServeStaticModule.forRoot({
       rootPath:
@@ -111,6 +121,7 @@ function getDatabaseConfig() {
     BankModule,
     DeliveryCompanyModule,
     TrackingModule,
+    ReportModule,
   ],
   controllers: [AppController],
   providers: [AppService],

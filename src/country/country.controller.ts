@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { CountryService } from './country.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('Countries', 'Export')
 @Controller('countries')
+@AdminExport('country')
 export class CountryController {
   constructor(
     private readonly countryService: CountryService,

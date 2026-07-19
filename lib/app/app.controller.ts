@@ -6,6 +6,7 @@ import {
   Post,
   Query,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
   Param,
   Res,
@@ -23,6 +24,8 @@ import {
 } from '@nestjs/swagger';
 import { FileUploadService } from '../file-upload';
 import { AppService } from './app.service';
+import { JwtAuthGuard } from '../../src/auth/guards/jwt-auth.guard';
+import { AdminExport } from '../../src/admin/decorators/admin-export.decorator';
 
 @ApiTags('General', 'File Management')
 @Controller()
@@ -40,6 +43,7 @@ export class AppController {
   }
 
   @Get('exports/available')
+  @AdminExport('report')
   @ApiOperation({ summary: 'Get list of all available export models' })
   @ApiResponse({
     status: 200,
@@ -221,7 +225,21 @@ export class AppController {
   }
 
   @Post('upload')
-  @UseInterceptors(FileInterceptor('file'))
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 10 * 1024 * 1024 },
+      fileFilter: (_request, file, callback) => {
+        const allowed = new Set(['image/jpeg', 'image/png', 'video/mp4']);
+        callback(
+          allowed.has(file.mimetype)
+            ? null
+            : new BadRequestException('Unsupported file type'),
+          allowed.has(file.mimetype),
+        );
+      },
+    }),
+  )
   @ApiOperation({ summary: 'Upload a file' })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -256,24 +274,31 @@ export class AppController {
   })
   @ApiResponse({ status: 400, description: 'Bad request - Invalid file' })
   async uploadFile(
-    @UploadedFile() file: any,
+    @UploadedFile()
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+      size: number;
+    },
     @Query('subfolder') subfolder?: string,
   ) {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     if (!file.buffer || !file.originalname) {
       throw new BadRequestException('Invalid file format');
     }
 
+    if (subfolder && !/^[a-z0-9/_-]+$/i.test(subfolder)) {
+      throw new BadRequestException('Invalid subfolder');
+    }
+
     try {
       const result = await this.fileUploadService.saveFile(
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        file.buffer as Buffer,
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        file.originalname as string,
+        file.buffer,
+        file.originalname,
         subfolder,
       );
 

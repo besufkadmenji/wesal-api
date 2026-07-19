@@ -7,6 +7,7 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Unique,
 } from 'typeorm';
 import { ObjectType, Field, ID, Float, Int } from '@nestjs/graphql';
 import { Conversation } from '../../conversation/entities/conversation.entity';
@@ -17,6 +18,7 @@ import { ContractSignature } from './contract-signature.entity';
 
 @ObjectType()
 @Entity('contracts')
+@Unique(['conversationId', 'version'])
 export class Contract {
   @Field(() => ID)
   @PrimaryGeneratedColumn('uuid')
@@ -42,6 +44,14 @@ export class Contract {
 
   @Field()
   @Column({ type: 'uuid' })
+  listingId: string;
+
+  @Field()
+  @Column({ type: 'uuid' })
+  categoryId: string;
+
+  @Field()
+  @Column({ type: 'uuid' })
   clientId: string;
 
   @Field(() => User)
@@ -58,13 +68,118 @@ export class Contract {
   @JoinColumn({ name: 'providerId' })
   provider: Provider;
 
+  @Field(() => Int)
+  @Column({ type: 'int', default: 1 })
+  version: number;
+
+  @Field(() => Int)
+  @Column({ type: 'int', default: 2 })
+  pricingVersion: number;
+
+  @Field(() => ID, { nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  supersedesContractId: string | null;
+
+  @Field(() => Contract, { nullable: true })
+  @ManyToOne(() => Contract, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'supersedesContractId' })
+  supersedesContract: Contract | null;
+
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   agreedPrice: number;
 
   @Field(() => Float)
-  @Column({ type: 'decimal', precision: 10, scale: 2 })
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  depositPercent: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   downPayment: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  commissionPercent: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  commissionAmount: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  vatRate: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  vatAmount: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  totalPayable: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  providerNetAmount: number;
+
+  @Field()
+  @Column({ type: 'text' })
+  customerAddress: string;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
+  customerLatitude: number | null;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
+  customerLongitude: number | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  providerAddress: string | null;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
+  providerLatitude: number | null;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
+  providerLongitude: number | null;
+
+  @Field(() => ID, { nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  deliveryCompanyId: string | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  deliveryCompanyNameEn: string | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  deliveryCompanyNameAr: string | null;
+
+  @Field()
+  @Column({ type: 'text', default: '' })
+  categoryRulesEn: string;
+
+  @Field()
+  @Column({ type: 'text', default: '' })
+  categoryRulesAr: string;
+
+  @Field()
+  @Column({ type: 'text', default: '' })
+  contractDocumentText: string;
+
+  @Field(() => Int, { nullable: true })
+  @Column({ type: 'int', nullable: true })
+  maxCompletionDays: number | null;
+
+  @Field(() => Int, { nullable: true })
+  @Column({ type: 'int', nullable: true })
+  maxTerminationDays: number | null;
+
+  @Field(() => Int, { nullable: true })
+  @Column({ type: 'int', nullable: true })
+  deliveryTimeDays: number | null;
 
   @Field(() => ContractStatus)
   @Column({
@@ -74,7 +189,19 @@ export class Contract {
   })
   status: ContractStatus;
 
-  @Field(() => [ContractSignature], { nullable: true })
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  rejectionReason: string | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  acceptedAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  rejectedAt: Date | null;
+
+  @Field(() => [ContractSignature])
   @OneToMany(() => ContractSignature, (signature) => signature.contract, {
     cascade: true,
   })

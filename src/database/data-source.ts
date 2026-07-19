@@ -33,6 +33,7 @@ function getDatabaseConfig() {
 export const AppDataSource = new DataSource({
   ...getDatabaseConfig(),
   entities: [path.join(__dirname, '..', '**', '*.entity{.ts,.js}')],
-  synchronize: true,
+  migrations: [path.join(__dirname, '..', 'migrations', '*{.ts,.js}')],
+  synchronize: false,
   logging: false,
 });

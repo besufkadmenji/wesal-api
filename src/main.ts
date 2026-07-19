@@ -5,9 +5,15 @@ import { AppModule } from './app.module';
 import { ValidationExceptionFilter } from '../lib/i18n/validation.exception-filter';
 import { runDatabaseSeeds } from './database/seeds/run-seeds';
 import { AppDataSource } from './database/data-source';
+import { graphqlUploadExpress } from 'graphql-upload-ts';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.use(
+    '/graphql',
+    graphqlUploadExpress({ maxFileSize: 5 * 1024 * 1024, maxFiles: 3 }),
+  );
 
   // Enable global validation pipe for both HTTP and GraphQL
   app.useGlobalPipes(

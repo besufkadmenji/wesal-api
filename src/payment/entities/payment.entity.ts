@@ -8,10 +8,14 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { ObjectType, Field, ID, Float, Int } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
 import { Contract } from '../../contract/entities/contract.entity';
-import { User } from '../../user/entities/user.entity';
+import { Conversation } from '../../conversation/entities/conversation.entity';
+import { Listing } from '../../listing/entities/listing.entity';
 import { PaymentStatus } from '../enums/payment-status.enum';
 import { PaymentMethod } from '../enums/payment-method.enum';
+import { PaymentPurpose } from '../enums/payment-purpose.enum';
+import { PayerType } from '../enums/payer-type.enum';
 
 @ObjectType()
 @Entity('payments')
@@ -29,55 +33,99 @@ export class Payment {
   })
   publicId: number | null;
 
+  @Field(() => PaymentPurpose)
+  @Column({ type: 'enum', enum: PaymentPurpose })
+  purpose: PaymentPurpose;
+
   @Field()
   @Column({ type: 'uuid' })
-  contractId: string;
+  payerId: string;
 
-  @Field(() => Contract)
-  @ManyToOne(() => Contract)
+  @Field(() => PayerType)
+  @Column({ type: 'enum', enum: PayerType })
+  payerType: PayerType;
+
+  @Column({ type: 'varchar', length: 255, unique: true })
+  obligationKey: string;
+
+  @Field(() => ID, { nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  contractId: string | null;
+
+  @Field(() => Contract, { nullable: true })
+  @ManyToOne(() => Contract, { nullable: true })
   @JoinColumn({ name: 'contractId' })
-  contract: Contract;
+  contract: Contract | null;
 
-  @Field()
-  @Column({ type: 'uuid' })
-  userId: string;
+  @Field(() => ID, { nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  conversationId: string | null;
 
-  @Field(() => User)
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'userId' })
-  user: User;
+  @Field(() => Conversation, { nullable: true })
+  @ManyToOne(() => Conversation, { nullable: true })
+  @JoinColumn({ name: 'conversationId' })
+  conversation: Conversation | null;
+
+  @Field(() => ID, { nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  listingId: string | null;
+
+  @Field(() => Listing, { nullable: true })
+  @ManyToOne(() => Listing, { nullable: true })
+  @JoinColumn({ name: 'listingId' })
+  listing: Listing | null;
+
+  @Field(() => ID, { nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  categoryId: string | null;
 
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   amount: number;
 
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  commissionPercent: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  commissionAmount: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
+  vatRate: number;
+
+  @Field(() => Float)
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  vatAmount: number;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  @Column({ type: 'jsonb', nullable: true })
+  configSnapshot: Record<string, unknown> | null;
+
   @Field(() => PaymentMethod)
-  @Column({
-    type: 'enum',
-    enum: PaymentMethod,
-    default: PaymentMethod.CREDIT_CARD,
-  })
+  @Column({ type: 'enum', enum: PaymentMethod, default: PaymentMethod.MOCK })
   paymentMethod: PaymentMethod;
 
   @Field(() => PaymentStatus)
   @Column({
     type: 'enum',
     enum: PaymentStatus,
-    default: PaymentStatus.PENDING,
+    default: PaymentStatus.COMPLETED,
   })
   status: PaymentStatus;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Column({ type: 'varchar', length: 255, nullable: true })
-  transactionReference?: string;
+  transactionReference: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Column({ type: 'text', nullable: true })
-  gatewayResponse?: string;
+  gatewayResponse: string | null;
 
-  @Field({ nullable: true })
+  @Field(() => String, { nullable: true })
   @Column({ type: 'text', nullable: true })
-  notes?: string;
+  notes: string | null;
 
   @Field()
   @CreateDateColumn()

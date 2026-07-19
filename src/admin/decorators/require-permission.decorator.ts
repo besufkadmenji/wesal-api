@@ -20,4 +20,4 @@ export const RequirePermission = (
   module: string,
   action: string,
 ): MethodDecorator & ClassDecorator =>
-  SetMetadata(PERMISSION_KEY, { module, action } as PermissionRequirement);
+  SetMetadata(PERMISSION_KEY, { module, action });

@@ -1,20 +1,35 @@
+import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
 import {
-  Entity,
-  PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
-  ManyToOne,
+  Entity,
   JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  Unique,
+  UpdateDateColumn,
 } from 'typeorm';
-import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
-import { User } from '../../user/entities/user.entity';
+import { Admin } from '../../admin/entities/admin.entity';
+import { Contract } from '../../contract/entities/contract.entity';
+import { Conversation } from '../../conversation/entities/conversation.entity';
 import { Listing } from '../../listing/entities/listing.entity';
 import { ComplaintStatus } from '../enums/complaint-status.enum';
-import { ComplaintReason } from '../enums/complaint-reason.enum';
+import { ComplaintReporterType } from '../enums/complaint-reporter-type.enum';
+import { ComplaintMessage } from './complaint-message.entity';
+
+export interface ComplaintAttachment {
+  filename: string;
+  path: string;
+  url: string;
+  mimeType: 'image/jpeg' | 'image/png';
+  size: number;
+}
 
 @ObjectType()
 @Entity('complaints')
+@Unique(['reporterId', 'reporterType', 'conversationId'])
 export class Complaint {
   @Field(() => ID)
   @PrimaryGeneratedColumn('uuid')
@@ -29,16 +44,15 @@ export class Complaint {
   })
   publicId: number | null;
 
-  @Field()
+  @Field(() => ID)
   @Column({ type: 'uuid' })
-  userId: string;
+  reporterId: string;
 
-  @Field(() => User)
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'userId' })
-  user: User;
+  @Field(() => ComplaintReporterType)
+  @Column({ type: 'enum', enum: ComplaintReporterType })
+  reporterType: ComplaintReporterType;
 
-  @Field()
+  @Field(() => ID)
   @Column({ type: 'uuid' })
   listingId: string;
 
@@ -47,16 +61,35 @@ export class Complaint {
   @JoinColumn({ name: 'listingId' })
   listing: Listing;
 
-  @Field(() => ComplaintReason)
-  @Column({
-    type: 'enum',
-    enum: ComplaintReason,
-  })
-  reason: ComplaintReason;
+  @Field(() => ID)
+  @Column({ type: 'uuid' })
+  conversationId: string;
+
+  @Field(() => Conversation)
+  @ManyToOne(() => Conversation)
+  @JoinColumn({ name: 'conversationId' })
+  conversation: Conversation;
+
+  @Field(() => ID, { nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  contractId: string | null;
+
+  @Field(() => Contract, { nullable: true })
+  @ManyToOne(() => Contract, { nullable: true })
+  @JoinColumn({ name: 'contractId' })
+  contract: Contract | null;
+
+  @Field()
+  @Column({ type: 'varchar', length: 200 })
+  title: string;
 
   @Field()
   @Column({ type: 'text' })
   description: string;
+
+  @Field(() => GraphQLJSON)
+  @Column({ type: 'jsonb', default: [] })
+  attachments: ComplaintAttachment[];
 
   @Field(() => ComplaintStatus)
   @Column({
@@ -66,22 +99,22 @@ export class Complaint {
   })
   status: ComplaintStatus;
 
-  @Field({ nullable: true })
-  @Column({ type: 'text', nullable: true })
-  adminResponse?: string;
-
-  @Field({ nullable: true })
+  @Field(() => ID, { nullable: true })
   @Column({ type: 'uuid', nullable: true })
-  reviewedBy?: string;
+  reviewedByAdminId: string | null;
 
-  @Field(() => User, { nullable: true })
-  @ManyToOne(() => User, { nullable: true })
-  @JoinColumn({ name: 'reviewedBy' })
-  reviewer?: User;
+  @Field(() => Admin, { nullable: true })
+  @ManyToOne(() => Admin, { nullable: true })
+  @JoinColumn({ name: 'reviewedByAdminId' })
+  reviewer: Admin | null;
 
-  @Field({ nullable: true })
-  @Column({ type: 'timestamp', nullable: true })
-  reviewedAt?: Date;
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  reviewedAt: Date | null;
+
+  @Field(() => [ComplaintMessage])
+  @OneToMany(() => ComplaintMessage, (message) => message.complaint)
+  messages: ComplaintMessage[];
 
   @Field()
   @CreateDateColumn()

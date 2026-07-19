@@ -1,12 +1,17 @@
-import { Field, InputType } from '@nestjs/graphql';
+import { Field, Float, InputType, Int } from '@nestjs/graphql';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsBoolean,
   IsEmail,
   IsEnum,
+  IsNumber,
+  IsInt,
   IsOptional,
   IsString,
   Matches,
+  Max,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { SocialMediaPlatform } from './social-media-link.type';
@@ -51,7 +56,7 @@ export class SettingInput {
   @Field({ nullable: true })
   @IsOptional()
   @IsEmail({ allow_utf8_local_part: false, require_tld: true })
-  @Matches(/^[\x00-\x7F]+$/, {
+  @Matches(/^\p{ASCII}+$/u, {
     message: 'email must contain only ASCII characters',
   })
   email?: string;
@@ -87,6 +92,46 @@ export class SettingInput {
   @IsOptional()
   @IsString()
   platformManagerSignature?: string | null;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  vatRate?: number;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  vatEnabled?: boolean;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  contractAcceptanceWindowEnabled?: boolean;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  contractAcceptanceWindowDays?: number;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  premiumAdEnabled?: boolean;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  premiumAdFee?: number;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  premiumAdDurationDays?: number;
 }
 
 @InputType()

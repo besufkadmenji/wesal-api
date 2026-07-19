@@ -1,5 +1,5 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsNotEmpty, IsUUID, IsBoolean, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsUUID } from 'class-validator';
 
 @InputType()
 export class CreateConversationInput {
@@ -8,18 +8,6 @@ export class CreateConversationInput {
   @IsUUID()
   listingId: string;
 
-  @Field()
-  @IsNotEmpty()
-  @IsUUID()
-  userId: string;
-
-  @Field()
-  @IsNotEmpty()
-  @IsUUID()
-  providerId: string;
-
-  @Field({ nullable: true })
-  @IsOptional()
-  @IsBoolean()
-  isPaid?: boolean;
+  // The customer (userId) is taken from the authenticated token and the
+  // provider (providerId) is derived from the listing — never from the client.
 }

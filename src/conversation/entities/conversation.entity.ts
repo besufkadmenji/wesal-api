@@ -11,7 +11,9 @@ import {
 import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
 import { Listing } from '../../listing/entities/listing.entity';
 import { User } from '../../user/entities/user.entity';
+import { Provider } from '../../provider/entities/provider.entity';
 import { Message } from './message.entity';
+import { ConversationStatus } from '../enums/conversation-status.enum';
 
 @ObjectType()
 @Entity('conversations')
@@ -51,14 +53,50 @@ export class Conversation {
   @Column({ type: 'uuid' })
   providerId: string;
 
-  @Field(() => User)
-  @ManyToOne(() => User)
+  @Field(() => Provider)
+  @ManyToOne(() => Provider)
   @JoinColumn({ name: 'providerId' })
-  provider: User;
+  provider: Provider;
 
-  @Field()
-  @Column({ type: 'boolean', default: false })
-  isPaid: boolean;
+  @Field(() => ConversationStatus)
+  @Column({
+    type: 'enum',
+    enum: ConversationStatus,
+    default: ConversationStatus.ACTIVE,
+  })
+  status: ConversationStatus;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  expiresAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  closedAt: Date | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  closeReason: string | null;
+
+  @Field(() => Int)
+  @Column({ type: 'int', default: 1 })
+  feeCycle: number;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  customerFeePaidAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  providerFeePaidAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  customerLastReadAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  providerLastReadAt: Date | null;
 
   @Field(() => [Message], { nullable: true })
   @OneToMany(() => Message, (message) => message.conversation, {

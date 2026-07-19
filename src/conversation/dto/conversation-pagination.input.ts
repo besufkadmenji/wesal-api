@@ -1,10 +1,11 @@
 import { InputType, Field, registerEnumType } from '@nestjs/graphql';
-import { IsOptional, IsUUID, IsBoolean, IsIn } from 'class-validator';
+import { IsOptional, IsUUID, IsIn, IsEnum } from 'class-validator';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
+import { ConversationStatus } from '../enums/conversation-status.enum';
 
 const CONVERSATION_SORTABLE_FIELDS = [
   'id',
-  'isPaid',
+  'status',
   'createdAt',
   'updatedAt',
 ] as const;
@@ -14,7 +15,7 @@ export type ConversationSortField =
 
 export enum ConversationSortFieldEnum {
   id = 'id',
-  isPaid = 'isPaid',
+  status = 'status',
   createdAt = 'createdAt',
   updatedAt = 'updatedAt',
 }
@@ -41,10 +42,10 @@ export class ConversationPaginationInput extends PaginationInput {
   @IsUUID()
   providerId?: string;
 
-  @Field({ nullable: true })
+  @Field(() => ConversationStatus, { nullable: true })
   @IsOptional()
-  @IsBoolean()
-  isPaid?: boolean;
+  @IsEnum(ConversationStatus)
+  status?: ConversationStatus;
 
   @Field(() => ConversationSortFieldEnum, {
     nullable: true,

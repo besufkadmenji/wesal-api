@@ -1,0 +1,210 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/require-await */
+import { ContractService } from './contract.service';
+import { Contract } from './entities/contract.entity';
+import { ContractSignature } from './entities/contract-signature.entity';
+import { Conversation } from '../conversation/entities/conversation.entity';
+import { Listing } from '../listing/entities/listing.entity';
+import { Category } from '../category/entities/category.entity';
+import { Provider } from '../provider/entities/provider.entity';
+import { DeliveryCompany } from '../delivery-company/entities/delivery-company.entity';
+import { ContractStatus } from './enums/contract-status.enum';
+
+describe('ContractService', () => {
+  const contractRepository = {
+    findOne: jest.fn(),
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+  };
+  const conversationRepository = { findOne: jest.fn() };
+  const listingRepository = { findOne: jest.fn() };
+  const categoryRepository = { findOne: jest.fn() };
+  const providerRepository = { findOne: jest.fn() };
+  const deliveryCompanyRepository = { findOne: jest.fn() };
+  const signatureRepository = {
+    findOne: jest.fn(),
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => ({ id: 'signature-id', ...value })),
+  };
+  const manager = {
+    getRepository: jest.fn((entity) => {
+      if (entity === Contract) return contractRepository;
+      if (entity === Conversation) return conversationRepository;
+      if (entity === Listing) return listingRepository;
+      if (entity === Category) return categoryRepository;
+      if (entity === Provider) return providerRepository;
+      if (entity === DeliveryCompany) return deliveryCompanyRepository;
+      if (entity === ContractSignature) return signatureRepository;
+      return {};
+    }),
+  };
+  const dataSource = {
+    manager,
+    transaction: jest.fn(async (callback) => callback(manager)),
+  };
+  const settingService = { getSetting: jest.fn() };
+  const messageService = {
+    persistSystemEvent: jest.fn(async () => ({
+      messageAdded: { id: 'message-id' },
+      participants: [],
+    })),
+    publish: jest.fn(),
+  };
+  const service = new ContractService(
+    contractRepository as never,
+    conversationRepository as never,
+    {} as never,
+    providerRepository as never,
+    dataSource as never,
+    settingService as never,
+    messageService as never,
+  );
+
+  const conversation = {
+    id: '5fa17f3e-5eb4-4b87-958a-85859b83656d',
+    listingId: '16f43bf8-42a7-424c-8f62-0aa74422669b',
+    userId: '24f67fef-b430-474a-8849-a8dca645f3de',
+    providerId: '7842b840-fcb2-4ebf-8de4-64af766a1333',
+    listing: {
+      id: '16f43bf8-42a7-424c-8f62-0aa74422669b',
+      categoryId: '31261a67-3386-492c-b065-00601e4692fd',
+    },
+    provider: {
+      id: '7842b840-fcb2-4ebf-8de4-64af766a1333',
+      address: 'Provider address',
+    },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    conversationRepository.findOne.mockResolvedValue(conversation);
+    categoryRepository.findOne.mockResolvedValue({
+      id: conversation.listing.categoryId,
+      depositPercent: 10,
+      depositEnabled: true,
+      commissionPercent: 2,
+      commissionEnabled: true,
+      minCommissionAmount: 100,
+      minCommissionEnabled: true,
+      contractDocumentEnabled: true,
+      contractDocumentText: 'Binding terms',
+      maxCompletionDays: 30,
+      maxCompletionDaysEnabled: true,
+      maxTerminationDays: 5,
+      maxTerminationDaysEnabled: true,
+    });
+    settingService.getSetting.mockResolvedValue({
+      vatEnabled: true,
+      vatRate: 15,
+    });
+    signatureRepository.findOne.mockResolvedValue(null);
+  });
+
+  it('calculates contract terms on the server', async () => {
+    const quote = await service.quote(
+      { conversationId: conversation.id, agreedPrice: 500 },
+      {
+        sub: conversation.userId,
+        email: 'customer@example.com',
+        type: 'user',
+      },
+    );
+
+    expect(quote).toMatchObject({
+      agreedPrice: 500,
+      depositPercent: 10,
+      downPayment: 50,
+      commissionPercent: 2,
+      commissionAmount: 10,
+      vatRate: 15,
+      vatAmount: 75,
+      totalPayable: 575,
+      providerNetAmount: 490,
+      contractDocumentText: 'Binding terms',
+    });
+  });
+
+  it('rejects provider delivery time above the snapshot limit', async () => {
+    const contract = {
+      id: 'contract-id',
+      conversationId: conversation.id,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      status: ContractStatus.PENDING,
+      version: 1,
+      maxCompletionDays: 10,
+    };
+    contractRepository.findOne
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract);
+
+    await expect(
+      service.acceptContract(
+        {
+          contractId: contract.id,
+          signatureData: 'signature',
+          deliveryTimeDays: 11,
+        },
+        {
+          sub: conversation.providerId,
+          email: 'provider@example.com',
+          type: 'provider',
+        },
+      ),
+    ).rejects.toThrow();
+    expect(contractRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('requires a non-blank contract rejection reason', async () => {
+    await expect(
+      service.rejectContract(
+        { contractId: 'contract-id', reason: '   ' },
+        {
+          sub: conversation.providerId,
+          email: 'provider@example.com',
+          type: 'provider',
+        },
+      ),
+    ).rejects.toThrow('rejection reason');
+    expect(contractRepository.findOne).not.toHaveBeenCalled();
+  });
+
+  it('resends a rejected contract as an immutable new version', async () => {
+    const rejected = {
+      id: 'rejected-contract-id',
+      conversationId: conversation.id,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      status: ContractStatus.REJECTED,
+      version: 1,
+    };
+    contractRepository.findOne
+      .mockResolvedValueOnce(rejected)
+      .mockResolvedValueOnce(rejected);
+    contractRepository.save.mockImplementation(async (value) => ({
+      id: 'resent-contract-id',
+      ...value,
+    }));
+
+    const resent = await service.resendContract(
+      {
+        rejectedContractId: rejected.id,
+        agreedPrice: 600,
+        customerAddress: 'Customer address',
+        signatureData: 'new-signature',
+      },
+      {
+        sub: conversation.userId,
+        email: 'customer@example.com',
+        type: 'user',
+      },
+    );
+
+    expect(resent).toMatchObject({
+      id: 'resent-contract-id',
+      version: 2,
+      supersedesContractId: rejected.id,
+      status: ContractStatus.PENDING,
+    });
+    expect(rejected.status).toBe(ContractStatus.REJECTED);
+  });
+});

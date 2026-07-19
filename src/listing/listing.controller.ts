@@ -10,9 +10,11 @@ import {
 import type { Response } from 'express';
 import { ListingService } from './listing.service';
 import { CsvExportService } from '../../lib/csv-export';
+import { AdminExport } from '../admin/decorators/admin-export.decorator';
 
 @ApiTags('Listings', 'Export')
 @Controller('listings')
+@AdminExport('listing')
 export class ListingController {
   constructor(
     private readonly listingService: ListingService,
