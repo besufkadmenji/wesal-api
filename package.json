@@ -8,18 +8,20 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
-    "format": "prettier --write \"src/**/*.ts\" \"lib/**/*.ts\" \"test/**/*.ts\"",
+    "format": "prettier --write \"src/**/*.ts\" \"lib/**/*.ts\" \"scripts/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/src/main.js",
-    "lint": "eslint \"{src,lib,apps,test}/**/*.ts\" --fix",
+    "lint": "eslint \"{src,lib,apps,scripts,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "seed": "ts-node src/cli-seed.ts",
+    "seed:demo:api": "ts-node scripts/demo-seed/index.ts",
+    "seed:demo:assets": "ts-node scripts/demo-seed/prepare-demo-assets.ts",
     "seed:prod": "node dist/cli-seed",
     "search:reindex": "ts-node -r tsconfig-paths/register src/reindex.ts",
     "search:reindex:prod": "node dist/reindex",
@@ -119,7 +121,8 @@
     "rootDir": "./",
     "roots": [
       "<rootDir>/src",
-      "<rootDir>/lib"
+      "<rootDir>/lib",
+      "<rootDir>/scripts"
     ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {

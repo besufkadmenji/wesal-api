@@ -53,6 +53,7 @@ lerna-debug.log*
 pids
 *.pid
 *.seed
+.demo-seed-state/
 *.pid.lock
 
 # Diagnostic reports (https://nodejs.org/api/report.html)

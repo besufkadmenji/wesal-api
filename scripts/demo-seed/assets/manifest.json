@@ -1,0 +1,1828 @@
+{
+  "version": 1,
+  "license": {
+    "name": "Creative Commons images indexed by Openverse",
+    "note": "Each unchanged photo records its creator, landing page, and license. Search is restricted to commercial use and modification-compatible licenses."
+  },
+  "categories": [
+    {
+      "slug": "real-estate",
+      "categoryNames": ["real estate"],
+      "files": [
+        "categories/real-estate/01.jpg",
+        "categories/real-estate/02.jpg",
+        "categories/real-estate/03.jpg",
+        "categories/real-estate/04.jpg",
+        "categories/real-estate/05.jpg",
+        "categories/real-estate/06.jpg",
+        "categories/real-estate/07.jpg",
+        "categories/real-estate/08.jpg",
+        "categories/real-estate/09.jpg",
+        "categories/real-estate/10.jpg"
+      ]
+    },
+    {
+      "slug": "jewelry-watches",
+      "categoryNames": ["Jewelry & Watches"],
+      "files": [
+        "categories/jewelry-watches/01.jpg",
+        "categories/jewelry-watches/02.jpg",
+        "categories/jewelry-watches/03.jpg",
+        "categories/jewelry-watches/04.jpg",
+        "categories/jewelry-watches/05.jpg",
+        "categories/jewelry-watches/06.jpg",
+        "categories/jewelry-watches/07.jpg",
+        "categories/jewelry-watches/08.jpg",
+        "categories/jewelry-watches/09.jpg",
+        "categories/jewelry-watches/10.jpg"
+      ]
+    },
+    {
+      "slug": "beauty-cosmetics",
+      "categoryNames": ["Beauty & Cosmetics"],
+      "files": [
+        "categories/beauty-cosmetics/01.jpg",
+        "categories/beauty-cosmetics/02.jpg",
+        "categories/beauty-cosmetics/03.jpg",
+        "categories/beauty-cosmetics/04.jpg",
+        "categories/beauty-cosmetics/05.jpg",
+        "categories/beauty-cosmetics/06.jpg",
+        "categories/beauty-cosmetics/07.jpg",
+        "categories/beauty-cosmetics/08.jpg",
+        "categories/beauty-cosmetics/09.jpg",
+        "categories/beauty-cosmetics/10.jpg"
+      ]
+    },
+    {
+      "slug": "mom-baby",
+      "categoryNames": ["Mom & Baby"],
+      "files": [
+        "categories/mom-baby/01.jpg",
+        "categories/mom-baby/02.jpg",
+        "categories/mom-baby/03.jpg",
+        "categories/mom-baby/04.jpg",
+        "categories/mom-baby/05.jpg",
+        "categories/mom-baby/06.jpg",
+        "categories/mom-baby/07.jpg",
+        "categories/mom-baby/08.jpg",
+        "categories/mom-baby/09.jpg",
+        "categories/mom-baby/10.jpg"
+      ]
+    },
+    {
+      "slug": "health-fitness",
+      "categoryNames": ["Health & Fitness"],
+      "files": [
+        "categories/health-fitness/01.jpg",
+        "categories/health-fitness/02.jpg",
+        "categories/health-fitness/03.jpg",
+        "categories/health-fitness/04.jpg",
+        "categories/health-fitness/05.jpg",
+        "categories/health-fitness/06.jpg",
+        "categories/health-fitness/07.jpg",
+        "categories/health-fitness/08.jpg",
+        "categories/health-fitness/09.jpg",
+        "categories/health-fitness/10.jpg"
+      ]
+    },
+    {
+      "slug": "fashion",
+      "categoryNames": ["Fashion"],
+      "files": [
+        "categories/fashion/01.jpg",
+        "categories/fashion/02.jpg",
+        "categories/fashion/03.jpg",
+        "categories/fashion/04.jpg",
+        "categories/fashion/05.jpg",
+        "categories/fashion/06.jpg",
+        "categories/fashion/07.jpg",
+        "categories/fashion/08.jpg",
+        "categories/fashion/09.jpg",
+        "categories/fashion/10.jpg"
+      ]
+    },
+    {
+      "slug": "toys",
+      "categoryNames": ["Toys"],
+      "files": [
+        "categories/toys/01.jpg",
+        "categories/toys/02.jpg",
+        "categories/toys/03.jpg",
+        "categories/toys/04.jpg",
+        "categories/toys/05.jpg",
+        "categories/toys/06.jpg",
+        "categories/toys/07.jpg",
+        "categories/toys/08.jpg",
+        "categories/toys/09.jpg",
+        "categories/toys/10.jpg"
+      ]
+    },
+    {
+      "slug": "housewares",
+      "categoryNames": ["Housewares"],
+      "files": [
+        "categories/housewares/01.jpg",
+        "categories/housewares/02.jpg",
+        "categories/housewares/03.jpg",
+        "categories/housewares/04.jpg",
+        "categories/housewares/05.jpg",
+        "categories/housewares/06.jpg",
+        "categories/housewares/07.jpg",
+        "categories/housewares/08.jpg",
+        "categories/housewares/09.jpg",
+        "categories/housewares/10.jpg"
+      ]
+    },
+    {
+      "slug": "cars",
+      "categoryNames": ["Cars"],
+      "files": [
+        "categories/cars/01.jpg",
+        "categories/cars/02.jpg",
+        "categories/cars/03.jpg",
+        "categories/cars/04.jpg",
+        "categories/cars/05.jpg",
+        "categories/cars/06.jpg",
+        "categories/cars/07.jpg",
+        "categories/cars/08.jpg",
+        "categories/cars/09.jpg",
+        "categories/cars/10.jpg"
+      ]
+    },
+    {
+      "slug": "test-cat",
+      "categoryNames": ["test cat"],
+      "files": [
+        "categories/test-cat/01.jpg",
+        "categories/test-cat/02.jpg",
+        "categories/test-cat/03.jpg",
+        "categories/test-cat/04.jpg",
+        "categories/test-cat/05.jpg",
+        "categories/test-cat/06.jpg",
+        "categories/test-cat/07.jpg",
+        "categories/test-cat/08.jpg",
+        "categories/test-cat/09.jpg",
+        "categories/test-cat/10.jpg"
+      ]
+    },
+    {
+      "slug": "appliance-repair",
+      "categoryNames": ["Appliance Repair"],
+      "files": [
+        "categories/appliance-repair/01.jpg",
+        "categories/appliance-repair/02.jpg",
+        "categories/appliance-repair/03.jpg",
+        "categories/appliance-repair/04.jpg",
+        "categories/appliance-repair/05.jpg",
+        "categories/appliance-repair/06.jpg",
+        "categories/appliance-repair/07.jpg",
+        "categories/appliance-repair/08.jpg",
+        "categories/appliance-repair/09.jpg",
+        "categories/appliance-repair/10.jpg"
+      ]
+    },
+    {
+      "slug": "glass-glazing",
+      "categoryNames": ["Glass & Glazing"],
+      "files": [
+        "categories/glass-glazing/01.jpg",
+        "categories/glass-glazing/02.jpg",
+        "categories/glass-glazing/03.jpg",
+        "categories/glass-glazing/04.jpg",
+        "categories/glass-glazing/05.jpg",
+        "categories/glass-glazing/06.jpg",
+        "categories/glass-glazing/07.jpg",
+        "categories/glass-glazing/08.jpg",
+        "categories/glass-glazing/09.jpg",
+        "categories/glass-glazing/10.jpg"
+      ]
+    },
+    {
+      "slug": "pest-control",
+      "categoryNames": ["Pest Control"],
+      "files": [
+        "categories/pest-control/01.jpg",
+        "categories/pest-control/02.jpg",
+        "categories/pest-control/03.jpg",
+        "categories/pest-control/04.jpg",
+        "categories/pest-control/05.jpg",
+        "categories/pest-control/06.jpg",
+        "categories/pest-control/07.jpg",
+        "categories/pest-control/08.jpg",
+        "categories/pest-control/09.jpg",
+        "categories/pest-control/10.jpg"
+      ]
+    },
+    {
+      "slug": "landscaping",
+      "categoryNames": ["Landscaping"],
+      "files": [
+        "categories/landscaping/01.jpg",
+        "categories/landscaping/02.jpg",
+        "categories/landscaping/03.jpg",
+        "categories/landscaping/04.jpg",
+        "categories/landscaping/05.jpg",
+        "categories/landscaping/06.jpg",
+        "categories/landscaping/07.jpg",
+        "categories/landscaping/08.jpg",
+        "categories/landscaping/09.jpg",
+        "categories/landscaping/10.jpg"
+      ]
+    },
+    {
+      "slug": "hvac",
+      "categoryNames": ["HVAC"],
+      "files": [
+        "categories/hvac/01.jpg",
+        "categories/hvac/02.jpg",
+        "categories/hvac/03.jpg",
+        "categories/hvac/04.jpg",
+        "categories/hvac/05.jpg",
+        "categories/hvac/06.jpg",
+        "categories/hvac/07.jpg",
+        "categories/hvac/08.jpg",
+        "categories/hvac/09.jpg",
+        "categories/hvac/10.jpg"
+      ]
+    },
+    {
+      "slug": "painting",
+      "categoryNames": ["Painting"],
+      "files": [
+        "categories/painting/01.jpg",
+        "categories/painting/02.jpg",
+        "categories/painting/03.jpg",
+        "categories/painting/04.jpg",
+        "categories/painting/05.jpg",
+        "categories/painting/06.jpg",
+        "categories/painting/07.jpg",
+        "categories/painting/08.jpg",
+        "categories/painting/09.jpg",
+        "categories/painting/10.jpg"
+      ]
+    },
+    {
+      "slug": "carpentry",
+      "categoryNames": ["Carpentry"],
+      "files": [
+        "categories/carpentry/01.jpg",
+        "categories/carpentry/02.jpg",
+        "categories/carpentry/03.jpg",
+        "categories/carpentry/04.jpg",
+        "categories/carpentry/05.jpg",
+        "categories/carpentry/06.jpg",
+        "categories/carpentry/07.jpg",
+        "categories/carpentry/08.jpg",
+        "categories/carpentry/09.jpg",
+        "categories/carpentry/10.jpg"
+      ]
+    },
+    {
+      "slug": "cleaning",
+      "categoryNames": ["Cleaning"],
+      "files": [
+        "categories/cleaning/01.jpg",
+        "categories/cleaning/02.jpg",
+        "categories/cleaning/03.jpg",
+        "categories/cleaning/04.jpg",
+        "categories/cleaning/05.jpg",
+        "categories/cleaning/06.jpg",
+        "categories/cleaning/07.jpg",
+        "categories/cleaning/08.jpg",
+        "categories/cleaning/09.jpg",
+        "categories/cleaning/10.jpg"
+      ]
+    },
+    {
+      "slug": "electrical",
+      "categoryNames": ["Electrical"],
+      "files": [
+        "categories/electrical/01.jpg",
+        "categories/electrical/02.jpg",
+        "categories/electrical/03.jpg",
+        "categories/electrical/04.jpg",
+        "categories/electrical/05.jpg",
+        "categories/electrical/06.jpg",
+        "categories/electrical/07.jpg",
+        "categories/electrical/08.jpg",
+        "categories/electrical/09.jpg",
+        "categories/electrical/10.jpg"
+      ]
+    },
+    {
+      "slug": "plumbing",
+      "categoryNames": ["Plumbing"],
+      "files": [
+        "categories/plumbing/01.jpg",
+        "categories/plumbing/02.jpg",
+        "categories/plumbing/03.jpg",
+        "categories/plumbing/04.jpg",
+        "categories/plumbing/05.jpg",
+        "categories/plumbing/06.jpg",
+        "categories/plumbing/07.jpg",
+        "categories/plumbing/08.jpg",
+        "categories/plumbing/09.jpg",
+        "categories/plumbing/10.jpg"
+      ]
+    }
+  ],
+  "providerAvatars": [
+    "profiles/provider-01.jpg",
+    "profiles/provider-02.jpg",
+    "profiles/provider-03.jpg",
+    "profiles/provider-04.jpg",
+    "profiles/provider-05.jpg",
+    "profiles/provider-06.jpg",
+    "profiles/provider-07.jpg",
+    "profiles/provider-08.jpg",
+    "profiles/provider-09.jpg",
+    "profiles/provider-10.jpg"
+  ],
+  "customerAvatar": "profiles/customer.jpg",
+  "signature": "profiles/demo-signature.png",
+  "sources": [
+    {
+      "file": "categories/appliance-repair/01.jpg",
+      "title": "Main Street #6 (Superior Appliances)",
+      "descriptionUrl": "https://www.flickr.com/photos/12836528@N00/3086292921",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "kevin dooley"
+    },
+    {
+      "file": "categories/appliance-repair/02.jpg",
+      "title": "City Light appliance salesroom, circa 1936",
+      "descriptionUrl": "https://www.flickr.com/photos/24256351@N04/2497850468",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Seattle Municipal Archives"
+    },
+    {
+      "file": "categories/appliance-repair/03.jpg",
+      "title": "Makeup Design: 3D Appliance Makeup",
+      "descriptionUrl": "https://www.flickr.com/photos/38174668@N05/4689301550",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "vancouverfilmschool"
+    },
+    {
+      "file": "categories/appliance-repair/04.jpg",
+      "title": "Makeup Design: 3D Appliance Makeup",
+      "descriptionUrl": "https://www.flickr.com/photos/38174668@N05/4688669333",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "vancouverfilmschool"
+    },
+    {
+      "file": "categories/appliance-repair/05.jpg",
+      "title": "1972 Appliance Industries Advertisement Car Craft Magazine June 1972",
+      "descriptionUrl": "https://www.flickr.com/photos/91591049@N00/12675727814",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "SenseiAlan"
+    },
+    {
+      "file": "categories/appliance-repair/06.jpg",
+      "title": "Coles Appliance Sign (False Color)",
+      "descriptionUrl": "https://www.flickr.com/photos/82862615@N00/1363119495",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "pixeljones"
+    },
+    {
+      "file": "categories/appliance-repair/07.jpg",
+      "title": "SellFridges, great punny used appliance store name, Stoke-Newington, London, UK",
+      "descriptionUrl": "https://www.flickr.com/photos/37996580417@N01/5682776827",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "gruntzooki"
+    },
+    {
+      "file": "categories/appliance-repair/08.jpg",
+      "title": "Professional appliance repairman Victor Tamayo showing off his lighted screwdriver, basement, Wedgwood, Seattle, Washington, USA",
+      "descriptionUrl": "https://www.flickr.com/photos/71401718@N00/5414019629",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Wonderlane"
+    },
+    {
+      "file": "categories/appliance-repair/09.jpg",
+      "title": "1976 Appliance Wheel Advertisement Popular Hot Rodding July 1976",
+      "descriptionUrl": "https://www.flickr.com/photos/91591049@N00/51340003047",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "SenseiAlan"
+    },
+    {
+      "file": "categories/appliance-repair/10.jpg",
+      "title": "Pattern of Shopping Preferences Regional - Appliances, Clothing, Car Sales & Furniture(1972)",
+      "descriptionUrl": "https://www.flickr.com/photos/11496488@N07/2301514241",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Manitoba Historical Maps"
+    },
+    {
+      "file": "categories/beauty-cosmetics/01.jpg",
+      "title": "Vintage Cosmetics",
+      "descriptionUrl": "https://www.flickr.com/photos/61368956@N00/5566565828",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "bfishadow"
+    },
+    {
+      "file": "categories/beauty-cosmetics/02.jpg",
+      "title": "Lush Cosmetics",
+      "descriptionUrl": "https://www.flickr.com/photos/39160147@N03/16326663236",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "JeepersMedia"
+    },
+    {
+      "file": "categories/beauty-cosmetics/03.jpg",
+      "title": "cosmetics",
+      "descriptionUrl": "https://www.flickr.com/photos/63377133@N00/2997973595",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Jörg Weingrill"
+    },
+    {
+      "file": "categories/beauty-cosmetics/04.jpg",
+      "title": "Lush Cosmetics Store",
+      "descriptionUrl": "https://www.flickr.com/photos/39160147@N03/16352614615",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "JeepersMedia"
+    },
+    {
+      "file": "categories/beauty-cosmetics/05.jpg",
+      "title": "Decorated Cosmetic Calliper",
+      "descriptionUrl": "https://www.flickr.com/photos/9139977@N05/6104943288",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "rockbadger"
+    },
+    {
+      "file": "categories/beauty-cosmetics/06.jpg",
+      "title": "Cosmetics",
+      "descriptionUrl": "https://www.flickr.com/photos/133128892@N02/23778915344",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "PracticalCures"
+    },
+    {
+      "file": "categories/beauty-cosmetics/07.jpg",
+      "title": "Maquillista profesional Fred Vellon de MAC Cosmetics y modelo",
+      "descriptionUrl": "https://www.flickr.com/photos/24638663@N05/2691360689",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Yahoo! Entretenimiento"
+    },
+    {
+      "file": "categories/beauty-cosmetics/08.jpg",
+      "title": "Drugs Photo Cosmetics Prescriptions",
+      "descriptionUrl": "https://www.flickr.com/photos/10710442@N08/4459923137",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Steve Snodgrass"
+    },
+    {
+      "file": "categories/beauty-cosmetics/09.jpg",
+      "title": "Used cosmetics shrine",
+      "descriptionUrl": "https://www.flickr.com/photos/12836528@N00/32695243503",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "kevin dooley"
+    },
+    {
+      "file": "categories/beauty-cosmetics/10.jpg",
+      "title": "Decorated cosmetic calliper",
+      "descriptionUrl": "https://www.flickr.com/photos/9139977@N05/6104943846",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "rockbadger"
+    },
+    {
+      "file": "categories/carpentry/01.jpg",
+      "title": "Woodturning at the North of England Woodworking and Power Tool Show, Harrogate",
+      "descriptionUrl": "https://www.flickr.com/photos/42408834@N06/4158297264",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "toolstop"
+    },
+    {
+      "file": "categories/carpentry/02.jpg",
+      "title": "Woodturning at the North of England Woodworking and Power Tool Show, Harrogate",
+      "descriptionUrl": "https://www.flickr.com/photos/42408834@N06/4158296030",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "toolstop"
+    },
+    {
+      "file": "categories/carpentry/03.jpg",
+      "title": "Woodturning at the North of England Woodworking and Power Tool Show, Harrogate",
+      "descriptionUrl": "https://www.flickr.com/photos/42408834@N06/4157536633",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "toolstop"
+    },
+    {
+      "file": "categories/carpentry/04.jpg",
+      "title": "Woodturning at the North of England Woodworking and Power Tool Show, Harrogate",
+      "descriptionUrl": "https://www.flickr.com/photos/42408834@N06/4157534303",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "toolstop"
+    },
+    {
+      "file": "categories/carpentry/05.jpg",
+      "title": "Woodturning at the North of England Woodworking and Power Tool Show, Harrogate",
+      "descriptionUrl": "https://www.flickr.com/photos/42408834@N06/4158299022",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "toolstop"
+    },
+    {
+      "file": "categories/carpentry/06.jpg",
+      "title": "I'm a woodworker table",
+      "descriptionUrl": "https://www.flickr.com/photos/45601139@N02/4190358416",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "clab4design"
+    },
+    {
+      "file": "categories/carpentry/07.jpg",
+      "title": "Woodturning at the North of England Woodworking and Power Tool Show, Harrogate",
+      "descriptionUrl": "https://www.flickr.com/photos/42408834@N06/4158298420",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "toolstop"
+    },
+    {
+      "file": "categories/carpentry/08.jpg",
+      "title": "Woodturning at the North of England Woodworking and Power Tool Show, Harrogate",
+      "descriptionUrl": "https://www.flickr.com/photos/42408834@N06/4158296844",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "toolstop"
+    },
+    {
+      "file": "categories/carpentry/09.jpg",
+      "title": "Sherwood State School, Woodwork - Brisbane",
+      "descriptionUrl": "https://www.flickr.com/photos/60455048@N02/40344729452",
+      "license": "PDM 1.0 (https://creativecommons.org/publicdomain/mark/1.0/)",
+      "artist": "Queensland State Archives"
+    },
+    {
+      "file": "categories/carpentry/10.jpg",
+      "title": "woodwork",
+      "descriptionUrl": "https://www.flickr.com/photos/7754512@N07/7127607913",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "jumblymamba"
+    },
+    {
+      "file": "categories/cars/01.jpg",
+      "title": "Money Car",
+      "descriptionUrl": "https://www.flickr.com/photos/126278138@N03/16687001674",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "free pictures of money"
+    },
+    {
+      "file": "categories/cars/02.jpg",
+      "title": "Car",
+      "descriptionUrl": "https://www.flickr.com/photos/18090920@N07/5982607204",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Sean MacEntee"
+    },
+    {
+      "file": "categories/cars/03.jpg",
+      "title": "Car",
+      "descriptionUrl": "https://www.flickr.com/photos/18090920@N07/5982605198",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Sean MacEntee"
+    },
+    {
+      "file": "categories/cars/04.jpg",
+      "title": "My Car",
+      "descriptionUrl": "https://www.flickr.com/photos/7831073@N07/462459755",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Cryostasis"
+    },
+    {
+      "file": "categories/cars/05.jpg",
+      "title": "car",
+      "descriptionUrl": "https://www.flickr.com/photos/23706327@N03/2258477735",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "carolinqua"
+    },
+    {
+      "file": "categories/cars/06.jpg",
+      "title": "Pink Car - Nissan Figaro",
+      "descriptionUrl": "https://www.flickr.com/photos/24759202@N05/4398321372",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Flottesen"
+    },
+    {
+      "file": "categories/cars/07.jpg",
+      "title": "Cars in Cuba - 57",
+      "descriptionUrl": "https://www.flickr.com/photos/7737054@N07/5507717586",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Nouhailler"
+    },
+    {
+      "file": "categories/cars/08.jpg",
+      "title": "When Will Cars ____________",
+      "descriptionUrl": "https://www.flickr.com/photos/126278138@N03/17307631842",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "free pictures of money"
+    },
+    {
+      "file": "categories/cars/09.jpg",
+      "title": "Burnt out car I",
+      "descriptionUrl": "https://www.flickr.com/photos/62252536@N00/1249631147",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Robin Iversen"
+    },
+    {
+      "file": "categories/cars/10.jpg",
+      "title": "Bumper sticker car",
+      "descriptionUrl": "https://www.flickr.com/photos/99247795@N00/201402884",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Richard Masoner / Cyclelicious"
+    },
+    {
+      "file": "categories/cleaning/01.jpg",
+      "title": "Clean Freak",
+      "descriptionUrl": "https://www.flickr.com/photos/12836528@N00/23028083810",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "kevin dooley"
+    },
+    {
+      "file": "categories/cleaning/02.jpg",
+      "title": "Cleaning",
+      "descriptionUrl": "https://www.flickr.com/photos/51612898@N00/2079491560",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Mike Burns"
+    },
+    {
+      "file": "categories/cleaning/03.jpg",
+      "title": "Clean",
+      "descriptionUrl": "https://www.flickr.com/photos/53166026@N00/2446660754",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "kittenfc"
+    },
+    {
+      "file": "categories/cleaning/04.jpg",
+      "title": "Saturday morning cleaning",
+      "descriptionUrl": "https://www.flickr.com/photos/8536261@N07/3472516151",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "storebukkebruse"
+    },
+    {
+      "file": "categories/cleaning/05.jpg",
+      "title": "Cleaning",
+      "descriptionUrl": "https://www.flickr.com/photos/8972989@N07/4356090774",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "go_greener_oz"
+    },
+    {
+      "file": "categories/cleaning/06.jpg",
+      "title": "Clean Coal Technology Timeline",
+      "descriptionUrl": "https://www.flickr.com/photos/29218789@N08/5507271398",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "americaspower"
+    },
+    {
+      "file": "categories/cleaning/07.jpg",
+      "title": "Cleaning up",
+      "descriptionUrl": "https://www.flickr.com/photos/8399025@N07/2253677819",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Marcin Wichary"
+    },
+    {
+      "file": "categories/cleaning/08.jpg",
+      "title": "Cleaning",
+      "descriptionUrl": "https://www.flickr.com/photos/87933807@N00/43936630",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Ryan Harvey"
+    },
+    {
+      "file": "categories/cleaning/09.jpg",
+      "title": "Late Spring cleaning",
+      "descriptionUrl": "https://www.flickr.com/photos/8536261@N07/5722262592",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "storebukkebruse"
+    },
+    {
+      "file": "categories/cleaning/10.jpg",
+      "title": "Office Cleaning Prank Played On Janitor In Frederick Md",
+      "descriptionUrl": "https://www.flickr.com/photos/61935366@N02/7653688478",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Commercial Cleaning Maryland"
+    },
+    {
+      "file": "categories/electrical/01.jpg",
+      "title": "Electrician",
+      "descriptionUrl": "https://www.flickr.com/photos/8176740@N05/15657882247",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "garryknight"
+    },
+    {
+      "file": "categories/electrical/02.jpg",
+      "title": "Find local electricians",
+      "descriptionUrl": "https://www.flickr.com/photos/8058853@N06/7084561063",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Helgi Halldórsson/Freddi"
+    },
+    {
+      "file": "categories/electrical/03.jpg",
+      "title": "Apprentice Electrician",
+      "descriptionUrl": "https://www.flickr.com/photos/14913305@N00/7170645458",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Chris Hunkeler"
+    },
+    {
+      "file": "categories/electrical/04.jpg",
+      "title": "Solar installation, electrician's toolbox P1000614",
+      "descriptionUrl": "https://www.flickr.com/photos/22746936@N02/5392295793",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "CoCreatr"
+    },
+    {
+      "file": "categories/electrical/05.jpg",
+      "title": "Makita P51851 96 Piece Electricians Kit",
+      "descriptionUrl": "https://www.flickr.com/photos/42408834@N06/5330226716",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "toolstop"
+    },
+    {
+      "file": "categories/electrical/06.jpg",
+      "title": "Electrician's sign",
+      "descriptionUrl": "https://www.flickr.com/photos/27128437@N07/2534505446",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "I See Modern Britain"
+    },
+    {
+      "file": "categories/electrical/07.jpg",
+      "title": "Makita P51851 96 Piece Electricians Kit",
+      "descriptionUrl": "https://www.flickr.com/photos/42408834@N06/5330226998",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "toolstop"
+    },
+    {
+      "file": "categories/electrical/08.jpg",
+      "title": "electrician",
+      "descriptionUrl": "https://www.flickr.com/photos/31543737@N08/6839927041",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "riosetiawan"
+    },
+    {
+      "file": "categories/electrical/09.jpg",
+      "title": "Makita P51851 96 Piece Electricians Kit",
+      "descriptionUrl": "https://www.flickr.com/photos/42408834@N06/5330227248",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "toolstop"
+    },
+    {
+      "file": "categories/electrical/10.jpg",
+      "title": "Electrician",
+      "descriptionUrl": "https://www.flickr.com/photos/44398680@N08/4208021017",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "AfghanistanMatters"
+    },
+    {
+      "file": "categories/fashion/01.jpg",
+      "title": "Fashion Show",
+      "descriptionUrl": "https://www.flickr.com/photos/50570552@N05/5336968006",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Dance Photographer - Brendan Lally"
+    },
+    {
+      "file": "categories/fashion/02.jpg",
+      "title": "Well Groomed Fashion",
+      "descriptionUrl": "https://www.flickr.com/photos/50570552@N05/5420850558",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Dance Photographer - Brendan Lally"
+    },
+    {
+      "file": "categories/fashion/03.jpg",
+      "title": "Yigal Azrouel Fashion Show",
+      "descriptionUrl": "https://www.flickr.com/photos/42586873@N00/2831350088",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "mandiberg"
+    },
+    {
+      "file": "categories/fashion/04.jpg",
+      "title": "Yigal Azrouel Fashion Show",
+      "descriptionUrl": "https://www.flickr.com/photos/42586873@N00/2830516037",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "mandiberg"
+    },
+    {
+      "file": "categories/fashion/05.jpg",
+      "title": "Vancouver Fashion Week March 23rd, 2014",
+      "descriptionUrl": "https://www.flickr.com/photos/47022937@N03/13385444733",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "GoToVan"
+    },
+    {
+      "file": "categories/fashion/06.jpg",
+      "title": "Vancouver Fashion Week March 23rd, 2014",
+      "descriptionUrl": "https://www.flickr.com/photos/47022937@N03/13386007714",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "GoToVan"
+    },
+    {
+      "file": "categories/fashion/07.jpg",
+      "title": "David Jones AW13 Fashion",
+      "descriptionUrl": "https://www.flickr.com/photos/58820009@N05/8449723591",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Eva Rinaldi Celebrity Photographer"
+    },
+    {
+      "file": "categories/fashion/08.jpg",
+      "title": "Vancouver Fashion Week - Spring/Summer 2015 (Sep 16th, 2014)",
+      "descriptionUrl": "https://www.flickr.com/photos/47022937@N03/15083339297",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "GoToVan"
+    },
+    {
+      "file": "categories/fashion/09.jpg",
+      "title": "Vancouver Fashion Week - Spring/Summer 2015 (Sep 16th, 2014)",
+      "descriptionUrl": "https://www.flickr.com/photos/47022937@N03/15083344897",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "GoToVan"
+    },
+    {
+      "file": "categories/fashion/10.jpg",
+      "title": "Vancouver Fashion Week - Spring/Summer 2015 (Sep 16th, 2014)",
+      "descriptionUrl": "https://www.flickr.com/photos/47022937@N03/15269295842",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "GoToVan"
+    },
+    {
+      "file": "categories/glass-glazing/01.jpg",
+      "title": "Window",
+      "descriptionUrl": "https://www.flickr.com/photos/39107352@N08/6045027221",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Rameshng"
+    },
+    {
+      "file": "categories/glass-glazing/02.jpg",
+      "title": "Window",
+      "descriptionUrl": "https://www.flickr.com/photos/8561516@N08/5459504420",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Mullica"
+    },
+    {
+      "file": "categories/glass-glazing/03.jpg",
+      "title": "Window",
+      "descriptionUrl": "https://www.flickr.com/photos/99622129@N00/5987473214",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "BOMBMAN"
+    },
+    {
+      "file": "categories/glass-glazing/04.jpg",
+      "title": "finestra - ventana - window - okno",
+      "descriptionUrl": "https://www.flickr.com/photos/66490057@N07/12084692585",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "altotemi"
+    },
+    {
+      "file": "categories/glass-glazing/05.jpg",
+      "title": "From my meditation window 17",
+      "descriptionUrl": "https://www.flickr.com/photos/8315797@N03/1030114969",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Guy Tetreault"
+    },
+    {
+      "file": "categories/glass-glazing/06.jpg",
+      "title": "From my meditation window 11",
+      "descriptionUrl": "https://www.flickr.com/photos/8315797@N03/1030963362",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Guy Tetreault"
+    },
+    {
+      "file": "categories/glass-glazing/07.jpg",
+      "title": "Window of opportunity",
+      "descriptionUrl": "https://www.flickr.com/photos/12836528@N00/4955103011",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "kevin dooley"
+    },
+    {
+      "file": "categories/glass-glazing/08.jpg",
+      "title": "Mannequin hands through store window",
+      "descriptionUrl": "https://www.flickr.com/photos/10361931@N06/4269899578",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Horia Varlan"
+    },
+    {
+      "file": "categories/glass-glazing/09.jpg",
+      "title": "Woman at the window, with her prized Aspidistra",
+      "descriptionUrl": "https://www.flickr.com/photos/24469639@N00/5072912434",
+      "license": "PDM 1.0 (https://creativecommons.org/publicdomain/mark/1.0/)",
+      "artist": "whatsthatpicture"
+    },
+    {
+      "file": "categories/glass-glazing/10.jpg",
+      "title": "Window on Snow",
+      "descriptionUrl": "https://www.flickr.com/photos/38315261@N00/104593691",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Sharon Mollerus"
+    },
+    {
+      "file": "categories/health-fitness/01.jpg",
+      "title": "Planet Fitness",
+      "descriptionUrl": "https://www.flickr.com/photos/39160147@N03/14398417209",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "JeepersMedia"
+    },
+    {
+      "file": "categories/health-fitness/02.jpg",
+      "title": "Planet Fitness",
+      "descriptionUrl": "https://www.flickr.com/photos/39160147@N03/13805981533",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "JeepersMedia"
+    },
+    {
+      "file": "categories/health-fitness/03.jpg",
+      "title": "Planet Fitness",
+      "descriptionUrl": "https://www.flickr.com/photos/39160147@N03/14583178054",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "JeepersMedia"
+    },
+    {
+      "file": "categories/health-fitness/04.jpg",
+      "title": "Planet Fitness",
+      "descriptionUrl": "https://www.flickr.com/photos/39160147@N03/14584999085",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "JeepersMedia"
+    },
+    {
+      "file": "categories/health-fitness/05.jpg",
+      "title": "Fitness World",
+      "descriptionUrl": "https://www.flickr.com/photos/9557815@N05/3808499095",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Abi Skipp"
+    },
+    {
+      "file": "categories/health-fitness/06.jpg",
+      "title": "fitness",
+      "descriptionUrl": "https://www.flickr.com/photos/25330908@N05/3946907643",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "o0bsessed"
+    },
+    {
+      "file": "categories/health-fitness/07.jpg",
+      "title": "fitness",
+      "descriptionUrl": "https://www.flickr.com/photos/25330908@N05/3947686868",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "o0bsessed"
+    },
+    {
+      "file": "categories/health-fitness/08.jpg",
+      "title": "Fitness Center",
+      "descriptionUrl": "https://www.flickr.com/photos/58090168@N08/14862017236",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Cantur City Hotel"
+    },
+    {
+      "file": "categories/health-fitness/09.jpg",
+      "title": "Planet Fitness",
+      "descriptionUrl": "https://www.flickr.com/photos/39160147@N03/14398343400",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "JeepersMedia"
+    },
+    {
+      "file": "categories/health-fitness/10.jpg",
+      "title": "Fit",
+      "descriptionUrl": "https://www.flickr.com/photos/12836528@N00/2811161524",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "kevin dooley"
+    },
+    {
+      "file": "categories/housewares/01.jpg",
+      "title": "Designed by Williams Kitchen & Bath",
+      "descriptionUrl": "https://www.flickr.com/photos/56473047@N05/5410474045",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "williamskitchenbath"
+    },
+    {
+      "file": "categories/housewares/02.jpg",
+      "title": "Kitchen Remodeling @ Centreville, VA",
+      "descriptionUrl": "https://www.flickr.com/photos/90832744@N05/8285340421",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "GLdesignBuild"
+    },
+    {
+      "file": "categories/housewares/03.jpg",
+      "title": "TL - Cabin4 Kitchen",
+      "descriptionUrl": "https://www.flickr.com/photos/37922399@N05/5840567703",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "vastateparksstaff"
+    },
+    {
+      "file": "categories/housewares/04.jpg",
+      "title": "Kitchen",
+      "descriptionUrl": "https://www.flickr.com/photos/20968794@N00/2277727606",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "johncarljohnson"
+    },
+    {
+      "file": "categories/housewares/05.jpg",
+      "title": "Kitchen",
+      "descriptionUrl": "https://www.flickr.com/photos/34067077@N00/6544336039",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Martin Cathrae"
+    },
+    {
+      "file": "categories/housewares/06.jpg",
+      "title": "Kitchen!",
+      "descriptionUrl": "https://www.flickr.com/photos/68975104@N00/2800386392",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "phil_g"
+    },
+    {
+      "file": "categories/housewares/07.jpg",
+      "title": "Kitchen - Wagamama Flinders Lane",
+      "descriptionUrl": "https://www.flickr.com/photos/10559879@N00/2426694855",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "avlxyz"
+    },
+    {
+      "file": "categories/housewares/08.jpg",
+      "title": "Redhill Kitchen - Sept 2011 - Dad, You Can't Think I Did That",
+      "descriptionUrl": "https://www.flickr.com/photos/40837632@N05/6156943108",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Gareth1953 All Right Now"
+    },
+    {
+      "file": "categories/housewares/09.jpg",
+      "title": "Kitchen (left view)",
+      "descriptionUrl": "https://www.flickr.com/photos/21015483@N02/3312119849",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "smoMashup1"
+    },
+    {
+      "file": "categories/housewares/10.jpg",
+      "title": "Open Kitchen - Hellenic Republic",
+      "descriptionUrl": "https://www.flickr.com/photos/10559879@N00/3482662841",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "avlxyz"
+    },
+    {
+      "file": "categories/hvac/01.jpg",
+      "title": "ode to an air conditioner",
+      "descriptionUrl": "https://www.flickr.com/photos/58621196@N05/7259166358",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "brdonovan"
+    },
+    {
+      "file": "categories/hvac/02.jpg",
+      "title": "Sea Breeze car window air conditioner R E Olds Museum 2-9-2008 181 N",
+      "descriptionUrl": "https://www.flickr.com/photos/59398780@N00/2253402695",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Corvair Owner"
+    },
+    {
+      "file": "categories/hvac/03.jpg",
+      "title": "Air Conditioner",
+      "descriptionUrl": "https://www.flickr.com/photos/86639298@N02/8560685336",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "HomeSpot HQ"
+    },
+    {
+      "file": "categories/hvac/04.jpg",
+      "title": "26 Air Conditioners & 37 Windows",
+      "descriptionUrl": "https://www.flickr.com/photos/30201239@N00/4556352857",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "joiseyshowaa"
+    },
+    {
+      "file": "categories/hvac/05.jpg",
+      "title": "1956 General Electric Thinline Air Conditioner Advertisement Time Magazine May 21 1956",
+      "descriptionUrl": "https://www.flickr.com/photos/91591049@N00/36545699822",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "SenseiAlan"
+    },
+    {
+      "file": "categories/hvac/06.jpg",
+      "title": "1956 General Electric Thinline Air Conditioner Advertisement Time Magazine June 25 1956",
+      "descriptionUrl": "https://www.flickr.com/photos/91591049@N00/30628163043",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "SenseiAlan"
+    },
+    {
+      "file": "categories/hvac/07.jpg",
+      "title": "Air Conditioner & Window (Silver Spring, MD)",
+      "descriptionUrl": "https://www.flickr.com/photos/38782010@N00/2468324786",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "takomabibelot"
+    },
+    {
+      "file": "categories/hvac/08.jpg",
+      "title": "Air Conditioner",
+      "descriptionUrl": "https://www.flickr.com/photos/20247775@N02/2044969585",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "rockriver"
+    },
+    {
+      "file": "categories/hvac/09.jpg",
+      "title": "冷氣機形之多樣 冷气机形之多样 Air Conditioner Forms Diversity / SML.20121223.7D.20119",
+      "descriptionUrl": "https://www.flickr.com/photos/48973657@N00/8341627430",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "See-ming Lee (SML)"
+    },
+    {
+      "file": "categories/hvac/10.jpg",
+      "title": "1970 Whirlpool Air Conditioner Advertisement Newsweek January 19 1970",
+      "descriptionUrl": "https://www.flickr.com/photos/91591049@N00/16662434055",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "SenseiAlan"
+    },
+    {
+      "file": "categories/jewelry-watches/01.jpg",
+      "title": "Jewelry",
+      "descriptionUrl": "https://www.flickr.com/photos/39415470@N02/8438539128",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Gnilenkov Aleksey"
+    },
+    {
+      "file": "categories/jewelry-watches/02.jpg",
+      "title": "Radiant Jewelry",
+      "descriptionUrl": "https://www.flickr.com/photos/24940482@N08/4689463125",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "negative13"
+    },
+    {
+      "file": "categories/jewelry-watches/03.jpg",
+      "title": "Jewelry",
+      "descriptionUrl": "https://www.flickr.com/photos/7337467@N04/2945453559",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Marion Doss"
+    },
+    {
+      "file": "categories/jewelry-watches/04.jpg",
+      "title": "Jewelry",
+      "descriptionUrl": "https://www.flickr.com/photos/7337467@N04/2946317226",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Marion Doss"
+    },
+    {
+      "file": "categories/jewelry-watches/05.jpg",
+      "title": "Jewelry",
+      "descriptionUrl": "https://www.flickr.com/photos/39415470@N02/8132090336",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Gnilenkov Aleksey"
+    },
+    {
+      "file": "categories/jewelry-watches/06.jpg",
+      "title": "Photo Jewelry",
+      "descriptionUrl": "https://www.flickr.com/photos/39415470@N02/5584263991",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Gnilenkov Aleksey"
+    },
+    {
+      "file": "categories/jewelry-watches/07.jpg",
+      "title": "Vintage Jewelry",
+      "descriptionUrl": "https://www.flickr.com/photos/24749556@N08/2428589782",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Sherry's Rose Cottage"
+    },
+    {
+      "file": "categories/jewelry-watches/08.jpg",
+      "title": "Jewelry",
+      "descriptionUrl": "https://www.flickr.com/photos/39415470@N02/8433662764",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Gnilenkov Aleksey"
+    },
+    {
+      "file": "categories/jewelry-watches/09.jpg",
+      "title": "Starlite Jewelry Designs ~ Fashion Earrings ~ Jewelry Fashion Designs",
+      "descriptionUrl": "https://www.flickr.com/photos/22141297@N06/3216462713",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Naomi King"
+    },
+    {
+      "file": "categories/jewelry-watches/10.jpg",
+      "title": "Jewelry",
+      "descriptionUrl": "https://www.flickr.com/photos/39415470@N02/8435880138",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Gnilenkov Aleksey"
+    },
+    {
+      "file": "categories/landscaping/01.jpg",
+      "title": "container garden",
+      "descriptionUrl": "https://www.flickr.com/photos/7570076@N04/8674089196",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "lemonhalf"
+    },
+    {
+      "file": "categories/landscaping/02.jpg",
+      "title": "Porthole Garden",
+      "descriptionUrl": "https://www.flickr.com/photos/7587420@N07/9040561209",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "martinrstone"
+    },
+    {
+      "file": "categories/landscaping/03.jpg",
+      "title": "Chinese Garden",
+      "descriptionUrl": "https://www.flickr.com/photos/12836528@N00/9528556003",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "kevin dooley"
+    },
+    {
+      "file": "categories/landscaping/04.jpg",
+      "title": "Kakadu Gardens of Time",
+      "descriptionUrl": "https://www.flickr.com/photos/63580159@N06/5867563762",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "mcscrooge54"
+    },
+    {
+      "file": "categories/landscaping/05.jpg",
+      "title": "garden",
+      "descriptionUrl": "https://www.flickr.com/photos/56719340@N00/6060083264",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "lakelou"
+    },
+    {
+      "file": "categories/landscaping/06.jpg",
+      "title": "Garden",
+      "descriptionUrl": "https://www.flickr.com/photos/8350995@N04/5476235040",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "dearAN .G"
+    },
+    {
+      "file": "categories/landscaping/07.jpg",
+      "title": "garden",
+      "descriptionUrl": "https://www.flickr.com/photos/46155720@N00/14040532298",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "drewfish"
+    },
+    {
+      "file": "categories/landscaping/08.jpg",
+      "title": "Garden, April 13",
+      "descriptionUrl": "https://www.flickr.com/photos/20712950@N00/4519858148",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "jon.roberts"
+    },
+    {
+      "file": "categories/landscaping/09.jpg",
+      "title": "garden",
+      "descriptionUrl": "https://www.flickr.com/photos/56719340@N00/6059529891",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "lakelou"
+    },
+    {
+      "file": "categories/landscaping/10.jpg",
+      "title": "Garden",
+      "descriptionUrl": "https://www.flickr.com/photos/84949728@N00/4602391069",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Derek Bridges"
+    },
+    {
+      "file": "categories/mom-baby/01.jpg",
+      "title": "Baby, Baby",
+      "descriptionUrl": "https://www.flickr.com/photos/27409143@N00/11351117455",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "kb_vaidya"
+    },
+    {
+      "file": "categories/mom-baby/02.jpg",
+      "title": "baby",
+      "descriptionUrl": "https://www.flickr.com/photos/76616082@N04/14877777836",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "rikofoto"
+    },
+    {
+      "file": "categories/mom-baby/03.jpg",
+      "title": "baby",
+      "descriptionUrl": "https://www.flickr.com/photos/65197003@N03/5936825426",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Yuchao.L"
+    },
+    {
+      "file": "categories/mom-baby/04.jpg",
+      "title": "baby",
+      "descriptionUrl": "https://www.flickr.com/photos/65197003@N03/5936825624",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Yuchao.L"
+    },
+    {
+      "file": "categories/mom-baby/05.jpg",
+      "title": "Baby Hamster",
+      "descriptionUrl": "https://www.flickr.com/photos/43241869@N00/119921756",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "memoreks"
+    },
+    {
+      "file": "categories/mom-baby/06.jpg",
+      "title": "baby green snake",
+      "descriptionUrl": "https://www.flickr.com/photos/47429460@N00/8355205289",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "ted_major"
+    },
+    {
+      "file": "categories/mom-baby/07.jpg",
+      "title": "Baby Hamsters",
+      "descriptionUrl": "https://www.flickr.com/photos/48889122885@N01/3983502639",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Keren_"
+    },
+    {
+      "file": "categories/mom-baby/08.jpg",
+      "title": "Two happy babies. Dated October 1887.",
+      "descriptionUrl": "https://www.flickr.com/photos/24469639@N00/5457250712",
+      "license": "PDM 1.0 (https://creativecommons.org/publicdomain/mark/1.0/)",
+      "artist": "whatsthatpicture"
+    },
+    {
+      "file": "categories/mom-baby/09.jpg",
+      "title": "fairy baby soap powder packaging",
+      "descriptionUrl": "https://www.flickr.com/photos/8764442@N07/2253073208",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "osde8info"
+    },
+    {
+      "file": "categories/mom-baby/10.jpg",
+      "title": "baby orangutan",
+      "descriptionUrl": "https://www.flickr.com/photos/7912605@N08/831341036",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "theseanster93"
+    },
+    {
+      "file": "categories/painting/01.jpg",
+      "title": "painter",
+      "descriptionUrl": "https://www.flickr.com/photos/54765433@N06/5332049234",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "offbit2010"
+    },
+    {
+      "file": "categories/painting/02.jpg",
+      "title": "Painters",
+      "descriptionUrl": "https://www.flickr.com/photos/9751325@N02/5886801308",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "kudumomo"
+    },
+    {
+      "file": "categories/painting/03.jpg",
+      "title": "Sign Painters' Kurrent",
+      "descriptionUrl": "https://www.flickr.com/photos/37328175@N08/4184236243",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "ninastoessinger"
+    },
+    {
+      "file": "categories/painting/04.jpg",
+      "title": "lovers paint like a child couple kissing relationship and love paintings the kiss painting artist painter raphael perez",
+      "descriptionUrl": "https://www.flickr.com/photos/99581103@N06/16040401491",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Raphael Perez Israeli Artist"
+    },
+    {
+      "file": "categories/painting/05.jpg",
+      "title": "Old Painter",
+      "descriptionUrl": "https://www.flickr.com/photos/107445583@N04/16643905253",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Street Photography candid"
+    },
+    {
+      "file": "categories/painting/06.jpg",
+      "title": "Painter in Antigua",
+      "descriptionUrl": "https://www.flickr.com/photos/50852241@N00/87718618",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "DavidDennisPhotos.com"
+    },
+    {
+      "file": "categories/painting/07.jpg",
+      "title": "painter",
+      "descriptionUrl": "https://www.flickr.com/photos/57621379@N00/453593446",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "tinou bao"
+    },
+    {
+      "file": "categories/painting/08.jpg",
+      "title": "Insomniac Painter",
+      "descriptionUrl": "https://www.flickr.com/photos/93199639@N05/14352842021",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Always Shooting"
+    },
+    {
+      "file": "categories/painting/09.jpg",
+      "title": "Grand Street: Painter",
+      "descriptionUrl": "https://www.flickr.com/photos/44373968@N00/126238618",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "moriza"
+    },
+    {
+      "file": "categories/painting/10.jpg",
+      "title": "El pintor de estrellas - The Star Painter",
+      "descriptionUrl": "https://www.flickr.com/photos/98156561@N02/30944258380",
+      "license": "PDM 1.0 (https://creativecommons.org/publicdomain/mark/1.0/)",
+      "artist": "abel.maestro"
+    },
+    {
+      "file": "categories/pest-control/01.jpg",
+      "title": "Hungarian Parliament - the Pest side of the Danube",
+      "descriptionUrl": "https://www.flickr.com/photos/30201239@N00/3876917976",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "joiseyshowaa"
+    },
+    {
+      "file": "categories/pest-control/02.jpg",
+      "title": "Beautiful red rose with petals eaten by pests",
+      "descriptionUrl": "https://www.flickr.com/photos/10361931@N06/5269820328",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Horia Varlan"
+    },
+    {
+      "file": "categories/pest-control/03.jpg",
+      "title": "Soybean Pests & Insects",
+      "descriptionUrl": "https://www.flickr.com/photos/95352257@N06/9620885881",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "UnitedSoybeanBoard"
+    },
+    {
+      "file": "categories/pest-control/04.jpg",
+      "title": "Pest, view from Buda",
+      "descriptionUrl": "https://www.flickr.com/photos/62176343@N00/35397431042",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Joe Le Merou"
+    },
+    {
+      "file": "categories/pest-control/05.jpg",
+      "title": "Budapest St Stephen's Basilica - April 2003 - View over Pest",
+      "descriptionUrl": "https://www.flickr.com/photos/40837632@N05/5556612209",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Gareth1953 All Right Now"
+    },
+    {
+      "file": "categories/pest-control/06.jpg",
+      "title": "Known as toxic weed and pest in parts of the world.",
+      "descriptionUrl": "https://www.flickr.com/photos/49992061@N07/4995535784",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Silicon/e"
+    },
+    {
+      "file": "categories/pest-control/07.jpg",
+      "title": "Checking out under the kitchen sink, looking for ants, slugs, and mice, Ed Mills, Pest Control, Commercial Technician, Sayfrog.com, Broadview, Seattle, Washington, USA",
+      "descriptionUrl": "https://www.flickr.com/photos/71401718@N00/5689121788",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Wonderlane"
+    },
+    {
+      "file": "categories/pest-control/08.jpg",
+      "title": "Elderly Man Soaks Up the Sun along the Danube - Pest Side - Budapest - Hungary",
+      "descriptionUrl": "https://www.flickr.com/photos/41000732@N04/4109870533",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Adam Jones, Ph.D. - Global Photo Archive"
+    },
+    {
+      "file": "categories/pest-control/09.jpg",
+      "title": "NP Coffee pests",
+      "descriptionUrl": "https://www.flickr.com/photos/38476503@N08/5867167295",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "CIAT International Center for Tropical Agriculture"
+    },
+    {
+      "file": "categories/pest-control/10.jpg",
+      "title": "Essex Pest Control, Billericay.",
+      "descriptionUrl": "https://www.flickr.com/photos/28179929@N08/4596625560",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "sludgegulper"
+    },
+    {
+      "file": "categories/plumbing/01.jpg",
+      "title": "Solar water heater plumbing overview",
+      "descriptionUrl": "https://www.flickr.com/photos/76563685@N00/294102918",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "RJL20"
+    },
+    {
+      "file": "categories/plumbing/02.jpg",
+      "title": "Plumbing, FTW",
+      "descriptionUrl": "https://www.flickr.com/photos/56261168@N00/2682229531",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "spierzchala"
+    },
+    {
+      "file": "categories/plumbing/03.jpg",
+      "title": "Wild plumbing",
+      "descriptionUrl": "https://www.flickr.com/photos/12836528@N00/5401747799",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "kevin dooley"
+    },
+    {
+      "file": "categories/plumbing/04.jpg",
+      "title": "Plumbing",
+      "descriptionUrl": "https://www.flickr.com/photos/21761122@N06/5460453848",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "runran"
+    },
+    {
+      "file": "categories/plumbing/05.jpg",
+      "title": "Plumb",
+      "descriptionUrl": "https://www.flickr.com/photos/28306058@N00/5910881115",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Timmy"
+    },
+    {
+      "file": "categories/plumbing/06.jpg",
+      "title": "Plumbing",
+      "descriptionUrl": "https://www.flickr.com/photos/101106489@N06/9641948651",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "http://globalquiz.org"
+    },
+    {
+      "file": "categories/plumbing/07.jpg",
+      "title": "Finished the plumbing finally!",
+      "descriptionUrl": "https://www.flickr.com/photos/34197011@N00/202291233",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "scottbb"
+    },
+    {
+      "file": "categories/plumbing/08.jpg",
+      "title": "Porsche 911 GT1 throttles, wires, plumbing, cartoon. 1998? Carbon fiber intakes, integrated electronics",
+      "descriptionUrl": "https://www.flickr.com/photos/9998127@N06/15363461785",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "wbaiv"
+    },
+    {
+      "file": "categories/plumbing/09.jpg",
+      "title": "Plumb crazy",
+      "descriptionUrl": "https://www.flickr.com/photos/61132483@N00/185811819",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Elsie esq."
+    },
+    {
+      "file": "categories/plumbing/10.jpg",
+      "title": "Plumbing",
+      "descriptionUrl": "https://www.flickr.com/photos/14738242@N00/505860387",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Jonas B"
+    },
+    {
+      "file": "categories/real-estate/01.jpg",
+      "title": "cognitive architecture",
+      "descriptionUrl": "https://www.flickr.com/photos/58621196@N05/7580580712",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "brdonovan"
+    },
+    {
+      "file": "categories/real-estate/02.jpg",
+      "title": "Immersive Archeology - Aura Lily breathes life into the architecture and culture of Ancient Egypt",
+      "descriptionUrl": "https://www.flickr.com/photos/40615055@N00/199858605",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "John 'Pathfinder' Lester"
+    },
+    {
+      "file": "categories/real-estate/03.jpg",
+      "title": "Immersive Archeology - Aura Lily breathes life into the architecture and culture of Ancient Egypt",
+      "descriptionUrl": "https://www.flickr.com/photos/40615055@N00/199857439",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "John 'Pathfinder' Lester"
+    },
+    {
+      "file": "categories/real-estate/04.jpg",
+      "title": "Architecture on LSD",
+      "descriptionUrl": "https://www.flickr.com/photos/53986933@N00/8516781169",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "snowpeak"
+    },
+    {
+      "file": "categories/real-estate/05.jpg",
+      "title": "Architecture #1",
+      "descriptionUrl": "https://www.flickr.com/photos/95778894@N00/172724622",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Andrew Dupont"
+    },
+    {
+      "file": "categories/real-estate/06.jpg",
+      "title": "Immersive Archeology - Aura Lily breathes life into the architecture and culture of Ancient Egypt",
+      "descriptionUrl": "https://www.flickr.com/photos/40615055@N00/199857832",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "John 'Pathfinder' Lester"
+    },
+    {
+      "file": "categories/real-estate/07.jpg",
+      "title": "Architecture should speak of its time and place, but yearn for timelessness (explored)",
+      "descriptionUrl": "https://www.flickr.com/photos/59768604@N03/8306808291",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Navaneeth K N"
+    },
+    {
+      "file": "categories/real-estate/08.jpg",
+      "title": "modern architecture in Asakusa Tokyo Japan",
+      "descriptionUrl": "https://www.flickr.com/photos/59328597@N00/426923507",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Retinafunk"
+    },
+    {
+      "file": "categories/real-estate/09.jpg",
+      "title": "Immersive Archeology - Aura Lily breathes life into the architecture and culture of Ancient Egypt",
+      "descriptionUrl": "https://www.flickr.com/photos/40615055@N00/199859577",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "John 'Pathfinder' Lester"
+    },
+    {
+      "file": "categories/real-estate/10.jpg",
+      "title": "New York Architecture",
+      "descriptionUrl": "https://www.flickr.com/photos/79865753@N00/2317918921",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Kathleen Tyler Conklin"
+    },
+    {
+      "file": "categories/test-cat/01.jpg",
+      "title": "Tools",
+      "descriptionUrl": "https://www.flickr.com/photos/38524192@N00/2893999222",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Carl Johan"
+    },
+    {
+      "file": "categories/test-cat/02.jpg",
+      "title": "Surgical tools",
+      "descriptionUrl": "https://www.flickr.com/photos/17425845@N00/4793150482",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "oskay"
+    },
+    {
+      "file": "categories/test-cat/03.jpg",
+      "title": "Sharpest tool in the shed",
+      "descriptionUrl": "https://www.flickr.com/photos/43117091@N00/9408028555",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Lachlan"
+    },
+    {
+      "file": "categories/test-cat/04.jpg",
+      "title": "tools of the trade",
+      "descriptionUrl": "https://www.flickr.com/photos/53133240@N00/3376123582",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Muffet"
+    },
+    {
+      "file": "categories/test-cat/05.jpg",
+      "title": "Cable tie tool 1",
+      "descriptionUrl": "https://www.flickr.com/photos/17425845@N00/4793152344",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "oskay"
+    },
+    {
+      "file": "categories/test-cat/06.jpg",
+      "title": "tools",
+      "descriptionUrl": "https://www.flickr.com/photos/69024001@N00/61864434",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "ndrwfgg"
+    },
+    {
+      "file": "categories/test-cat/07.jpg",
+      "title": "Tools",
+      "descriptionUrl": "https://www.flickr.com/photos/36794154@N02/3999386250",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "shoesfullofdust"
+    },
+    {
+      "file": "categories/test-cat/08.jpg",
+      "title": "Tools",
+      "descriptionUrl": "https://www.flickr.com/photos/45581782@N00/5298483",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "psd"
+    },
+    {
+      "file": "categories/test-cat/09.jpg",
+      "title": "Tools",
+      "descriptionUrl": "https://www.flickr.com/photos/89618128@N00/3269784239",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "zzpza"
+    },
+    {
+      "file": "categories/test-cat/10.jpg",
+      "title": "Tools",
+      "descriptionUrl": "https://www.flickr.com/photos/10597986@N03/1095263563",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "combust"
+    },
+    {
+      "file": "categories/toys/01.jpg",
+      "title": "Kinder toys",
+      "descriptionUrl": "https://www.flickr.com/photos/11724697@N00/469765796",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Sami Keinänen"
+    },
+    {
+      "file": "categories/toys/02.jpg",
+      "title": "Broken robot toy",
+      "descriptionUrl": "https://www.flickr.com/photos/11831132@N00/1818329845",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Plutor"
+    },
+    {
+      "file": "categories/toys/03.jpg",
+      "title": "Baby toy / Brinquedo infantil",
+      "descriptionUrl": "https://www.flickr.com/photos/36772699@N05/6569595669",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "dannyelbrazil"
+    },
+    {
+      "file": "categories/toys/04.jpg",
+      "title": "Creepy Toy",
+      "descriptionUrl": "https://www.flickr.com/photos/45972156@N04/5416497577",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "DoNotLick"
+    },
+    {
+      "file": "categories/toys/05.jpg",
+      "title": "Lego Toy Story",
+      "descriptionUrl": "https://www.flickr.com/photos/26782864@N00/11457167505",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "wwarby"
+    },
+    {
+      "file": "categories/toys/06.jpg",
+      "title": "Toys",
+      "descriptionUrl": "https://www.flickr.com/photos/68089229@N06/7101341383",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "oatsy40"
+    },
+    {
+      "file": "categories/toys/07.jpg",
+      "title": "Green toy",
+      "descriptionUrl": "https://www.flickr.com/photos/45383134@N00/1807024987",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "j.reed"
+    },
+    {
+      "file": "categories/toys/08.jpg",
+      "title": "Stress toy death",
+      "descriptionUrl": "https://www.flickr.com/photos/37988160@N00/3340789035",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "benwerd"
+    },
+    {
+      "file": "categories/toys/09.jpg",
+      "title": "Old toy",
+      "descriptionUrl": "https://www.flickr.com/photos/152442938@N03/38990138341",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "svklimkin"
+    },
+    {
+      "file": "categories/toys/10.jpg",
+      "title": "Toys Of Switzerland",
+      "descriptionUrl": "https://www.flickr.com/photos/44345361@N06/5415577506",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "VinothChandar"
+    },
+    {
+      "file": "profiles/customer.jpg",
+      "title": "Nursing Books",
+      "descriptionUrl": "https://www.flickr.com/photos/8404611@N06/3372684619",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Walt Stoneburner"
+    },
+    {
+      "file": "profiles/demo-signature.png",
+      "title": "Wesal Demo signature",
+      "descriptionUrl": "local:test-fixture",
+      "license": "Generated for Wesal test fixtures"
+    },
+    {
+      "file": "profiles/provider-01.jpg",
+      "title": "Portrait Session",
+      "descriptionUrl": "https://www.flickr.com/photos/31957940@N04/5025638486",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Big D2112"
+    },
+    {
+      "file": "profiles/provider-02.jpg",
+      "title": "Portrait Session",
+      "descriptionUrl": "https://www.flickr.com/photos/31957940@N04/5025000123",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Big D2112"
+    },
+    {
+      "file": "profiles/provider-03.jpg",
+      "title": "Portrait Session",
+      "descriptionUrl": "https://www.flickr.com/photos/31957940@N04/5025666458",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Big D2112"
+    },
+    {
+      "file": "profiles/provider-04.jpg",
+      "title": "Business Adam",
+      "descriptionUrl": "https://www.flickr.com/photos/9046400@N04/4380664268",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "ABrowning"
+    },
+    {
+      "file": "profiles/provider-05.jpg",
+      "title": "Portrait Session",
+      "descriptionUrl": "https://www.flickr.com/photos/31957940@N04/5025686582",
+      "license": "BY-SA 2.0 (https://creativecommons.org/licenses/by-sa/2.0/)",
+      "artist": "Big D2112"
+    },
+    {
+      "file": "profiles/provider-06.jpg",
+      "title": "Sherry Photography Creative Commons",
+      "descriptionUrl": "https://www.flickr.com/photos/130536831@N03/16593411101",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "astrologyphotographywesildssharon"
+    },
+    {
+      "file": "profiles/provider-07.jpg",
+      "title": "Sherry Photography Creative Commons",
+      "descriptionUrl": "https://www.flickr.com/photos/130536831@N03/16568629776",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "astrologyphotographywesildssharon"
+    },
+    {
+      "file": "profiles/provider-08.jpg",
+      "title": "Sherry Photography Creative Commons",
+      "descriptionUrl": "https://www.flickr.com/photos/130536831@N03/15972495184",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "astrologyphotographywesildssharon"
+    },
+    {
+      "file": "profiles/provider-09.jpg",
+      "title": "Reading Glasses",
+      "descriptionUrl": "https://www.flickr.com/photos/8404611@N06/3373780246",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "Walt Stoneburner"
+    },
+    {
+      "file": "profiles/provider-10.jpg",
+      "title": "Sherry Photography Creative Commons",
+      "descriptionUrl": "https://www.flickr.com/photos/130536831@N03/16407434748",
+      "license": "BY 2.0 (https://creativecommons.org/licenses/by/2.0/)",
+      "artist": "astrologyphotographywesildssharon"
+    }
+  ]
+}
