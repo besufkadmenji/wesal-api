@@ -7,6 +7,7 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
 import { Listing } from '../../listing/entities/listing.entity';
@@ -17,6 +18,7 @@ import { ConversationStatus } from '../enums/conversation-status.enum';
 
 @ObjectType()
 @Entity('conversations')
+@Index('IDX_conversation_last_activity', ['lastActivityAt'])
 export class Conversation {
   @Field(() => ID)
   @PrimaryGeneratedColumn('uuid')
@@ -97,6 +99,10 @@ export class Conversation {
   @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamptz', nullable: true })
   providerLastReadAt: Date | null;
+
+  @Field(() => Date)
+  @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+  lastActivityAt: Date;
 
   @Field(() => [Message], { nullable: true })
   @OneToMany(() => Message, (message) => message.conversation, {

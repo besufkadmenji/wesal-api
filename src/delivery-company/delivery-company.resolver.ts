@@ -33,6 +33,15 @@ export class DeliveryCompanyResolver {
     );
   }
 
+  @Query(() => [DeliveryCompany], {
+    name: 'activeDeliveryCompanies',
+    description: 'Active delivery companies available to authenticated users',
+  })
+  @UseGuards(JwtAuthGuard)
+  activeDeliveryCompanies(): Promise<DeliveryCompany[]> {
+    return this.deliveryCompanyService.findActive();
+  }
+
   @Query(() => PaginatedDeliveryCompanyResponse, { name: 'deliveryCompanies' })
   @UseGuards(JwtAuthGuard, AdminPermissionGuard)
   @RequirePermission('delivery_company', 'read')

@@ -8,6 +8,7 @@ const CONVERSATION_SORTABLE_FIELDS = [
   'status',
   'createdAt',
   'updatedAt',
+  'lastActivityAt',
 ] as const;
 
 export type ConversationSortField =
@@ -18,6 +19,7 @@ export enum ConversationSortFieldEnum {
   status = 'status',
   createdAt = 'createdAt',
   updatedAt = 'updatedAt',
+  lastActivityAt = 'lastActivityAt',
 }
 
 registerEnumType(ConversationSortFieldEnum, {

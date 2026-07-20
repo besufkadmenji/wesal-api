@@ -122,15 +122,24 @@ export class MessageService {
         ? ConversationSenderType.PROVIDER
         : ConversationSenderType.USER;
 
-    const message = this.messageRepository.create({
-      conversationId: createMessageInput.conversationId,
-      senderId: principal.sub,
-      senderType,
-      content: redactContactDetails(createMessageInput.content),
-      kind: MessageKind.TEXT,
-      metadata: null,
-    });
-    const saved = await this.messageRepository.save(message);
+    const saved = await this.messageRepository.manager.transaction(
+      async (manager) => {
+        const repository = manager.getRepository(Message);
+        const message = repository.create({
+          conversationId: createMessageInput.conversationId,
+          senderId: principal.sub,
+          senderType,
+          content: redactContactDetails(createMessageInput.content),
+          kind: MessageKind.TEXT,
+          metadata: null,
+        });
+        const savedMessage = await repository.save(message);
+        await manager.getRepository(Conversation).update(conversation.id, {
+          lastActivityAt: savedMessage.createdAt,
+        });
+        return savedMessage;
+      },
+    );
 
     // Re-fetch (conversation relation) then publish to conversation participants.
     const populated = await this.loadById(saved.id, language);
@@ -191,6 +200,10 @@ export class MessageService {
       metadata,
     });
     const saved = await messageRepository.save(message);
+    await conversationRepository.update(conversation.id, {
+      lastActivityAt: saved.createdAt,
+    });
+    conversation.lastActivityAt = saved.createdAt;
     saved.conversation = conversation;
     return {
       messageAdded: saved,

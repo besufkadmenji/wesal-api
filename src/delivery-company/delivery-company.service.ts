@@ -93,6 +93,13 @@ export class DeliveryCompanyService {
     };
   }
 
+  async findActive(): Promise<DeliveryCompany[]> {
+    return this.deliveryCompanyRepository.find({
+      where: { status: DeliveryCompanyStatus.ACTIVE },
+      order: { nameEn: 'ASC' },
+    });
+  }
+
   async findOne(
     id: string,
     language: LanguageCode = 'en',
