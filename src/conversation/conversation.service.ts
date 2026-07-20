@@ -117,7 +117,7 @@ export class ConversationService {
     });
 
     if (existingConversation) {
-      return existingConversation;
+      return this.findHydratedConversation(existingConversation.id, language);
     }
 
     const setting = await this.settingService.getSetting();
@@ -132,8 +132,38 @@ export class ConversationService {
       closedAt: null,
       closeReason: null,
       feeCycle: 1,
+      lastActivityAt: new Date(),
     });
-    return await this.conversationRepository.save(conversation);
+    const savedConversation =
+      await this.conversationRepository.save(conversation);
+    return this.findHydratedConversation(savedConversation.id, language);
+  }
+
+  private async findHydratedConversation(
+    id: string,
+    language: LanguageCode,
+  ): Promise<Conversation> {
+    const conversation = await this.conversationRepository.findOne({
+      where: { id },
+      relations: {
+        listing: {
+          category: true,
+          provider: true,
+        },
+        user: true,
+        provider: true,
+      },
+    });
+
+    if (!conversation) {
+      const message = I18nService.translate(
+        CONVERSATION_ERROR_MESSAGES['CONVERSATION_NOT_FOUND'],
+        language,
+      );
+      throw new I18nNotFoundException({ en: message, ar: message }, language);
+    }
+
+    return conversation;
   }
 
   async findAll(
@@ -149,7 +179,7 @@ export class ConversationService {
       listingId,
       status,
       sortBy,
-      sortOrder = SortOrder.ASC,
+      sortOrder,
     } = paginationInput;
     const skip = (page - 1) * limit;
 
@@ -184,8 +214,13 @@ export class ConversationService {
 
     const orderByField = sortBy
       ? `conversation.${sortBy}`
-      : 'conversation.createdAt';
-    const orderDirection = sortOrder === SortOrder.DESC ? 'DESC' : 'ASC';
+      : principal
+        ? 'conversation.lastActivityAt'
+        : 'conversation.createdAt';
+    const effectiveSortOrder =
+      sortOrder ?? (principal ? SortOrder.DESC : SortOrder.ASC);
+    const orderDirection =
+      effectiveSortOrder === SortOrder.DESC ? 'DESC' : 'ASC';
 
     const [items, total] = await queryBuilder
       .skip(skip)
@@ -319,6 +354,7 @@ export class ConversationService {
     conversation.providerFeePaidAt = null;
     conversation.customerLastReadAt = null;
     conversation.providerLastReadAt = null;
+    conversation.lastActivityAt = new Date();
     conversation.expiresAt = setting.contractAcceptanceWindowEnabled
       ? new Date(Date.now() + setting.contractAcceptanceWindowDays * 86_400_000)
       : null;
