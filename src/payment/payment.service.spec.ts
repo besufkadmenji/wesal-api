@@ -50,6 +50,11 @@ describe('PaymentService', () => {
       id,
       status: ContractStatus.IN_PROGRESS,
     })),
+    findOne: jest.fn(async (id) => ({
+      id,
+      status: ContractStatus.IN_PROGRESS,
+      signatures: [],
+    })),
   };
   const messageService = {
     persistSystemEvent: jest.fn(async () => ({
@@ -107,6 +112,12 @@ describe('PaymentService', () => {
       vatAmount: 1.5,
     });
     expect(contractService.transitionAfterPayment).toHaveBeenCalled();
+    expect(contractService.findOne).toHaveBeenCalledWith(
+      contract.id,
+      expect.objectContaining({ sub: contract.clientId }),
+      'en',
+    );
+    expect(result.contract.signatures).toEqual([]);
   });
 
   it('returns an existing contract obligation without inserting a duplicate', async () => {
@@ -132,6 +143,12 @@ describe('PaymentService', () => {
     expect(result.payment).toBe(existing);
     expect(paymentRepository.save).not.toHaveBeenCalled();
     expect(contractService.transitionAfterPayment).not.toHaveBeenCalled();
+    expect(contractService.findOne).toHaveBeenCalledWith(
+      contract.id,
+      expect.objectContaining({ sub: contract.clientId }),
+      'en',
+    );
+    expect(result.contract.signatures).toEqual([]);
   });
 
   it('unlocks only the provider side after provider chat-fee payment', async () => {
