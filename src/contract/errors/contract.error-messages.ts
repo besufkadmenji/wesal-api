@@ -58,6 +58,10 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'This contract signature has already been submitted',
     ar: 'تم إرسال هذا التوقيع مسبقًا',
   },
+  [CONTRACT_ERROR_CODES.CUSTOMER_SIGNATURE_REQUIRED]: {
+    en: 'A signature is required for your first contract',
+    ar: 'التوقيع مطلوب عند إنشاء عقدك الأول',
+  },
   [CONTRACT_ERROR_CODES.REJECTION_REASON_REQUIRED]: {
     en: 'A rejection reason is required',
     ar: 'سبب الرفض مطلوب',

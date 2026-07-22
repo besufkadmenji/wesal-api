@@ -126,6 +126,10 @@ export class User {
   withAbsher?: boolean;
 
   @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  contractSignature?: string | null;
+
+  @Field(() => String, { nullable: true })
   @Column({ type: 'timestamp', nullable: true })
   deletedAt?: Date | null;
 

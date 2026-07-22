@@ -45,8 +45,9 @@ export class ResendContractInput {
   @IsUUID()
   deliveryCompanyId?: string;
 
-  @Field()
+  @Field({ nullable: true })
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  signatureData: string;
+  signatureData?: string;
 }
