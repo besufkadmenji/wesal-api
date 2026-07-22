@@ -49,6 +49,17 @@ const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
   [ContractStatus.CANCELLED]: [],
 };
 
+const CONTRACT_DETAIL_RELATIONS = [
+  'conversation',
+  'conversation.listing',
+  'conversation.listing.category',
+  'conversation.listing.provider',
+  'client',
+  'provider',
+  'signatures',
+  'supersedesContract',
+];
+
 interface ContractSnapshot extends ContractQuote {
   listingId: string;
   categoryId: string;
@@ -454,6 +465,9 @@ export class ContractService {
     const query = this.contractRepository
       .createQueryBuilder('contract')
       .leftJoinAndSelect('contract.conversation', 'conversation')
+      .leftJoinAndSelect('conversation.listing', 'listing')
+      .leftJoinAndSelect('listing.category', 'listingCategory')
+      .leftJoinAndSelect('listing.provider', 'listingProvider')
       .leftJoinAndSelect('contract.client', 'client')
       .leftJoinAndSelect('contract.provider', 'provider')
       .leftJoinAndSelect('contract.signatures', 'signatures');
@@ -507,13 +521,7 @@ export class ContractService {
   ): Promise<Contract> {
     const contract = await this.contractRepository.findOne({
       where: { id },
-      relations: [
-        'conversation',
-        'client',
-        'provider',
-        'signatures',
-        'supersedesContract',
-      ],
+      relations: CONTRACT_DETAIL_RELATIONS,
     });
     if (!contract) {
       throw this.notFound(language);
@@ -534,13 +542,7 @@ export class ContractService {
   ): Promise<Contract> {
     const contract = await this.contractRepository.findOne({
       where: { id },
-      relations: [
-        'conversation',
-        'client',
-        'provider',
-        'signatures',
-        'supersedesContract',
-      ],
+      relations: CONTRACT_DETAIL_RELATIONS,
     });
     if (!contract) throw this.notFound(language);
     return contract;
