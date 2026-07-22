@@ -568,19 +568,34 @@ export class ContractService {
     language: LanguageCode,
     lock = false,
   ): Promise<Conversation> {
-    const conversation = await manager.getRepository(Conversation).findOne({
+    const repository = manager.getRepository(Conversation);
+
+    if (lock) {
+      const lockedConversation = await repository.findOne({
+        where: { id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!lockedConversation) {
+        throw this.conversationNotFound(language);
+      }
+    }
+
+    const conversation = await repository.findOne({
       where: { id },
       relations: ['listing', 'provider'],
-      ...(lock ? { lock: { mode: 'pessimistic_write' as const } } : {}),
     });
     if (!conversation) {
-      const message = I18nService.translate(
-        CONTRACT_ERROR_MESSAGES[CONTRACT_ERROR_CODES.CONVERSATION_NOT_FOUND],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
+      throw this.conversationNotFound(language);
     }
     return conversation;
+  }
+
+  private conversationNotFound(language: LanguageCode): I18nNotFoundException {
+    const message = I18nService.translate(
+      CONTRACT_ERROR_MESSAGES[CONTRACT_ERROR_CODES.CONVERSATION_NOT_FOUND],
+      language,
+    );
+    return new I18nNotFoundException({ en: message, ar: message }, language);
   }
 
   private async loadLocked(

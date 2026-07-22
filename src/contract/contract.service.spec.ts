@@ -132,6 +132,24 @@ describe('ContractService', () => {
     expect(initialized).toBe(draft);
     expect(retried).toBe(draft);
     expect(contractRepository.save).toHaveBeenCalledTimes(1);
+
+    expect(conversationRepository.findOne).toHaveBeenCalledTimes(4);
+    expect(conversationRepository.findOne).toHaveBeenNthCalledWith(1, {
+      where: { id: conversation.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    expect(conversationRepository.findOne).toHaveBeenNthCalledWith(2, {
+      where: { id: conversation.id },
+      relations: ['listing', 'provider'],
+    });
+    expect(conversationRepository.findOne).toHaveBeenNthCalledWith(3, {
+      where: { id: conversation.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    expect(conversationRepository.findOne).toHaveBeenNthCalledWith(4, {
+      where: { id: conversation.id },
+      relations: ['listing', 'provider'],
+    });
   });
 
   it('finalizes the initialized draft without changing its ID', async () => {
