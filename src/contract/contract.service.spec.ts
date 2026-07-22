@@ -10,8 +10,17 @@ import { DeliveryCompany } from '../delivery-company/entities/delivery-company.e
 import { ContractStatus } from './enums/contract-status.enum';
 
 describe('ContractService', () => {
+  const contractQueryBuilder = {
+    leftJoinAndSelect: jest.fn().mockReturnThis(),
+    andWhere: jest.fn().mockReturnThis(),
+    orderBy: jest.fn().mockReturnThis(),
+    skip: jest.fn().mockReturnThis(),
+    take: jest.fn().mockReturnThis(),
+    getManyAndCount: jest.fn(),
+  };
   const contractRepository = {
     findOne: jest.fn(),
+    createQueryBuilder: jest.fn(() => contractQueryBuilder),
     create: jest.fn((value) => value),
     merge: jest.fn((target: object, ...sources: object[]) =>
       Object.assign(target, ...sources),
@@ -100,6 +109,7 @@ describe('ContractService', () => {
       vatRate: 15,
     });
     signatureRepository.findOne.mockResolvedValue(null);
+    contractQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
   });
 
   it('initializes one idempotent draft for a conversation', async () => {
@@ -186,6 +196,67 @@ describe('ContractService', () => {
     });
     expect(signatureRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({ contractId: draft.id }),
+    );
+  });
+
+  it('hydrates the conversation listing graph for contract details', async () => {
+    const contract = {
+      id: 'contract-id',
+      clientId: conversation.userId,
+      providerId: conversation.providerId,
+      status: ContractStatus.PENDING,
+      conversation,
+    };
+    contractRepository.findOne.mockResolvedValueOnce(contract);
+
+    await expect(
+      service.findOne(contract.id, {
+        sub: conversation.userId,
+        email: 'customer@example.com',
+        type: 'user',
+      }),
+    ).resolves.toBe(contract);
+
+    expect(contractRepository.findOne).toHaveBeenCalledWith({
+      where: { id: contract.id },
+      relations: [
+        'conversation',
+        'conversation.listing',
+        'conversation.listing.category',
+        'conversation.listing.provider',
+        'client',
+        'provider',
+        'signatures',
+        'supersedesContract',
+      ],
+    });
+  });
+
+  it('hydrates the conversation listing graph for contract lists', async () => {
+    await service.findAll(
+      {},
+      {
+        sub: conversation.userId,
+        email: 'customer@example.com',
+        type: 'user',
+      },
+    );
+
+    expect(contractQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+      'contract.conversation',
+      'conversation',
+    );
+    expect(contractQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+      'conversation.listing',
+      'listing',
+    );
+    expect(contractQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+      'listing.category',
+      'listingCategory',
+    );
+    expect(contractQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+      'listing.provider',
+      'listingProvider',
     );
   });
 
