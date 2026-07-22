@@ -3,6 +3,7 @@ import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { ContractService } from './contract.service';
 import { Contract } from './entities/contract.entity';
 import { CreateContractInput } from './dto/create-contract.input';
+import { InitializeContractInput } from './dto/initialize-contract.input';
 import { ContractPaginationInput } from './dto/contract-pagination.input';
 import { PaginatedContractResponse } from './dto/paginated-contract.response';
 import { GetLanguage } from '../../lib/i18n';
@@ -24,6 +25,18 @@ import { RequirePermission } from '../admin/decorators/require-permission.decora
 @UseGuards(JwtAuthGuard)
 export class ContractResolver {
   constructor(private readonly contractService: ContractService) {}
+
+  @Mutation(() => Contract, {
+    description:
+      'Creates or returns the customer draft for a conversation so the contract ID and public number are available before submission',
+  })
+  async initializeContract(
+    @Args('input') input: InitializeContractInput,
+    @CurrentPrincipal() principal: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Contract> {
+    return this.contractService.initialize(input, principal, language);
+  }
 
   @Mutation(() => Contract)
   async createContract(

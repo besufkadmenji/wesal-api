@@ -12,6 +12,11 @@ import {
 
 @InputType()
 export class CreateContractInput {
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsUUID()
+  contractId?: string;
+
   @Field()
   @IsUUID()
   conversationId: string;
