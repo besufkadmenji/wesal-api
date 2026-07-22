@@ -254,6 +254,12 @@ export class ContractService {
         manager,
         language,
       );
+      const signatureData = await this.resolveCustomerSignature(
+        principal.sub,
+        input.signatureData,
+        manager,
+        language,
+      );
       const contract = existing
         ? repository.merge(
             existing,
@@ -273,7 +279,7 @@ export class ContractService {
         principal.sub,
         ContractSignerType.USER,
         ContractSignatureType.CUSTOMER_ACCEPTANCE,
-        input.signatureData,
+        signatureData,
         manager,
         language,
       );
@@ -323,6 +329,12 @@ export class ContractService {
         manager,
         language,
       );
+      const signatureData = await this.resolveCustomerSignature(
+        principal.sub,
+        input.signatureData,
+        manager,
+        language,
+      );
       const contract = manager.getRepository(Contract).create({
         ...this.contractValues(snapshot, conversation, input),
         version: rejected.version + 1,
@@ -336,7 +348,7 @@ export class ContractService {
         principal.sub,
         ContractSignerType.USER,
         ContractSignatureType.CUSTOMER_ACCEPTANCE,
-        input.signatureData,
+        signatureData,
         manager,
         language,
       );
@@ -471,12 +483,18 @@ export class ContractService {
         ContractStatus.COMPLETED,
         language,
       );
+      const signatureData = await this.resolveCustomerSignature(
+        principal.sub,
+        undefined,
+        manager,
+        language,
+      );
       const signature = await this.addSignature(
         contract.id,
         principal.sub,
         ContractSignerType.USER,
         ContractSignatureType.CUSTOMER_COMPLETION,
-        input.signatureData,
+        signatureData,
         manager,
         language,
       );
@@ -853,6 +871,33 @@ export class ContractService {
         signatureData,
       }),
     );
+  }
+
+  private async resolveCustomerSignature(
+    userId: string,
+    submittedSignature: string | undefined,
+    manager: EntityManager,
+    language: LanguageCode,
+  ): Promise<string> {
+    const repository = manager.getRepository(User);
+    const user = await repository.findOne({
+      where: { id: userId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!user) {
+      throw this.error('CLIENT_NOT_FOUND', language);
+    }
+    if (user.contractSignature) {
+      return user.contractSignature;
+    }
+
+    const signature = submittedSignature?.trim();
+    if (!signature) {
+      throw this.error('CUSTOMER_SIGNATURE_REQUIRED', language);
+    }
+    user.contractSignature = signature;
+    await repository.save(user);
+    return signature;
   }
 
   private round(value: number): number {

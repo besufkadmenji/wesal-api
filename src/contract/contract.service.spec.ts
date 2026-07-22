@@ -8,6 +8,7 @@ import { Category } from '../category/entities/category.entity';
 import { Provider } from '../provider/entities/provider.entity';
 import { DeliveryCompany } from '../delivery-company/entities/delivery-company.entity';
 import { ContractStatus } from './enums/contract-status.enum';
+import { User } from '../user/entities/user.entity';
 
 describe('ContractService', () => {
   const contractQueryBuilder = {
@@ -31,6 +32,10 @@ describe('ContractService', () => {
   const listingRepository = { findOne: jest.fn() };
   const categoryRepository = { findOne: jest.fn() };
   const providerRepository = { findOne: jest.fn() };
+  const userRepository = {
+    findOne: jest.fn(),
+    save: jest.fn(async (value) => value),
+  };
   const deliveryCompanyRepository = { findOne: jest.fn() };
   const signatureRepository = {
     findOne: jest.fn(),
@@ -44,6 +49,7 @@ describe('ContractService', () => {
       if (entity === Listing) return listingRepository;
       if (entity === Category) return categoryRepository;
       if (entity === Provider) return providerRepository;
+      if (entity === User) return userRepository;
       if (entity === DeliveryCompany) return deliveryCompanyRepository;
       if (entity === ContractSignature) return signatureRepository;
       return {};
@@ -64,7 +70,7 @@ describe('ContractService', () => {
   const service = new ContractService(
     contractRepository as never,
     conversationRepository as never,
-    {} as never,
+    userRepository as never,
     providerRepository as never,
     dataSource as never,
     settingService as never,
@@ -109,6 +115,10 @@ describe('ContractService', () => {
       vatRate: 15,
     });
     signatureRepository.findOne.mockResolvedValue(null);
+    userRepository.findOne.mockResolvedValue({
+      id: conversation.userId,
+      contractSignature: 'customer-signature.png',
+    });
     contractQueryBuilder.getManyAndCount.mockResolvedValue([[], 0]);
   });
 
@@ -171,6 +181,10 @@ describe('ContractService', () => {
       version: 1,
     };
     contractRepository.findOne.mockResolvedValueOnce(draft);
+    userRepository.findOne.mockResolvedValueOnce({
+      id: conversation.userId,
+      contractSignature: null,
+    });
 
     const submitted = await service.create(
       {
@@ -195,7 +209,16 @@ describe('ContractService', () => {
       customerAddress: 'Customer address',
     });
     expect(signatureRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ contractId: draft.id }),
+      expect.objectContaining({
+        contractId: draft.id,
+        signatureData: 'customer-signature.png',
+      }),
+    );
+    expect(userRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: conversation.userId,
+        contractSignature: 'customer-signature.png',
+      }),
     );
   });
 
@@ -349,7 +372,7 @@ describe('ContractService', () => {
       .mockResolvedValueOnce(hydrated);
 
     const completed = await service.completeContract(
-      { contractId: contract.id, signatureData: 'completion-signature.png' },
+      { contractId: contract.id },
       {
         sub: conversation.userId,
         email: 'customer@example.com',
@@ -363,7 +386,7 @@ describe('ContractService', () => {
         contractId: contract.id,
         signerId: conversation.userId,
         signatureType: 'CUSTOMER_COMPLETION',
-        signatureData: 'completion-signature.png',
+        signatureData: 'customer-signature.png',
       }),
     );
     expect(messageService.persistSystemEvent).toHaveBeenCalledWith(
@@ -396,7 +419,6 @@ describe('ContractService', () => {
         rejectedContractId: rejected.id,
         agreedPrice: 600,
         customerAddress: 'Customer address',
-        signatureData: 'new-signature',
       },
       {
         sub: conversation.userId,
@@ -412,5 +434,11 @@ describe('ContractService', () => {
       status: ContractStatus.PENDING,
     });
     expect(rejected.status).toBe(ContractStatus.REJECTED);
+    expect(signatureRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractId: 'resent-contract-id',
+        signatureData: 'customer-signature.png',
+      }),
+    );
   });
 });
