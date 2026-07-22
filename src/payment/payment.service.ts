@@ -183,7 +183,16 @@ export class PaymentService {
     if (result.event) {
       await this.publishSafely(result.event);
     }
-    return { payment: result.payment, contract: result.contract };
+    // Contract rows are locked without joins inside the transaction. Re-read
+    // the committed contract with its GraphQL detail relations before returning
+    // it, otherwise non-null relation fields such as `signatures` serialize as
+    // null even though their records exist.
+    const hydratedContract = await this.contractService.findOne(
+      contractId,
+      principal,
+      language,
+    );
+    return { payment: result.payment, contract: hydratedContract };
   }
 
   async settleConversationFee(
