@@ -10,6 +10,7 @@ import type { LanguageCode } from '../../lib/i18n/language.types';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { SortOrder } from '../../lib/common/dto/pagination.input';
 import { CreateContractInput } from './dto/create-contract.input';
+import { InitializeContractInput } from './dto/initialize-contract.input';
 import { ContractPaginationInput } from './dto/contract-pagination.input';
 import { ContractQuoteInput } from './dto/contract-quote.input';
 import { ContractQuote } from './dto/contract-quote.response';
@@ -39,6 +40,7 @@ import {
 import { MessageKind } from '../conversation/enums/message-kind.enum';
 
 const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
+  [ContractStatus.DRAFT]: [ContractStatus.PENDING],
   [ContractStatus.PENDING]: [ContractStatus.ACCEPTED, ContractStatus.REJECTED],
   [ContractStatus.ACCEPTED]: [ContractStatus.IN_PROGRESS],
   [ContractStatus.REJECTED]: [],
@@ -56,6 +58,12 @@ interface ContractSnapshot extends ContractQuote {
   deliveryCompanyNameAr: string | null;
   categoryRulesEn: string;
   categoryRulesAr: string;
+}
+
+interface ContractDetailsInput {
+  customerAddress: string;
+  customerLatitude?: number;
+  customerLongitude?: number;
 }
 
 @Injectable()
@@ -141,6 +149,61 @@ export class ContractService {
     return this.toQuote(snapshot);
   }
 
+  async initialize(
+    input: InitializeContractInput,
+    principal: JwtPayload,
+    language: LanguageCode = 'en',
+  ): Promise<Contract> {
+    if (principal.type !== 'user') {
+      throw this.unauthorized(language);
+    }
+
+    return this.dataSource.transaction(async (manager) => {
+      // Locking the conversation serializes refreshes, retries, and multiple
+      // browser tabs before any contract row exists.
+      const conversation = await this.loadConversation(
+        input.conversationId,
+        manager,
+        language,
+        true,
+      );
+      if (conversation.userId !== principal.sub) {
+        throw this.unauthorized(language);
+      }
+
+      const repository = manager.getRepository(Contract);
+      const existing = await repository.findOne({
+        where: { conversationId: conversation.id },
+        order: { version: 'DESC' },
+      });
+      if (existing) {
+        if (existing.status === ContractStatus.DRAFT) {
+          return existing;
+        }
+        throw this.error('DUPLICATE_CONTRACT', language);
+      }
+
+      const snapshot = await this.buildSnapshot(
+        conversation,
+        0,
+        undefined,
+        manager,
+        language,
+      );
+      return repository.save(
+        repository.create({
+          ...this.contractValues(snapshot, conversation, {
+            customerAddress: '',
+          }),
+          version: 1,
+          pricingVersion: 2,
+          supersedesContractId: null,
+          status: ContractStatus.DRAFT,
+        }),
+      );
+    });
+  }
+
   async create(
     input: CreateContractInput,
     principal: JwtPayload,
@@ -155,14 +218,20 @@ export class ContractService {
         input.conversationId,
         manager,
         language,
+        true,
       );
       if (conversation.userId !== principal.sub) {
         throw this.unauthorized(language);
       }
-      const existing = await manager.getRepository(Contract).count({
+      const repository = manager.getRepository(Contract);
+      const existing = await repository.findOne({
         where: { conversationId: conversation.id },
+        order: { version: 'DESC' },
       });
-      if (existing > 0) {
+      if (input.contractId && existing?.id !== input.contractId) {
+        throw this.notFound(language);
+      }
+      if (existing && existing.status !== ContractStatus.DRAFT) {
         throw this.error('DUPLICATE_CONTRACT', language);
       }
 
@@ -173,14 +242,20 @@ export class ContractService {
         manager,
         language,
       );
-      const contract = manager.getRepository(Contract).create({
-        ...this.contractValues(snapshot, conversation, input),
-        version: 1,
-        pricingVersion: 2,
-        supersedesContractId: null,
-        status: ContractStatus.PENDING,
-      });
-      const saved = await manager.getRepository(Contract).save(contract);
+      const contract = existing
+        ? repository.merge(
+            existing,
+            this.contractValues(snapshot, conversation, input),
+            { status: ContractStatus.PENDING },
+          )
+        : repository.create({
+            ...this.contractValues(snapshot, conversation, input),
+            version: 1,
+            pricingVersion: 2,
+            supersedesContractId: null,
+            status: ContractStatus.PENDING,
+          });
+      const saved = await repository.save(contract);
       const signature = await this.addSignature(
         saved.id,
         principal.sub,
@@ -389,6 +464,11 @@ export class ContractService {
           : 'contract.clientId = :principalId',
         { principalId: principal.sub },
       );
+      if (principal.type === 'provider') {
+        query.andWhere('contract.status != :draftStatus', {
+          draftStatus: ContractStatus.DRAFT,
+        });
+      }
     }
     if (conversationId) {
       query.andWhere('contract.conversationId = :conversationId', {
@@ -439,6 +519,12 @@ export class ContractService {
       throw this.notFound(language);
     }
     this.assertParticipant(contract, principal, language);
+    if (
+      contract.status === ContractStatus.DRAFT &&
+      principal.type === 'provider'
+    ) {
+      throw this.unauthorized(language);
+    }
     return contract;
   }
 
@@ -480,10 +566,12 @@ export class ContractService {
     id: string,
     manager: EntityManager,
     language: LanguageCode,
+    lock = false,
   ): Promise<Conversation> {
     const conversation = await manager.getRepository(Conversation).findOne({
       where: { id },
       relations: ['listing', 'provider'],
+      ...(lock ? { lock: { mode: 'pessimistic_write' as const } } : {}),
     });
     if (!conversation) {
       const message = I18nService.translate(
@@ -623,7 +711,7 @@ export class ContractService {
   private contractValues(
     snapshot: ContractSnapshot,
     conversation: Conversation,
-    input: CreateContractInput | ResendContractInput,
+    input: ContractDetailsInput,
   ): Partial<Contract> {
     return {
       conversationId: conversation.id,

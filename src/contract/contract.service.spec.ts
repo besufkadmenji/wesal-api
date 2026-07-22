@@ -13,6 +13,9 @@ describe('ContractService', () => {
   const contractRepository = {
     findOne: jest.fn(),
     create: jest.fn((value) => value),
+    merge: jest.fn((target: object, ...sources: object[]) =>
+      Object.assign(target, ...sources),
+    ),
     save: jest.fn(async (value) => value),
   };
   const conversationRepository = { findOne: jest.fn() };
@@ -97,6 +100,75 @@ describe('ContractService', () => {
       vatRate: 15,
     });
     signatureRepository.findOne.mockResolvedValue(null);
+  });
+
+  it('initializes one idempotent draft for a conversation', async () => {
+    const draft = {
+      id: 'draft-contract-id',
+      publicId: 123,
+      conversationId: conversation.id,
+      status: ContractStatus.DRAFT,
+      version: 1,
+    };
+    contractRepository.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(draft);
+    contractRepository.save.mockResolvedValueOnce(draft);
+
+    const principal = {
+      sub: conversation.userId,
+      email: 'customer@example.com',
+      type: 'user' as const,
+    };
+    const initialized = await service.initialize(
+      { conversationId: conversation.id },
+      principal,
+    );
+    const retried = await service.initialize(
+      { conversationId: conversation.id },
+      principal,
+    );
+
+    expect(initialized).toBe(draft);
+    expect(retried).toBe(draft);
+    expect(contractRepository.save).toHaveBeenCalledTimes(1);
+  });
+
+  it('finalizes the initialized draft without changing its ID', async () => {
+    const draft = {
+      id: 'draft-contract-id',
+      publicId: 123,
+      conversationId: conversation.id,
+      status: ContractStatus.DRAFT,
+      version: 1,
+    };
+    contractRepository.findOne.mockResolvedValueOnce(draft);
+
+    const submitted = await service.create(
+      {
+        contractId: draft.id,
+        conversationId: conversation.id,
+        agreedPrice: 500,
+        customerAddress: 'Customer address',
+        signatureData: 'customer-signature.png',
+      },
+      {
+        sub: conversation.userId,
+        email: 'customer@example.com',
+        type: 'user',
+      },
+    );
+
+    expect(submitted).toMatchObject({
+      id: draft.id,
+      publicId: draft.publicId,
+      status: ContractStatus.PENDING,
+      agreedPrice: 500,
+      customerAddress: 'Customer address',
+    });
+    expect(signatureRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ contractId: draft.id }),
+    );
   });
 
   it('calculates contract terms on the server', async () => {
