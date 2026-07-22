@@ -54,6 +54,7 @@ describe('public transaction GraphQL schema', () => {
     expect(sdl).toContain('contractQuote(input: ContractQuoteInput!)');
     expect(sdl).toContain('acceptContract(input: AcceptContractInput!)');
     expect(sdl).toContain('rejectContract(input: RejectContractInput!)');
+    expect(sdl).toContain('completeContract(input: CompleteContractInput!)');
     expect(sdl).toContain('resendContract(input: ResendContractInput!)');
     expect(sdl).toContain('payContract(contractId: String!)');
     expect(sdl).toContain('payConversationFee(conversationId: String!)');

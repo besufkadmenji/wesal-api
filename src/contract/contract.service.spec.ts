@@ -329,6 +329,51 @@ describe('ContractService', () => {
     expect(contractRepository.findOne).not.toHaveBeenCalled();
   });
 
+  it('lets the customer sign and complete an in-progress contract', async () => {
+    const contract = {
+      id: 'contract-id',
+      conversationId: conversation.id,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      status: ContractStatus.IN_PROGRESS,
+      version: 1,
+    };
+    const hydrated = {
+      ...contract,
+      status: ContractStatus.COMPLETED,
+      signatures: [{ signatureType: 'CUSTOMER_COMPLETION' }],
+    };
+    contractRepository.findOne
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(hydrated);
+
+    const completed = await service.completeContract(
+      { contractId: contract.id, signatureData: 'completion-signature.png' },
+      {
+        sub: conversation.userId,
+        email: 'customer@example.com',
+        type: 'user',
+      },
+    );
+
+    expect(completed).toBe(hydrated);
+    expect(signatureRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractId: contract.id,
+        signerId: conversation.userId,
+        signatureType: 'CUSTOMER_COMPLETION',
+        signatureData: 'completion-signature.png',
+      }),
+    );
+    expect(messageService.persistSystemEvent).toHaveBeenCalledWith(
+      conversation.id,
+      'CONTRACT_COMPLETED',
+      expect.objectContaining({ contractId: contract.id }),
+      manager,
+    );
+  });
+
   it('resends a rejected contract as an immutable new version', async () => {
     const rejected = {
       id: 'rejected-contract-id',
