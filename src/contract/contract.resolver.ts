@@ -15,6 +15,7 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { ContractQuoteInput } from './dto/contract-quote.input';
 import { ContractQuote } from './dto/contract-quote.response';
 import { AcceptContractInput } from './dto/accept-contract.input';
+import { CompleteContractInput } from './dto/complete-contract.input';
 import { RejectContractInput } from './dto/reject-contract.input';
 import { ResendContractInput } from './dto/resend-contract.input';
 import { AdminAuthGuard } from '../admin/guards/admin-auth.guard';
@@ -119,6 +120,17 @@ export class ContractResolver {
     @GetLanguage() language: LanguageCode,
   ): Promise<Contract> {
     return this.contractService.rejectContract(input, principal, language);
+  }
+
+  @Mutation(() => Contract, {
+    description: 'Customer signs and completes an in-progress contract',
+  })
+  async completeContract(
+    @Args('input') input: CompleteContractInput,
+    @CurrentPrincipal() principal: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Contract> {
+    return this.contractService.completeContract(input, principal, language);
   }
 
   @Mutation(() => Contract, {

@@ -15,6 +15,7 @@ import { ContractPaginationInput } from './dto/contract-pagination.input';
 import { ContractQuoteInput } from './dto/contract-quote.input';
 import { ContractQuote } from './dto/contract-quote.response';
 import { AcceptContractInput } from './dto/accept-contract.input';
+import { CompleteContractInput } from './dto/complete-contract.input';
 import { RejectContractInput } from './dto/reject-contract.input';
 import { ResendContractInput } from './dto/resend-contract.input';
 import { Contract } from './entities/contract.entity';
@@ -44,7 +45,7 @@ const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
   [ContractStatus.PENDING]: [ContractStatus.ACCEPTED, ContractStatus.REJECTED],
   [ContractStatus.ACCEPTED]: [ContractStatus.IN_PROGRESS],
   [ContractStatus.REJECTED]: [],
-  [ContractStatus.IN_PROGRESS]: [],
+  [ContractStatus.IN_PROGRESS]: [ContractStatus.COMPLETED],
   [ContractStatus.COMPLETED]: [],
   [ContractStatus.CANCELLED]: [],
 };
@@ -448,6 +449,50 @@ export class ContractService {
     });
     await this.publishSafely(result.event);
     return result.contract;
+  }
+
+  async completeContract(
+    input: CompleteContractInput,
+    principal: JwtPayload,
+    language: LanguageCode = 'en',
+  ): Promise<Contract> {
+    const result = await this.dataSource.transaction(async (manager) => {
+      const contract = await this.loadLocked(
+        input.contractId,
+        manager,
+        language,
+      );
+      if (principal.type !== 'user' || principal.sub !== contract.clientId) {
+        throw this.unauthorized(language);
+      }
+      await this.assertLatest(contract, manager, language);
+      this.assertTransition(
+        contract.status,
+        ContractStatus.COMPLETED,
+        language,
+      );
+      const signature = await this.addSignature(
+        contract.id,
+        principal.sub,
+        ContractSignerType.USER,
+        ContractSignatureType.CUSTOMER_COMPLETION,
+        input.signatureData,
+        manager,
+        language,
+      );
+      contract.status = ContractStatus.COMPLETED;
+      const saved = await manager.getRepository(Contract).save(contract);
+      saved.signatures = [...(saved.signatures ?? []), signature];
+      const event = await this.messageService.persistSystemEvent(
+        contract.conversationId,
+        MessageKind.CONTRACT_COMPLETED,
+        { contractId: contract.id, version: contract.version },
+        manager,
+      );
+      return { contract: saved, event };
+    });
+    await this.publishSafely(result.event);
+    return this.findOne(input.contractId, principal, language);
   }
 
   async findAll(
