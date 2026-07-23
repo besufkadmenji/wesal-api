@@ -328,7 +328,7 @@ export class ComplaintService {
     return {
       ...result,
       mimeType: upload.mimetype,
-      url: `/files/${encodeURIComponent(result.path)}`,
+      url: `/files/${result.path}`,
     };
   }
 
