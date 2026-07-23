@@ -332,7 +332,10 @@ export class AppController {
   })
   @ApiResponse({ status: 404, description: 'File not found' })
   @ApiResponse({ status: 400, description: 'Download failed' })
-  async downloadFile(@Param('path') filePath: string, @Res() res: Response) {
+  async downloadFile(
+    @Param('path') filePath: string | string[],
+    @Res() res: Response,
+  ) {
     try {
       const s3Key = this.resolveFileKey(filePath);
 
@@ -379,7 +382,10 @@ export class AppController {
   })
   @ApiResponse({ status: 404, description: 'File not found' })
   @ApiResponse({ status: 400, description: 'File serving failed' })
-  async serveFile(@Param('path') filePath: string, @Res() res: Response) {
+  async serveFile(
+    @Param('path') filePath: string | string[],
+    @Res() res: Response,
+  ) {
     try {
       const s3Key = this.resolveFileKey(filePath);
 
@@ -404,15 +410,16 @@ export class AppController {
     }
   }
 
-  /** Accept slash-separated keys and legacy single-segment encoded keys. */
-  private resolveFileKey(pathParam: string): string {
-    if (pathParam.includes('/')) {
-      return pathParam;
+  /** Accept Express 5 wildcard segments and legacy encoded path parameters. */
+  private resolveFileKey(pathParam: string | string[]): string {
+    const value = Array.isArray(pathParam) ? pathParam.join('/') : pathParam;
+    if (value.includes('/')) {
+      return value;
     }
     try {
-      return decodeURIComponent(pathParam);
+      return decodeURIComponent(value);
     } catch {
-      return pathParam;
+      return value;
     }
   }
 

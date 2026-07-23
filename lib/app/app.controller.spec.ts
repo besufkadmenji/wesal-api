@@ -36,6 +36,7 @@ describe('AppController', () => {
           provide: FileUploadService,
           useValue: {
             saveFile: jest.fn(),
+            getFileWithMetadata: jest.fn(),
           },
         },
       ],
@@ -87,6 +88,29 @@ describe('AppController', () => {
       await expect(
         appController.uploadFile(undefined, undefined),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('serveFile', () => {
+    it('joins Express wildcard segments into the nested S3 key', async () => {
+      const buffer = Buffer.from('image');
+      const getFileWithMetadata = jest
+        .spyOn(fileUploadService, 'getFileWithMetadata')
+        .mockResolvedValue({ buffer, contentType: 'image/png' });
+      const response = {
+        set: jest.fn(),
+        send: jest.fn(),
+      };
+
+      await appController.serveFile(
+        ['complaints', 'user', 'customer-id', 'evidence.png'],
+        response as never,
+      );
+
+      expect(getFileWithMetadata).toHaveBeenCalledWith(
+        'complaints/user/customer-id/evidence.png',
+      );
+      expect(response.send).toHaveBeenCalledWith(buffer);
     });
   });
 });
