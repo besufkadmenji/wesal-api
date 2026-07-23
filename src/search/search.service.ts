@@ -393,7 +393,11 @@ export class SearchService {
           ...(filter.length > 0 ? { filter } : {}),
         },
       },
-      sort: [{ _score: { order: 'desc' } }, { createdAt: { order: 'desc' } }],
+      sort: [
+        { type: { order: 'asc' } },
+        { _score: { order: 'desc' } },
+        { createdAt: { order: 'desc' } },
+      ],
     });
 
     const total =

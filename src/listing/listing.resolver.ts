@@ -89,20 +89,6 @@ export class ListingResolver {
     );
   }
 
-  @Mutation(() => Listing)
-  @UseGuards(JwtAuthGuard)
-  async requestFeaturedPromotion(
-    @Args('listingId', { type: () => ID }) listingId: string,
-    @CurrentProvider() provider: JwtPayload,
-    @GetLanguage() language: LanguageCode,
-  ): Promise<Listing> {
-    return this.listingService.requestFeaturedPromotion(
-      listingId,
-      provider.sub,
-      language,
-    );
-  }
-
   @Mutation(() => RemoveListingResponse)
   @UseGuards(JwtAuthGuard, AdminPermissionGuard)
   @RequirePermission('listing', 'delete')

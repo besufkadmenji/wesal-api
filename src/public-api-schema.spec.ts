@@ -60,13 +60,13 @@ describe('public transaction GraphQL schema', () => {
     expect(sdl).toContain('resendContract(input: ResendContractInput!)');
     expect(sdl).toContain('payContract(contractId: String!)');
     expect(sdl).toContain('payConversationFee(conversationId: String!)');
-    expect(sdl).toContain('payPremiumAd(listingId: String!)');
+    expect(sdl).not.toContain('payPremiumAd(');
     expect(sdl).toContain(
       'setProviderFavorite(favorite: Boolean!, providerId: String!)',
     );
     expect(sdl).toContain('myFavoriteProviders(');
     expect(sdl).toContain('isProviderFavorite(providerId: String!)');
-    expect(sdl).toContain('requestFeaturedPromotion(listingId: ID!)');
+    expect(sdl).not.toContain('requestFeaturedPromotion(');
     expect(sdl).toContain('myListing(id: ID!): Listing!');
     expect(sdl).toContain('removeProviderAvatar: Boolean!');
     expect(sdl).not.toContain('removeProviderAvatar(id:');

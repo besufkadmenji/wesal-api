@@ -34,6 +34,7 @@ import {
 import { LISTING_ERROR_CODES } from './errors/listing.error-codes';
 import { LISTING_ERROR_MESSAGES } from './errors/listing.error-messages';
 import { SettingService } from '../setting/setting.service';
+import { PaymentService } from '../payment/payment.service';
 
 @Injectable()
 export class ListingService {
@@ -57,6 +58,7 @@ export class ListingService {
     private readonly trackingService: TrackingService,
     private readonly searchService: SearchService,
     private readonly settingService: SettingService,
+    private readonly paymentService: PaymentService,
   ) {}
 
   async create(
@@ -88,35 +90,49 @@ export class ListingService {
       );
     }
     const setting = await this.settingService.getSetting();
-    if (
-      createListingInput.type === ListingType.FEATURED &&
-      !setting.premiumAdEnabled
-    ) {
-      throw new I18nBadRequestException(
-        {
-          en: 'Featured advertisements are disabled',
-          ar: 'الإعلانات المميزة معطلة',
-        },
-        language,
-      );
-    }
     const isFeatured = createListingInput.type === ListingType.FEATURED;
+    if (isFeatured) {
+      if (
+        !setting.premiumAdEnabled ||
+        Number(setting.premiumAdFee) <= 0 ||
+        setting.premiumAdDurationDays < 1
+      ) {
+        throw new I18nBadRequestException(
+          {
+            en: 'Featured advertisements are disabled',
+            ar: 'الإعلانات المميزة معطلة',
+          },
+          language,
+        );
+      }
+    }
+    const now = new Date();
+    const featuredEndsAt = isFeatured
+      ? new Date(now.getTime() + setting.premiumAdDurationDays * 86_400_000)
+      : null;
     const listing = this.listingRepository.create({
       ...createListingInput,
       providerId,
-      status: isFeatured ? ListingStatus.PENDING_PAYMENT : ListingStatus.ACTIVE,
+      status: ListingStatus.ACTIVE,
       promotionStatus: isFeatured
-        ? PromotionStatus.PENDING_PAYMENT
+        ? PromotionStatus.ACTIVE
         : PromotionStatus.NONE,
       promotionCycle: isFeatured ? 1 : 0,
-      featuredStartsAt: null,
-      featuredEndsAt: null,
+      featuredStartsAt: isFeatured ? now : null,
+      featuredEndsAt,
       story: createListingInput.story,
       photos: createListingInput.photos,
       tags: '',
     });
 
     const saved = await this.listingRepository.save(listing);
+    if (isFeatured) {
+      await this.paymentService.recordMockPremiumAdPayment(
+        saved,
+        Number(setting.premiumAdFee),
+        setting.premiumAdDurationDays,
+      );
+    }
     // Index in Elasticsearch asynchronously
     this.searchService
       .indexListing(saved)
@@ -210,6 +226,22 @@ export class ListingService {
         .leftJoinAndSelect('listing.category', 'category')
         .leftJoinAndSelect('listing.city', 'city');
 
+      // BRD §4.2.10: Featured first, then badge tier (placeholder until badges exist),
+      // then rating, sales, then requested sort.
+      query.orderBy(
+        `CASE WHEN listing.type = :featuredType THEN 0 ELSE 1 END`,
+        'ASC',
+      );
+      query.setParameter('featuredType', ListingType.FEATURED);
+      query.addOrderBy(
+        `(SELECT COALESCE(AVG(r.rating), 0) FROM ratings r WHERE r."listingId" = listing.id)`,
+        'DESC',
+      );
+      query.addOrderBy(
+        `(SELECT COUNT(*)::int FROM contracts c WHERE c."listingId" = listing.id AND c.status = 'COMPLETED')`,
+        'DESC',
+      );
+
       if (userId) {
         const popularListings = await this.trackingService.getPopularListings(
           userId,
@@ -223,14 +255,10 @@ export class ListingService {
             'popularity_rank',
           );
           query.setParameter('popularIds', popularIds);
-          query.orderBy('popularity_rank', 'ASC');
-          query.addOrderBy(`listing.${sortBy}`, sortOrder);
-        } else {
-          query.orderBy(`listing.${sortBy}`, sortOrder);
+          query.addOrderBy('popularity_rank', 'ASC');
         }
-      } else {
-        query.orderBy(`listing.${sortBy}`, sortOrder);
       }
+      query.addOrderBy(`listing.${sortBy}`, sortOrder);
 
       query.skip(skip).take(limit);
       [items, total] = await query.getManyAndCount();
@@ -306,48 +334,6 @@ export class ListingService {
     }
 
     return listing;
-  }
-
-  async requestFeaturedPromotion(
-    id: string,
-    providerId: string,
-    language: LanguageCode = 'en',
-  ): Promise<Listing> {
-    const listing = await this.listingRepository.findOne({ where: { id } });
-    if (!listing) {
-      throw new I18nNotFoundException(
-        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_NOT_FOUND],
-        language,
-      );
-    }
-    if (listing.providerId !== providerId) {
-      throw new I18nBadRequestException(
-        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.UNAUTHORIZED],
-        language,
-      );
-    }
-    await this.assertProviderCanPublish(providerId, language);
-    const setting = await this.settingService.getSetting();
-    if (!setting.premiumAdEnabled || Number(setting.premiumAdFee) <= 0) {
-      throw new I18nBadRequestException(
-        {
-          en: 'Featured advertisements are disabled',
-          ar: 'الإعلانات المميزة معطلة',
-        },
-        language,
-      );
-    }
-    if (
-      listing.promotionStatus === PromotionStatus.ACTIVE ||
-      listing.promotionStatus === PromotionStatus.PENDING_PAYMENT
-    ) {
-      return listing;
-    }
-    listing.promotionCycle += 1;
-    listing.promotionStatus = PromotionStatus.PENDING_PAYMENT;
-    if (!listing.featuredStartsAt)
-      listing.status = ListingStatus.PENDING_PAYMENT;
-    return this.listingRepository.save(listing);
   }
 
   @Interval(60_000)

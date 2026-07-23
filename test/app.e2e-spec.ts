@@ -35,7 +35,9 @@ import { PaymentPurpose } from '../src/payment/enums/payment-purpose.enum';
 import { PaymentService } from '../src/payment/payment.service';
 import { Provider } from '../src/provider/entities/provider.entity';
 import { ProviderStatus } from '../src/provider/enums/provider-status.enum';
+import { SignedContractStatus } from '../src/provider/enums/contract.enum';
 import { SettingService } from '../src/setting/setting.service';
+import { SignedContract } from '../src/signed-contract/signed-contract.entity';
 import { User } from '../src/user/entities/user.entity';
 import { UserStatus } from '../src/user/enums/user-status.enum';
 import type { JwtPayload } from '../src/auth/strategies/jwt.strategy';
@@ -384,7 +386,7 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     await participant.dispose();
   });
 
-  it('keeps premium listings hidden until payment, survives retry, and downgrades on expiry', async () => {
+  it('publishes featured listings as paid at create, records mock payment, and downgrades on expiry', async () => {
     const dataSource = app.get(DataSource);
     const country = await dataSource.getRepository(Country).save({
       nameEn: 'Premium Country',
@@ -414,6 +416,16 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       cityId: city.id,
       countryId: country.id,
     });
+    await dataSource.getRepository(SignedContract).save({
+      providerId: provider.id,
+      status: SignedContractStatus.ACTIVE,
+      serviceProviderSignature: 'provider-signature',
+      platformManagerName: 'Platform Manager',
+      platformManagerSignature: 'manager-signature',
+      contractSignedAt: new Date(),
+      terminationReason: null,
+      deletedAt: null,
+    });
     await app.get(SettingService).setSetting({
       premiumAdEnabled: true,
       premiumAdFee: 99,
@@ -423,8 +435,8 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       {
         categoryId: category.id,
         cityId: city.id,
-        name: 'Pending premium listing',
-        description: 'This premium listing is not visible before payment.',
+        name: 'Featured premium listing',
+        description: 'This premium listing is published after mock payment at create.',
         price: 250,
         type: ListingType.FEATURED,
         story: {
@@ -439,34 +451,25 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       },
       provider.id,
     );
-    expect(listing.status).toBe(ListingStatus.PENDING_PAYMENT);
-    await expect(app.get(ListingService).findOne(listing.id)).rejects.toThrow();
-
-    const principal = {
-      sub: provider.id,
-      email: provider.email,
-      type: 'provider' as const,
-    };
-    const first = await app
-      .get(PaymentService)
-      .settlePremiumAd(listing.id, principal);
-    const retry = await app
-      .get(PaymentService)
-      .settlePremiumAd(listing.id, principal);
-    expect(first.listing).toMatchObject({
+    expect(listing).toMatchObject({
       status: ListingStatus.ACTIVE,
+      type: ListingType.FEATURED,
       promotionStatus: PromotionStatus.ACTIVE,
       promotionCycle: 1,
     });
-    expect(retry.payment.id).toBe(first.payment.id);
+    expect(listing.featuredStartsAt).toBeTruthy();
+    expect(listing.featuredEndsAt).toBeTruthy();
+    await expect(
+      app.get(ListingService).findOne(listing.id),
+    ).resolves.toMatchObject({ id: listing.id });
     expect(
       await dataSource.getRepository(Payment).count({
         where: { listingId: listing.id, purpose: PaymentPurpose.PREMIUM_AD },
       }),
     ).toBe(1);
 
-    first.listing.featuredEndsAt = new Date(Date.now() - 1_000);
-    await dataSource.getRepository(Listing).save(first.listing);
+    listing.featuredEndsAt = new Date(Date.now() - 1_000);
+    await dataSource.getRepository(Listing).save(listing);
     await app.get(ListingService).expireFeaturedPromotions();
     const expired = await dataSource.getRepository(Listing).findOneByOrFail({
       id: listing.id,

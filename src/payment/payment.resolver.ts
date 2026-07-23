@@ -15,7 +15,6 @@ import { PaymentPaginationInput } from './dto/payment-pagination.input';
 import { PaginatedPaymentResponse } from './dto/paginated-payment.response';
 import { ContractPaymentResponse } from './dto/contract-payment.response';
 import { ConversationFeePaymentResponse } from './dto/conversation-fee-payment.response';
-import { PremiumAdPaymentResponse } from './dto/premium-ad-payment.response';
 import { GetLanguage } from '../../lib/i18n';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
@@ -65,17 +64,6 @@ export class PaymentResolver {
       principal,
       language,
     );
-  }
-
-  @Mutation(() => PremiumAdPaymentResponse, {
-    description: 'Settle and activate a featured advertisement using the mock',
-  })
-  async payPremiumAd(
-    @Args('listingId') listingId: string,
-    @CurrentPrincipal() principal: JwtPayload,
-    @GetLanguage() language: LanguageCode,
-  ): Promise<PremiumAdPaymentResponse> {
-    return this.paymentService.settlePremiumAd(listingId, principal, language);
   }
 
   @Query(() => PaginatedPaymentResponse, { name: 'payments' })

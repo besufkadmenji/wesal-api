@@ -20,6 +20,7 @@ describe('ListingService provider finalization', () => {
       .mockImplementation((value) =>
         Promise.resolve({ id: 'listing-id', ...value }),
       ),
+    createQueryBuilder: jest.fn(),
   };
   const providerRepository = { findOne: jest.fn() };
   const categoryRepository = { findOne: jest.fn() };
@@ -29,6 +30,9 @@ describe('ListingService provider finalization', () => {
     indexListing: jest.fn().mockResolvedValue(undefined),
   };
   const settingService = { getSetting: jest.fn() };
+  const paymentService = {
+    recordMockPremiumAdPayment: jest.fn().mockResolvedValue({ id: 'payment-id' }),
+  };
   const service = new ListingService(
     listingRepository as never,
     providerRepository as never,
@@ -41,6 +45,7 @@ describe('ListingService provider finalization', () => {
     { trackAction: jest.fn(), getPopularListings: jest.fn() } as never,
     searchService as never,
     settingService as never,
+    paymentService as never,
   );
 
   beforeEach(() => {
@@ -49,6 +54,13 @@ describe('ListingService provider finalization', () => {
       id: 'provider-id',
       status: ProviderStatus.ACTIVE,
       signedContract: { status: SignedContractStatus.ACTIVE },
+    });
+    categoryRepository.findOne.mockResolvedValue({ id: 'category-id' });
+    cityRepository.findOne.mockResolvedValue({ id: 'city-id' });
+    settingService.getSetting.mockResolvedValue({
+      premiumAdEnabled: true,
+      premiumAdFee: 75,
+      premiumAdDurationDays: 30,
     });
   });
 
@@ -77,6 +89,36 @@ describe('ListingService provider finalization', () => {
     expect(categoryRepository.findOne).not.toHaveBeenCalled();
   });
 
+  it('creates a featured listing as active with mock payment settled', async () => {
+    const listing = await service.create(
+      {
+        categoryId: 'category-id',
+        cityId: 'city-id',
+        name: 'Featured Listing',
+        description: 'Featured listing description',
+        price: 100,
+        type: ListingType.FEATURED,
+        story: undefined as never,
+        photos: [],
+      },
+      'provider-id',
+    );
+
+    expect(listing).toMatchObject({
+      type: ListingType.FEATURED,
+      status: ListingStatus.ACTIVE,
+      promotionStatus: PromotionStatus.ACTIVE,
+      promotionCycle: 1,
+    });
+    expect(listing.featuredStartsAt).toBeInstanceOf(Date);
+    expect(listing.featuredEndsAt).toBeInstanceOf(Date);
+    expect(paymentService.recordMockPremiumAdPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'listing-id' }),
+      75,
+      30,
+    );
+  });
+
   it('returns a non-public listing only to its provider owner', async () => {
     const listing = {
       id: 'listing-id',
@@ -91,6 +133,48 @@ describe('ListingService provider finalization', () => {
     await expect(
       service.findOwnedOne('listing-id', 'provider-id'),
     ).resolves.toBe(listing);
+  });
+
+  it('orders public listings with featured ads before free ads', async () => {
+    const orderBy = jest.fn().mockReturnThis();
+    const addOrderBy = jest.fn().mockReturnThis();
+    const setParameter = jest.fn().mockReturnThis();
+    const qb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      orderBy,
+      addOrderBy,
+      setParameter,
+      addSelect: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([
+        [
+          { id: 'featured', type: ListingType.FEATURED },
+          { id: 'free', type: ListingType.FREE },
+        ],
+        2,
+      ]),
+    };
+    listingRepository.createQueryBuilder.mockReturnValue(qb);
+
+    const result = await service.findAll({
+      page: 1,
+      limit: 10,
+      categoryId: 'category-id',
+    });
+
+    expect(orderBy).toHaveBeenCalledWith(
+      expect.stringContaining('listing.type'),
+      'ASC',
+    );
+    expect(setParameter).toHaveBeenCalledWith(
+      'featuredType',
+      ListingType.FEATURED,
+    );
+    expect(result.items[0].type).toBe(ListingType.FEATURED);
+    expect(result.items[1].type).toBe(ListingType.FREE);
   });
 
   it('schedules and idempotently expires featured promotions', async () => {

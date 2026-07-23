@@ -12,7 +12,6 @@ import { SortOrder } from '../../lib/common/dto/pagination.input';
 import { PaymentPaginationInput } from './dto/payment-pagination.input';
 import { ContractPaymentResponse } from './dto/contract-payment.response';
 import { ConversationFeePaymentResponse } from './dto/conversation-fee-payment.response';
-import { PremiumAdPaymentResponse } from './dto/premium-ad-payment.response';
 import { Payment } from './entities/payment.entity';
 import { Contract } from '../contract/entities/contract.entity';
 import { ContractStatus } from '../contract/enums/contract-status.enum';
@@ -36,14 +35,6 @@ import { MessageKind } from '../conversation/enums/message-kind.enum';
 import { ConversationStatus } from '../conversation/enums/conversation-status.enum';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { SettingService } from '../setting/setting.service';
-import { SearchService } from '../search/search.service';
-import {
-  ListingStatus,
-  ListingType,
-  PromotionStatus,
-} from '../listing/enums/listing.enum';
-import { ProviderStatus } from '../provider/enums/provider-status.enum';
-import { SignedContractStatus } from '../provider/enums/contract.enum';
 
 export type PaymentPayer = User | Provider;
 
@@ -62,7 +53,6 @@ export class PaymentService {
     private readonly contractService: ContractService,
     private readonly messageService: MessageService,
     private readonly settingService: SettingService,
-    private readonly searchService: SearchService,
   ) {}
 
   async settleContractPayment(
@@ -362,104 +352,52 @@ export class PaymentService {
     };
   }
 
-  async settlePremiumAd(
-    listingId: string,
-    principal: JwtPayload,
-    language: LanguageCode = 'en',
-  ): Promise<PremiumAdPaymentResponse> {
-    if (principal.type !== 'provider') throw this.unauthorized(language);
-    const setting = await this.settingService.getSetting();
-    if (
-      !setting.premiumAdEnabled ||
-      Number(setting.premiumAdFee) <= 0 ||
-      setting.premiumAdDurationDays < 1
-    ) {
-      throw this.badRequest('PREMIUM_AD_DISABLED', language);
-    }
-    const result = await this.dataSource.transaction(async (manager) => {
-      const listing = await manager.getRepository(Listing).findOne({
-        where: { id: listingId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!listing) throw this.notFound('LISTING_NOT_FOUND', language);
-      if (listing.providerId !== principal.sub)
-        throw this.unauthorized(language);
-      const provider = await manager.getRepository(Provider).findOne({
-        where: { id: principal.sub },
-        relations: ['signedContract'],
-      });
-      if (!provider || provider.status !== ProviderStatus.ACTIVE) {
-        throw this.badRequest('PROVIDER_NOT_ACTIVE', language);
-      }
-      if (provider.signedContract?.status !== SignedContractStatus.ACTIVE) {
-        throw this.badRequest('ACTIVE_CONTRACT_REQUIRED', language);
-      }
-      if (
-        listing.promotionStatus === PromotionStatus.NONE ||
-        listing.promotionStatus === PromotionStatus.EXPIRED
-      ) {
-        listing.promotionStatus = PromotionStatus.PENDING_PAYMENT;
-        listing.promotionCycle = Math.max(1, listing.promotionCycle + 1);
-      }
-      const obligationKey = this.obligationKey(
-        PaymentPurpose.PREMIUM_AD,
-        `${listing.id}:${listing.promotionCycle}`,
-        PayerType.PROVIDER,
-        principal.sub,
-      );
-      const repository = manager.getRepository(Payment);
-      let payment = await repository.findOne({ where: { obligationKey } });
-      const now = new Date();
-      const endsAt = new Date(
-        now.getTime() + setting.premiumAdDurationDays * 86_400_000,
-      );
-      if (!payment) {
-        payment = await repository.save(
-          repository.create({
-            purpose: PaymentPurpose.PREMIUM_AD,
-            payerId: principal.sub,
-            payerType: PayerType.PROVIDER,
-            obligationKey,
-            contractId: null,
-            conversationId: null,
-            listingId: listing.id,
-            categoryId: listing.categoryId,
-            amount: Number(setting.premiumAdFee),
-            commissionPercent: 0,
-            commissionAmount: 0,
-            vatRate: 0,
-            vatAmount: 0,
-            configSnapshot: {
-              fee: Number(setting.premiumAdFee),
-              durationDays: setting.premiumAdDurationDays,
-              promotionCycle: listing.promotionCycle,
-            },
-            paymentMethod: PaymentMethod.MOCK,
-            status: PaymentStatus.COMPLETED,
-            transactionReference: `MOCK:${obligationKey}`,
-            gatewayResponse: JSON.stringify({ success: true, gateway: 'mock' }),
-            notes: 'Sprint 3 mock premium advertisement; no money moved.',
-          }),
-        );
-      }
-      if (listing.promotionStatus !== PromotionStatus.ACTIVE) {
-        listing.type = ListingType.FEATURED;
-        listing.status = ListingStatus.ACTIVE;
-        listing.promotionStatus = PromotionStatus.ACTIVE;
-        listing.featuredStartsAt = now;
-        listing.featuredEndsAt = endsAt;
-        await manager.getRepository(Listing).save(listing);
-      }
-      return { payment, listing };
+  /**
+   * Records a completed mock premium-ad payment for a listing activated at create time.
+   * Featured publish is owned by ListingService.create — this only persists the fee row.
+   */
+  async recordMockPremiumAdPayment(
+    listing: Listing,
+    fee: number,
+    durationDays: number,
+  ): Promise<Payment> {
+    const obligationKey = this.obligationKey(
+      PaymentPurpose.PREMIUM_AD,
+      `${listing.id}:${listing.promotionCycle}`,
+      PayerType.PROVIDER,
+      listing.providerId,
+    );
+    const existing = await this.paymentRepository.findOne({
+      where: { obligationKey },
     });
-    void this.searchService
-      .indexListing(result.listing)
-      .catch((error) =>
-        this.logger.warn(
-          `Premium listing index refresh failed: ${String(error)}`,
-        ),
-      );
-    return result;
+    if (existing) return existing;
+    return this.paymentRepository.save(
+      this.paymentRepository.create({
+        purpose: PaymentPurpose.PREMIUM_AD,
+        payerId: listing.providerId,
+        payerType: PayerType.PROVIDER,
+        obligationKey,
+        contractId: null,
+        conversationId: null,
+        listingId: listing.id,
+        categoryId: listing.categoryId,
+        amount: Number(fee),
+        commissionPercent: 0,
+        commissionAmount: 0,
+        vatRate: 0,
+        vatAmount: 0,
+        configSnapshot: {
+          fee: Number(fee),
+          durationDays,
+          promotionCycle: listing.promotionCycle,
+        },
+        paymentMethod: PaymentMethod.MOCK,
+        status: PaymentStatus.COMPLETED,
+        transactionReference: `MOCK:${obligationKey}`,
+        gatewayResponse: JSON.stringify({ success: true, gateway: 'mock' }),
+        notes: 'Mock premium advertisement settled at create; no money moved.',
+      }),
+    );
   }
 
   async findAll(
@@ -569,11 +507,7 @@ export class PaymentService {
   }
 
   private notFound(
-    code:
-      | 'PAYMENT_NOT_FOUND'
-      | 'CONTRACT_NOT_FOUND'
-      | 'CONVERSATION_NOT_FOUND'
-      | 'LISTING_NOT_FOUND',
+    code: 'PAYMENT_NOT_FOUND' | 'CONTRACT_NOT_FOUND' | 'CONVERSATION_NOT_FOUND',
     language: LanguageCode,
   ): I18nNotFoundException {
     const message = I18nService.translate(

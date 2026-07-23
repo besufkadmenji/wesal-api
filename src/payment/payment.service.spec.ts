@@ -69,7 +69,6 @@ describe('PaymentService', () => {
     publish: jest.fn(),
   };
   const settingService = { getSetting: jest.fn() };
-  const searchService = { indexListing: jest.fn(async () => undefined) };
   const service = new PaymentService(
     paymentRepository as never,
     { findOne: jest.fn() } as never,
@@ -78,7 +77,6 @@ describe('PaymentService', () => {
     contractService as never,
     messageService as never,
     settingService as never,
-    searchService as never,
   );
 
   beforeEach(() => {
@@ -202,100 +200,48 @@ describe('PaymentService', () => {
     expect(result.access.canSend).toBe(true);
   });
 
-  it('activates a premium listing atomically and reuses the cycle payment', async () => {
+  it('records a mock premium payment for a featured listing created as paid', async () => {
     const listing = {
       id: 'listing-id',
       providerId: 'provider-id',
       categoryId: 'category-id',
       type: ListingType.FEATURED,
-      status: ListingStatus.PENDING_PAYMENT,
-      promotionStatus: PromotionStatus.PENDING_PAYMENT,
+      status: ListingStatus.ACTIVE,
+      promotionStatus: PromotionStatus.ACTIVE,
       promotionCycle: 1,
-      featuredStartsAt: null,
-      featuredEndsAt: null,
     };
-    listingRepository.findOne.mockResolvedValue(listing);
-    settingService.getSetting.mockResolvedValue({
-      premiumAdEnabled: true,
-      premiumAdFee: 75,
-      premiumAdDurationDays: 30,
-    });
-    paymentRepository.findOne
-      .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce({
-        id: 'payment-id',
-        status: PaymentStatus.COMPLETED,
-      });
+    paymentRepository.findOne.mockResolvedValue(null);
 
-    const principal = {
-      sub: listing.providerId,
-      email: 'provider@example.com',
-      type: 'provider' as const,
-    };
-    const first = await service.settlePremiumAd(listing.id, principal);
-    const retry = await service.settlePremiumAd(listing.id, principal);
+    const payment = await service.recordMockPremiumAdPayment(listing as never, 75, 30);
 
-    expect(first.payment).toMatchObject({
+    expect(payment).toMatchObject({
       purpose: PaymentPurpose.PREMIUM_AD,
       amount: 75,
       configSnapshot: { durationDays: 30, promotionCycle: 1 },
+      status: PaymentStatus.COMPLETED,
     });
-    expect(first.listing).toMatchObject({
-      status: ListingStatus.ACTIVE,
-      promotionStatus: PromotionStatus.ACTIVE,
-    });
-    expect(retry.payment).toMatchObject({ id: 'payment-id' });
     expect(paymentRepository.save).toHaveBeenCalledTimes(1);
   });
 
-  it('rejects premium payment from a non-owner provider', async () => {
-    listingRepository.findOne.mockResolvedValue({
-      id: 'listing-id',
-      providerId: 'owner-id',
-      promotionStatus: PromotionStatus.PENDING_PAYMENT,
-      promotionCycle: 1,
-    });
-    settingService.getSetting.mockResolvedValue({
-      premiumAdEnabled: true,
-      premiumAdFee: 75,
-      premiumAdDurationDays: 30,
-    });
+  it('reuses an existing mock premium payment for the same obligation', async () => {
+    const existing = {
+      id: 'payment-id',
+      status: PaymentStatus.COMPLETED,
+    };
+    paymentRepository.findOne.mockResolvedValue(existing);
 
-    await expect(
-      service.settlePremiumAd('listing-id', {
-        sub: 'different-provider',
-        email: 'provider@example.com',
-        type: 'provider',
-      }),
-    ).rejects.toThrow();
-    expect(paymentRepository.save).not.toHaveBeenCalled();
-  });
+    const payment = await service.recordMockPremiumAdPayment(
+      {
+        id: 'listing-id',
+        providerId: 'provider-id',
+        categoryId: 'category-id',
+        promotionCycle: 1,
+      } as never,
+      75,
+      30,
+    );
 
-  it('rejects premium payment without an active platform contract', async () => {
-    listingRepository.findOne.mockResolvedValue({
-      id: 'listing-id',
-      providerId: 'provider-id',
-      promotionStatus: PromotionStatus.PENDING_PAYMENT,
-      promotionCycle: 1,
-    });
-    providerRepository.findOne.mockResolvedValue({
-      id: 'provider-id',
-      status: ProviderStatus.ACTIVE,
-      signedContract: { status: SignedContractStatus.PENDING },
-    });
-    settingService.getSetting.mockResolvedValue({
-      premiumAdEnabled: true,
-      premiumAdFee: 75,
-      premiumAdDurationDays: 30,
-    });
-
-    await expect(
-      service.settlePremiumAd('listing-id', {
-        sub: 'provider-id',
-        email: 'provider@example.com',
-        type: 'provider',
-      }),
-    ).rejects.toThrow('An active platform contract is required');
+    expect(payment).toBe(existing);
     expect(paymentRepository.save).not.toHaveBeenCalled();
   });
 });
