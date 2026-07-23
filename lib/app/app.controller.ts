@@ -302,8 +302,9 @@ export class AppController {
         subfolder,
       );
 
-      // Build download URL that can be used in <img src> tags
-      const filesUrl = `/files/${encodeURIComponent(result.path)}`;
+      // Nested S3 keys must use slash-separated paths; encoded slashes are
+      // blocked by common reverse proxies (e.g. Cloudflare returns 400).
+      const filesUrl = `/files/${result.path}`;
 
       return {
         filename: result.filename,
@@ -317,11 +318,12 @@ export class AppController {
     }
   }
 
-  @Get('download/:encodedPath')
+  @Get('download/*path')
   @ApiOperation({ summary: 'Download a file as attachment' })
   @ApiParam({
-    name: 'encodedPath',
-    description: 'URL-encoded S3 key/path of the file to download',
+    name: 'path',
+    description:
+      'S3 key/path of the file to download (supports nested keys with slashes)',
   })
   @ApiResponse({
     status: 200,
@@ -330,13 +332,9 @@ export class AppController {
   })
   @ApiResponse({ status: 404, description: 'File not found' })
   @ApiResponse({ status: 400, description: 'Download failed' })
-  async downloadFile(
-    @Param('encodedPath') encodedPath: string,
-    @Res() res: Response,
-  ) {
+  async downloadFile(@Param('path') filePath: string, @Res() res: Response) {
     try {
-      // Decode the S3 key from URL-encoded path
-      const s3Key = decodeURIComponent(encodedPath);
+      const s3Key = this.resolveFileKey(filePath);
 
       // Fetch file from S3
       const fileBuffer = await this.fileUploadService.getFile(s3Key);
@@ -362,11 +360,12 @@ export class AppController {
     }
   }
 
-  @Get('files/:encodedPath')
+  @Get('files/*path')
   @ApiOperation({ summary: 'Serve a file inline (for embedding in pages)' })
   @ApiParam({
-    name: 'encodedPath',
-    description: 'URL-encoded S3 key/path of the file to serve',
+    name: 'path',
+    description:
+      'S3 key/path of the file to serve (supports nested keys with slashes)',
   })
   @ApiResponse({
     status: 200,
@@ -380,18 +379,15 @@ export class AppController {
   })
   @ApiResponse({ status: 404, description: 'File not found' })
   @ApiResponse({ status: 400, description: 'File serving failed' })
-  async serveFile(
-    @Param('encodedPath') encodedPath: string,
-    @Res() res: Response,
-  ) {
+  async serveFile(@Param('path') filePath: string, @Res() res: Response) {
     try {
-      const s3Key = decodeURIComponent(encodedPath);
+      const s3Key = this.resolveFileKey(filePath);
 
       const { buffer, contentType } =
         await this.fileUploadService.getFileWithMetadata(s3Key);
 
       res.set({
-        'Content-Type': contentType ?? 'application/octet-stream',
+        'Content-Type': this.resolveInlineContentType(s3Key, contentType),
         'Content-Disposition': 'inline',
         'Cache-Control': 'public, max-age=31536000, immutable',
         'Content-Length': buffer.length,
@@ -406,5 +402,32 @@ export class AppController {
         `File serving failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
+  }
+
+  /** Accept slash-separated keys and legacy single-segment encoded keys. */
+  private resolveFileKey(pathParam: string): string {
+    if (pathParam.includes('/')) {
+      return pathParam;
+    }
+    try {
+      return decodeURIComponent(pathParam);
+    } catch {
+      return pathParam;
+    }
+  }
+
+  private resolveInlineContentType(
+    s3Key: string,
+    contentType?: string,
+  ): string {
+    if (contentType && contentType !== 'application/octet-stream') {
+      return contentType;
+    }
+    const lower = s3Key.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    if (lower.endsWith('.gif')) return 'image/gif';
+    return contentType ?? 'application/octet-stream';
   }
 }

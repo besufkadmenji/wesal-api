@@ -73,7 +73,7 @@ describe('AppController', () => {
 
       expect(result).toEqual({
         filename: mockResult.filename,
-        url: `/files/${encodeURIComponent(mockResult.path)}`,
+        url: `/files/${mockResult.path}`,
         size: mockResult.size,
       });
       expect(saveFile).toHaveBeenCalledWith(
