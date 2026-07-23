@@ -42,6 +42,8 @@ import {
   ListingType,
   PromotionStatus,
 } from '../listing/enums/listing.enum';
+import { ProviderStatus } from '../provider/enums/provider-status.enum';
+import { SignedContractStatus } from '../provider/enums/contract.enum';
 
 export type PaymentPayer = User | Provider;
 
@@ -382,6 +384,16 @@ export class PaymentService {
       if (!listing) throw this.notFound('LISTING_NOT_FOUND', language);
       if (listing.providerId !== principal.sub)
         throw this.unauthorized(language);
+      const provider = await manager.getRepository(Provider).findOne({
+        where: { id: principal.sub },
+        relations: ['signedContract'],
+      });
+      if (!provider || provider.status !== ProviderStatus.ACTIVE) {
+        throw this.badRequest('PROVIDER_NOT_ACTIVE', language);
+      }
+      if (provider.signedContract?.status !== SignedContractStatus.ACTIVE) {
+        throw this.badRequest('ACTIVE_CONTRACT_REQUIRED', language);
+      }
       if (
         listing.promotionStatus === PromotionStatus.NONE ||
         listing.promotionStatus === PromotionStatus.EXPIRED
@@ -572,7 +584,10 @@ export class PaymentService {
   }
 
   private badRequest(
-    code: 'PREMIUM_AD_DISABLED',
+    code:
+      | 'PREMIUM_AD_DISABLED'
+      | 'PROVIDER_NOT_ACTIVE'
+      | 'ACTIVE_CONTRACT_REQUIRED',
     language: LanguageCode,
   ): I18nBadRequestException {
     const message = I18nService.translate(

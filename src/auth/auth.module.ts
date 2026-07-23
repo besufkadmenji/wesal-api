@@ -16,6 +16,7 @@ import { EmailService } from '../../lib/email/email.service';
 import { SmsService } from '../../lib/sms/sms.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { OtpCodeGenerator } from './otp-code-generator';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     ProviderAuthService,
     EmailService,
     SmsService,
+    OtpCodeGenerator,
     JwtStrategy,
     JwtAuthGuard,
   ],
@@ -51,6 +53,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
     ProviderAuthService,
     EmailService,
     SmsService,
+    OtpCodeGenerator,
     JwtAuthGuard,
   ],
 })

@@ -64,6 +64,16 @@ export class ListingResolver {
     return this.listingService.findByProvider(provider.sub, paginationInput);
   }
 
+  @Query(() => Listing, { name: 'myListing' })
+  @UseGuards(JwtAuthGuard)
+  async findOwnedOne(
+    @Args('id', { type: () => ID }) id: string,
+    @CurrentProvider() provider: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Listing> {
+    return this.listingService.findOwnedOne(id, provider.sub, language);
+  }
+
   @Mutation(() => Listing)
   @UseGuards(JwtAuthGuard)
   async updateListing(

@@ -13,6 +13,7 @@ import { FavoriteResolver } from './favorite/favorite.resolver';
 import { ComplaintResolver } from './complaint/complaint.resolver';
 import { ListingResolver } from './listing/listing.resolver';
 import { ReportResolver } from './report/report.resolver';
+import { ProviderResolver } from './provider/provider.resolver';
 
 describe('public transaction GraphQL schema', () => {
   let module: TestingModule;
@@ -39,6 +40,7 @@ describe('public transaction GraphQL schema', () => {
         ComplaintResolver,
         ListingResolver,
         ReportResolver,
+        ProviderResolver,
       ],
       {
         scalarsMap: [{ type: () => Object, scalar: GraphQLJSON }],
@@ -65,6 +67,9 @@ describe('public transaction GraphQL schema', () => {
     expect(sdl).toContain('myFavoriteProviders(');
     expect(sdl).toContain('isProviderFavorite(providerId: String!)');
     expect(sdl).toContain('requestFeaturedPromotion(listingId: ID!)');
+    expect(sdl).toContain('myListing(id: ID!): Listing!');
+    expect(sdl).toContain('removeProviderAvatar: Boolean!');
+    expect(sdl).not.toContain('removeProviderAvatar(id:');
     expect(sdl).toContain('createComplaint(');
     expect(sdl).toContain('myComplaints(');
     expect(sdl).toContain('adminComplaints(');

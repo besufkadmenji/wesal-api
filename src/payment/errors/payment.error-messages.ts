@@ -50,4 +50,12 @@ export const PAYMENT_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Featured advertisements are disabled',
     ar: 'الإعلانات المميزة معطلة',
   },
+  [PAYMENT_ERROR_CODES.PROVIDER_NOT_ACTIVE]: {
+    en: 'Provider account must be active',
+    ar: 'يجب أن يكون حساب مقدم الخدمة نشطاً',
+  },
+  [PAYMENT_ERROR_CODES.ACTIVE_CONTRACT_REQUIRED]: {
+    en: 'An active platform contract is required',
+    ar: 'يلزم وجود عقد نشط مع المنصة',
+  },
 };

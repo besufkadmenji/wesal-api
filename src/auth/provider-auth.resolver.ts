@@ -1,10 +1,10 @@
-import { Req, UseGuards } from '@nestjs/common';
+import { Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import { Args, Mutation, Resolver } from '@nestjs/graphql';
 import type { Request } from 'express';
 import { GetLanguage } from '../../lib/i18n';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Provider } from '../provider/entities/provider.entity';
-import { CurrentUser } from './decorators/current-user.decorator';
+import { CurrentProvider } from './decorators/current-provider.decorator';
 import { ChangeEmailInput } from './dto/change-email.input';
 import { ChangeEmailResponse } from './dto/change-email.response';
 import { ChangePasswordInput } from './dto/change-password.input';
@@ -133,14 +133,14 @@ export class ProviderAuthResolver {
   })
   async changeProviderPassword(
     @Args('input') changePasswordInput: ChangePasswordInput,
-    @CurrentUser() user: JwtPayload | undefined,
+    @CurrentProvider() provider: JwtPayload | undefined,
     @GetLanguage() language: LanguageCode,
   ): Promise<boolean> {
-    if (!user) {
-      throw new Error('Provider not authenticated');
+    if (!provider) {
+      throw new UnauthorizedException('Provider not authenticated');
     }
     return await this.providerAuthService.changePassword(
-      user.sub,
+      provider.sub,
       changePasswordInput,
       language,
     );
@@ -153,14 +153,14 @@ export class ProviderAuthResolver {
   })
   async initiateProviderEmailChange(
     @Args('input') changeEmailInput: ChangeEmailInput,
-    @CurrentUser() user: JwtPayload | undefined,
+    @CurrentProvider() provider: JwtPayload | undefined,
     @GetLanguage() language: LanguageCode,
   ): Promise<ChangeEmailResponse> {
-    if (!user) {
-      throw new Error('Provider not authenticated');
+    if (!provider) {
+      throw new UnauthorizedException('Provider not authenticated');
     }
     return await this.providerAuthService.initiateEmailChange(
-      user.sub,
+      provider.sub,
       changeEmailInput,
       language,
     );
@@ -189,14 +189,14 @@ export class ProviderAuthResolver {
   })
   async initiateProviderPhoneChange(
     @Args('input') changePhoneInput: ChangePhoneInput,
-    @CurrentUser() user: JwtPayload | undefined,
+    @CurrentProvider() provider: JwtPayload | undefined,
     @GetLanguage() language: LanguageCode,
   ): Promise<ChangePhoneResponse> {
-    if (!user) {
-      throw new Error('Provider not authenticated');
+    if (!provider) {
+      throw new UnauthorizedException('Provider not authenticated');
     }
     return await this.providerAuthService.initiatePhoneChange(
-      user.sub,
+      provider.sub,
       changePhoneInput,
       language,
     );

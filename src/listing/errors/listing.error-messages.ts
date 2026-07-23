@@ -27,6 +27,14 @@ export const LISTING_ERROR_MESSAGES: Record<ListingErrorCode, TranslatedError> =
       en: 'Only providers can create listings',
       ar: 'فقط مقدمو الخدمات يمكنهم إنشاء إعلانات',
     },
+    [LISTING_ERROR_CODES.PROVIDER_NOT_ACTIVE]: {
+      en: 'Provider account must be active',
+      ar: 'يجب أن يكون حساب مقدم الخدمة نشطاً',
+    },
+    [LISTING_ERROR_CODES.ACTIVE_CONTRACT_REQUIRED]: {
+      en: 'An active platform contract is required',
+      ar: 'يلزم وجود عقد نشط مع المنصة',
+    },
     [LISTING_ERROR_CODES.LISTING_DELETED]: {
       en: 'Listing deleted successfully',
       ar: 'تم حذف الإعلان',

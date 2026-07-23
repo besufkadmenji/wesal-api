@@ -14,6 +14,8 @@ import { Complaint } from '../complaint/entities/complaint.entity';
 import { Conversation } from '../conversation/entities/conversation.entity';
 import { Favorite } from '../favorite/entities/favorite.entity';
 import { Provider } from '../provider/entities/provider.entity';
+import { SignedContractStatus } from '../provider/enums/contract.enum';
+import { ProviderStatus } from '../provider/enums/provider-status.enum';
 import { Rating } from '../rating/entities/rating.entity';
 import { SearchService } from '../search/search.service';
 import { ActionType } from '../tracking/enums/action-type.enum';
@@ -62,16 +64,7 @@ export class ListingService {
     providerId: string,
     language: LanguageCode = 'en',
   ): Promise<Listing> {
-    // Check if provider is a provider
-    const provider = await this.providerRepository.findOne({
-      where: { id: providerId },
-    });
-    if (!provider) {
-      throw new I18nNotFoundException(
-        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_NOT_FOUND],
-        language,
-      );
-    }
+    await this.assertProviderCanPublish(providerId, language);
 
     // Validate category exists
     const category = await this.categoryRepository.findOne({
@@ -333,6 +326,7 @@ export class ListingService {
         language,
       );
     }
+    await this.assertProviderCanPublish(providerId, language);
     const setting = await this.settingService.getSetting();
     if (!setting.premiumAdEnabled || Number(setting.premiumAdFee) <= 0) {
       throw new I18nBadRequestException(
@@ -365,12 +359,45 @@ export class ListingService {
       },
     });
     for (const listing of expired) {
-      listing.type = ListingType.FREE;
-      listing.status = ListingStatus.ACTIVE;
-      listing.promotionStatus = PromotionStatus.EXPIRED;
-      await this.listingRepository.save(listing);
-      void this.searchService.indexListing(listing).catch(() => undefined);
+      const result = await this.listingRepository.update(
+        { id: listing.id, promotionStatus: PromotionStatus.ACTIVE },
+        {
+          type: ListingType.FREE,
+          status: ListingStatus.ACTIVE,
+          promotionStatus: PromotionStatus.EXPIRED,
+        },
+      );
+      if (result.affected === 1) {
+        listing.type = ListingType.FREE;
+        listing.status = ListingStatus.ACTIVE;
+        listing.promotionStatus = PromotionStatus.EXPIRED;
+        void this.searchService.indexListing(listing).catch(() => undefined);
+      }
     }
+  }
+
+  async findOwnedOne(
+    id: string,
+    providerId: string,
+    language: LanguageCode = 'en',
+  ): Promise<Listing> {
+    const listing = await this.listingRepository.findOne({
+      where: { id },
+      relations: ['provider', 'category', 'city'],
+    });
+    if (!listing) {
+      throw new I18nNotFoundException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_NOT_FOUND],
+        language,
+      );
+    }
+    if (listing.providerId !== providerId) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.UNAUTHORIZED],
+        language,
+      );
+    }
+    return listing;
   }
 
   async findByProvider(
@@ -637,5 +664,27 @@ export class ListingService {
         console.error('Failed to update listing status in ES', err),
       );
     return saved;
+  }
+
+  private async assertProviderCanPublish(
+    providerId: string,
+    language: LanguageCode,
+  ): Promise<void> {
+    const provider = await this.providerRepository.findOne({
+      where: { id: providerId },
+      relations: ['signedContract'],
+    });
+    if (!provider || provider.status !== ProviderStatus.ACTIVE) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.PROVIDER_NOT_ACTIVE],
+        language,
+      );
+    }
+    if (provider.signedContract?.status !== SignedContractStatus.ACTIVE) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.ACTIVE_CONTRACT_REQUIRED],
+        language,
+      );
+    }
   }
 }

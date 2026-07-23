@@ -5,6 +5,7 @@ import { Contract } from '../contract/entities/contract.entity';
 import { Conversation } from '../conversation/entities/conversation.entity';
 import { Listing } from '../listing/entities/listing.entity';
 import { Category } from '../category/entities/category.entity';
+import { Provider } from '../provider/entities/provider.entity';
 import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { ConversationStatus } from '../conversation/enums/conversation-status.enum';
 import { PaymentPurpose } from './enums/payment-purpose.enum';
@@ -15,6 +16,8 @@ import {
   ListingType,
   PromotionStatus,
 } from '../listing/enums/listing.enum';
+import { ProviderStatus } from '../provider/enums/provider-status.enum';
+import { SignedContractStatus } from '../provider/enums/contract.enum';
 
 describe('PaymentService', () => {
   const paymentRepository = {
@@ -32,6 +35,7 @@ describe('PaymentService', () => {
     save: jest.fn(async (value) => value),
   };
   const categoryRepository = { findOne: jest.fn() };
+  const providerRepository = { findOne: jest.fn() };
   const manager = {
     getRepository: jest.fn((entity) => {
       if (entity === Payment) return paymentRepository;
@@ -39,6 +43,7 @@ describe('PaymentService', () => {
       if (entity === Conversation) return conversationRepository;
       if (entity === Listing) return listingRepository;
       if (entity === Category) return categoryRepository;
+      if (entity === Provider) return providerRepository;
       return {};
     }),
   };
@@ -76,7 +81,14 @@ describe('PaymentService', () => {
     searchService as never,
   );
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    providerRepository.findOne.mockResolvedValue({
+      id: 'provider-id',
+      status: ProviderStatus.ACTIVE,
+      signedContract: { status: SignedContractStatus.ACTIVE },
+    });
+  });
 
   it('settles the agreed price and keeps fee values as snapshots', async () => {
     const contract = {
@@ -256,6 +268,34 @@ describe('PaymentService', () => {
         type: 'provider',
       }),
     ).rejects.toThrow();
+    expect(paymentRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('rejects premium payment without an active platform contract', async () => {
+    listingRepository.findOne.mockResolvedValue({
+      id: 'listing-id',
+      providerId: 'provider-id',
+      promotionStatus: PromotionStatus.PENDING_PAYMENT,
+      promotionCycle: 1,
+    });
+    providerRepository.findOne.mockResolvedValue({
+      id: 'provider-id',
+      status: ProviderStatus.ACTIVE,
+      signedContract: { status: SignedContractStatus.PENDING },
+    });
+    settingService.getSetting.mockResolvedValue({
+      premiumAdEnabled: true,
+      premiumAdFee: 75,
+      premiumAdDurationDays: 30,
+    });
+
+    await expect(
+      service.settlePremiumAd('listing-id', {
+        sub: 'provider-id',
+        email: 'provider@example.com',
+        type: 'provider',
+      }),
+    ).rejects.toThrow('An active platform contract is required');
     expect(paymentRepository.save).not.toHaveBeenCalled();
   });
 });

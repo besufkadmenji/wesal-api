@@ -1,4 +1,4 @@
-import { Inject, UseGuards } from '@nestjs/common';
+import { Inject, UnauthorizedException, UseGuards } from '@nestjs/common';
 import {
   Args,
   Context,
@@ -13,12 +13,14 @@ import { I18nNotFoundException } from 'lib/errors/i18n.exceptions';
 import { I18nService } from 'lib/i18n';
 import { PUB_SUB } from 'lib/pubsub/pubsub.module';
 import { CurrentProvider } from 'src/auth/decorators/current-provider.decorator';
+import { CurrentPrincipal } from 'src/auth/decorators/current-principal.decorator';
 import { GetLanguage } from '../../lib/i18n/get-language.decorator';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
 import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { WsJwtAuthGuard } from '../auth/guards/ws-jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { Provider } from '../provider/entities/provider.entity';
 import { CreateProviderInput } from './dto/create-provider.input';
@@ -41,6 +43,8 @@ export class ProviderResolver {
   ) {}
 
   @Mutation(() => Provider, { description: 'Create a new provider' })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('provider', 'update')
   createProvider(
     @Args('createProviderInput') createProviderInput: CreateProviderInput,
     @GetLanguage() language: LanguageCode,
@@ -52,6 +56,8 @@ export class ProviderResolver {
     name: 'providers',
     description: 'Get all providers with pagination',
   })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('provider', 'read')
   findAll(@Args('pagination') pagination: ProviderPaginationInput) {
     return this.providerService.findAll(pagination);
   }
@@ -71,6 +77,8 @@ export class ProviderResolver {
     name: 'providerByEmail',
     description: 'Get provider by email',
   })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('provider', 'read')
   findByEmail(
     @Args('email') email: string,
     @GetLanguage() language: LanguageCode,
@@ -82,6 +90,8 @@ export class ProviderResolver {
     name: 'providerByPhone',
     description: 'Get provider by phone',
   })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('provider', 'read')
   findByPhone(
     @Args('phone') phone: string,
     @GetLanguage() language: LanguageCode,
@@ -116,9 +126,17 @@ export class ProviderResolver {
   @UseGuards(JwtAuthGuard)
   updateProvider(
     @Args('updateProviderInput') updateProviderInput: UpdateProviderInput,
+    @CurrentProvider() provider: JwtPayload | undefined,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.providerService.update(updateProviderInput, language);
+    if (!provider) {
+      throw new UnauthorizedException('Provider not authenticated');
+    }
+    return this.providerService.update(
+      provider.sub,
+      updateProviderInput,
+      language,
+    );
   }
 
   @Mutation(() => Provider, { description: 'Activate provider by ID' })
@@ -227,12 +245,16 @@ export class ProviderResolver {
     return this.providerService.remove(id, input.reason, language);
   }
 
-  @Mutation(() => Boolean, { description: 'Delete provider avatar by ID' })
+  @Mutation(() => Boolean, { description: 'Remove own provider avatar' })
+  @UseGuards(JwtAuthGuard)
   removeProviderAvatar(
-    @Args('id', { type: () => ID }) id: string,
+    @CurrentProvider() provider: JwtPayload | undefined,
     @GetLanguage() language: LanguageCode,
   ) {
-    return this.providerService.removeAvatar(id, language);
+    if (!provider) {
+      throw new UnauthorizedException('Provider not authenticated');
+    }
+    return this.providerService.removeAvatar(provider.sub, language);
   }
 
   @Subscription(() => Provider, {
@@ -241,11 +263,19 @@ export class ProviderResolver {
     filter: (
       payload: { providerUpdated: { id: string } },
       _variables: unknown,
-      context: { userId: string },
-    ) => payload.providerUpdated.id === context.userId,
+      context: { principal: JwtPayload },
+    ) =>
+      context.principal.type === 'provider' &&
+      payload.providerUpdated.id === context.principal.sub,
   })
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  providerUpdated(@Context() context: { userId: string }) {
+  @UseGuards(WsJwtAuthGuard)
+  providerUpdated(
+    @Context() _context: { principal: JwtPayload },
+    @CurrentPrincipal() principal: JwtPayload,
+  ) {
+    if (principal.type !== 'provider') {
+      throw new UnauthorizedException('Provider not authenticated');
+    }
     return this.pubSub.asyncIterableIterator('providerUpdated');
   }
 }

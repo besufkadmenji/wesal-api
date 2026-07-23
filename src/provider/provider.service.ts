@@ -227,11 +227,12 @@ export class ProviderService {
   }
 
   async update(
+    providerId: string,
     updateProviderInput: UpdateProviderInput,
     language: LanguageCode = 'en',
   ): Promise<Provider> {
     const provider = await this.providerRepository.findOne({
-      where: { id: updateProviderInput.id },
+      where: { id: providerId },
     });
 
     if (!provider) {
@@ -250,8 +251,19 @@ export class ProviderService {
       provider.categories = categories;
     }
 
-    // Update other fields
-    Object.assign(provider, updateProviderInput);
+    // Identity and credential fields have dedicated verified auth flows and
+    // must never be changed by the generic profile update.
+    const providerChanges = { ...updateProviderInput };
+    for (const protectedField of [
+      'id',
+      'email',
+      'phone',
+      'password',
+      'categoryIds',
+    ] as const) {
+      Reflect.deleteProperty(providerChanges, protectedField);
+    }
+    Object.assign(provider, providerChanges);
 
     return this.providerRepository.save(provider);
   }

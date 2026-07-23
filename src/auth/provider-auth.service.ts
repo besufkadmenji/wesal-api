@@ -34,6 +34,7 @@ import { AUTH_ERROR_MESSAGES } from './errors/auth.error-messages';
 import { ProviderStatus } from '../provider/enums/provider-status.enum';
 import { VerifyChangeEmailInput } from './dto/verify-change-email.input';
 import { VerifyChangePhoneInput } from './dto/verify-change-phone.input';
+import { OtpCodeGenerator } from './otp-code-generator';
 
 @Injectable()
 export class ProviderAuthService {
@@ -46,6 +47,7 @@ export class ProviderAuthService {
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
     private readonly smsService: SmsService,
+    private readonly otpCodeGenerator: OtpCodeGenerator,
   ) {}
 
   async register(
@@ -584,7 +586,7 @@ export class ProviderAuthService {
 
       // Ensure token is an email change token
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (payload.type !== 'email_change') {
+      if (payload.type !== 'email_change_provider') {
         const message = I18nService.translate(
           AUTH_ERROR_MESSAGES['INVALID_OTP'],
           language,
@@ -600,6 +602,8 @@ export class ProviderAuthService {
         where: {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
           target: payload.newEmail,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+          providerId: payload.sub,
           type: OtpType.EMAIL_VERIFICATION,
           isUsed: false,
           expiresAt: MoreThan(new Date()),
@@ -728,7 +732,7 @@ export class ProviderAuthService {
 
       // Ensure token is a phone change token
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (payload.type !== 'phone_change') {
+      if (payload.type !== 'phone_change_provider') {
         const message = I18nService.translate(
           AUTH_ERROR_MESSAGES['INVALID_OTP'],
           language,
@@ -744,6 +748,8 @@ export class ProviderAuthService {
         where: {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
           target: payload.newPhone,
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-assignment
+          providerId: payload.sub,
           type: OtpType.PHONE_VERIFICATION,
           isUsed: false,
           expiresAt: MoreThan(new Date()),
@@ -866,8 +872,7 @@ export class ProviderAuthService {
     type: OtpType,
     ipAddress?: string,
   ): Promise<void> {
-    // TODO: Replace with actual 4-digit OTP generation in production
-    const code = '1234';
+    const code = this.otpCodeGenerator.generate();
 
     // Create OTP with 10 minutes expiration
     const otp = this.otpRepository.create({
