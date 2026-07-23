@@ -84,6 +84,42 @@ describe('ComplaintService', () => {
     expect(complaintRepository.findOne).not.toHaveBeenCalled();
   });
 
+  it('returns the created complaint with relations loaded', async () => {
+    const created = {
+      id: 'complaint-id',
+      reporterId: principal.sub,
+      listingId: 'listing-id',
+      conversationId: input.conversationId,
+      attachments: [],
+    };
+    const loaded = {
+      ...created,
+      listing: { id: 'listing-id', name: 'Listing name' },
+      conversation: { id: input.conversationId },
+      contract: null,
+      messages: [],
+    };
+    complaintRepository.findOne
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(loaded);
+    complaintRepository.save.mockResolvedValue(created);
+
+    await expect(service.create(input, undefined, principal)).resolves.toBe(
+      loaded,
+    );
+    expect(complaintRepository.findOne).toHaveBeenLastCalledWith({
+      where: { id: created.id },
+      relations: [
+        'listing',
+        'conversation',
+        'contract',
+        'messages',
+        'reviewer',
+      ],
+      order: { messages: { createdAt: 'ASC' } },
+    });
+  });
+
   it('derives the complaint reviewer and thread author from the admin token', async () => {
     const complaint = {
       id: 'complaint-id',

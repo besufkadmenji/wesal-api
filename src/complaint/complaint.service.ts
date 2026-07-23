@@ -86,7 +86,7 @@ export class ComplaintService {
     for (const pending of uploads ?? []) {
       attachments.push(await this.storeEvidence(await pending, principal));
     }
-    const complaint = await this.complaintRepository.save(
+    const saved = await this.complaintRepository.save(
       this.complaintRepository.create({
         reporterId: principal.sub,
         reporterType,
@@ -101,8 +101,7 @@ export class ComplaintService {
         reviewedAt: null,
       }),
     );
-    complaint.messages = [];
-    return complaint;
+    return this.load(saved.id, language);
   }
 
   findMine(
