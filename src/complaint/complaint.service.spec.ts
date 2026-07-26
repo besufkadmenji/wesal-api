@@ -3,6 +3,7 @@ import { Readable } from 'stream';
 import { ComplaintService } from './complaint.service';
 import { ComplaintStatus } from './enums/complaint-status.enum';
 import { ComplaintMessageAuthorType } from './enums/complaint-message-author-type.enum';
+import { ComplaintReporterType } from './enums/complaint-reporter-type.enum';
 import { AdminPermissionType } from '../admin/enums/admin-permission-type.enum';
 
 describe('ComplaintService', () => {
@@ -154,5 +155,67 @@ describe('ComplaintService', () => {
       content: 'We are reviewing this complaint.',
     });
     expect(message).toMatchObject({ authorId: 'admin-id' });
+  });
+
+  it('localizes complaint status in English notification copy', async () => {
+    const complaint = {
+      id: 'complaint-id',
+      reporterId: 'customer-id',
+      reporterType: ComplaintReporterType.USER,
+      status: ComplaintStatus.PENDING,
+      reviewedByAdminId: null,
+      reviewedAt: null,
+    };
+    complaintRepository.findOne.mockResolvedValue(complaint);
+    notificationService.createForRecipient.mockResolvedValue({});
+
+    await service.setStatus(
+      complaint.id,
+      ComplaintStatus.REJECTED,
+      {
+        sub: 'admin-id',
+        email: 'admin@example.com',
+        permissionType: AdminPermissionType.MODERATOR,
+      },
+      'en',
+    );
+
+    expect(notificationService.createForRecipient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Complaint status updated',
+        message: 'Your complaint status is now Rejected.',
+      }),
+    );
+  });
+
+  it('localizes complaint status in Arabic notification copy', async () => {
+    const complaint = {
+      id: 'complaint-id',
+      reporterId: 'customer-id',
+      reporterType: ComplaintReporterType.USER,
+      status: ComplaintStatus.PENDING,
+      reviewedByAdminId: null,
+      reviewedAt: null,
+    };
+    complaintRepository.findOne.mockResolvedValue(complaint);
+    notificationService.createForRecipient.mockResolvedValue({});
+
+    await service.setStatus(
+      complaint.id,
+      ComplaintStatus.RESOLVED,
+      {
+        sub: 'admin-id',
+        email: 'admin@example.com',
+        permissionType: AdminPermissionType.MODERATOR,
+      },
+      'ar',
+    );
+
+    expect(notificationService.createForRecipient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'تم تحديث حالة الشكوى',
+        message: 'أصبحت حالة شكواك الآن تم الحل.',
+      }),
+    );
   });
 });

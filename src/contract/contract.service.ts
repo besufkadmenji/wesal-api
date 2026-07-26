@@ -7,6 +7,7 @@ import {
 } from '../../lib/errors';
 import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
+import { localizeEnum } from '../../lib/i18n/localize-enum';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { SortOrder } from '../../lib/common/dto/pagination.input';
 import { CreateContractInput } from './dto/create-contract.input';
@@ -28,6 +29,7 @@ import { Category } from '../category/entities/category.entity';
 import { DeliveryCompany } from '../delivery-company/entities/delivery-company.entity';
 import { DeliveryCompanyStatus } from '../delivery-company/enums/delivery-company-status.enum';
 import { ContractStatus } from './enums/contract-status.enum';
+import { CONTRACT_STATUS_LABELS } from './contract-status.labels';
 import { ContractSignerType } from './enums/contract-signer-type.enum';
 import { ContractSignatureType } from './enums/contract-signature-type.enum';
 import { CONTRACT_ERROR_MESSAGES } from './errors/contract.error-messages';
@@ -1617,6 +1619,11 @@ export class ContractService {
   ): Promise<void> {
     if (!this.notificationService) return;
     const reference = contract.publicId ?? contract.id;
+    const statusLabel = localizeEnum(
+      CONTRACT_STATUS_LABELS,
+      contract.status,
+      language,
+    );
     try {
       await this.notificationService.createForRecipient({
         recipientId,
@@ -1625,8 +1632,8 @@ export class ContractService {
         title: language === 'ar' ? 'تحديث التعاقد' : 'Contract update',
         message:
           language === 'ar'
-            ? `تم تحديث حالة التعاقد رقم ${reference} إلى ${contract.status}`
-            : `Contract ${reference} is now ${contract.status.replaceAll('_', ' ').toLowerCase()}`,
+            ? `تم تحديث حالة التعاقد رقم ${reference} إلى ${statusLabel}`
+            : `Contract ${reference} is now ${statusLabel}`,
         relatedEntityId: contract.id,
         relatedEntityType: 'contract',
       });

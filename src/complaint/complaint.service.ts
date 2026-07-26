@@ -10,6 +10,7 @@ import {
 } from '../../lib/errors';
 import { FileUploadService } from '../../lib/file-upload';
 import type { LanguageCode } from '../../lib/i18n/language.types';
+import { localizeEnum } from '../../lib/i18n/localize-enum';
 import type { AdminJwtPayload } from '../admin/types/admin-jwt-payload.type';
 import { Contract } from '../contract/entities/contract.entity';
 import { Conversation } from '../conversation/entities/conversation.entity';
@@ -24,6 +25,7 @@ import { ComplaintMessage } from './entities/complaint-message.entity';
 import { ComplaintMessageAuthorType } from './enums/complaint-message-author-type.enum';
 import { ComplaintReporterType } from './enums/complaint-reporter-type.enum';
 import { ComplaintStatus } from './enums/complaint-status.enum';
+import { COMPLAINT_STATUS_LABELS } from './complaint-status.labels';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
 import { NotificationType } from '../notification/enums/notification-type.enum';
@@ -215,6 +217,11 @@ export class ComplaintService {
     complaint.reviewedByAdminId = admin.sub;
     complaint.reviewedAt = new Date();
     const saved = await this.complaintRepository.save(complaint);
+    const statusLabel = localizeEnum(
+      COMPLAINT_STATUS_LABELS,
+      status,
+      language,
+    );
     await this.notifyReporter(
       saved,
       status === ComplaintStatus.RESOLVED
@@ -222,8 +229,8 @@ export class ComplaintService {
         : NotificationType.COMPLAINT_RESPONSE,
       language === 'ar' ? 'تم تحديث حالة الشكوى' : 'Complaint status updated',
       language === 'ar'
-        ? `أصبحت حالة شكواك الآن ${status}.`
-        : `Your complaint status is now ${status}.`,
+        ? `أصبحت حالة شكواك الآن ${statusLabel}.`
+        : `Your complaint status is now ${statusLabel}.`,
     );
     return saved;
   }
