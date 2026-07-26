@@ -1892,6 +1892,8 @@ export const seedData = [
       'Full Access Listing Promotion',
       'وصول كامل لترويج الإعلانات',
     ],
+    ['contract', 'resolve', 'Resolve Contract', 'حل نزاعات العقود'],
+    ['report', 'export', 'Export Report', 'تصدير التقارير'],
   ].map(([module, action, name, nameAr], index) => ({
     id: 325 + index,
     name,

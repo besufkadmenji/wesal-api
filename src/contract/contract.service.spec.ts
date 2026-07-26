@@ -9,6 +9,9 @@ import { Provider } from '../provider/entities/provider.entity';
 import { DeliveryCompany } from '../delivery-company/entities/delivery-company.entity';
 import { ContractStatus } from './enums/contract-status.enum';
 import { User } from '../user/entities/user.entity';
+import { ContractSettlement } from './entities/contract-settlement.entity';
+import { ContractAudit } from './entities/contract-audit.entity';
+import { Payment } from '../payment/entities/payment.entity';
 
 describe('ContractService', () => {
   const contractQueryBuilder = {
@@ -42,6 +45,18 @@ describe('ContractService', () => {
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => ({ id: 'signature-id', ...value })),
   };
+  const settlementRepository = {
+    findOne: jest.fn(),
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+  };
+  const auditRepository = {
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+  };
+  const paymentRepository = {
+    findOne: jest.fn(),
+  };
   const manager = {
     getRepository: jest.fn((entity) => {
       if (entity === Contract) return contractRepository;
@@ -52,6 +67,9 @@ describe('ContractService', () => {
       if (entity === User) return userRepository;
       if (entity === DeliveryCompany) return deliveryCompanyRepository;
       if (entity === ContractSignature) return signatureRepository;
+      if (entity === ContractSettlement) return settlementRepository;
+      if (entity === ContractAudit) return auditRepository;
+      if (entity === Payment) return paymentRepository;
       return {};
     }),
   };
@@ -94,6 +112,8 @@ describe('ContractService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    contractRepository.findOne.mockReset();
+    contractRepository.save.mockImplementation(async (value) => value);
     conversationRepository.findOne.mockResolvedValue(conversation);
     categoryRepository.findOne.mockResolvedValue({
       id: conversation.listing.categoryId,
@@ -115,6 +135,12 @@ describe('ContractService', () => {
       vatRate: 15,
     });
     signatureRepository.findOne.mockResolvedValue(null);
+    settlementRepository.findOne.mockResolvedValue(null);
+    paymentRepository.findOne.mockResolvedValue({
+      id: 'payment-id',
+      amount: 575,
+      status: 'COMPLETED',
+    });
     userRepository.findOne.mockResolvedValue({
       id: conversation.userId,
       contractSignature: 'customer-signature.png',
@@ -251,6 +277,9 @@ describe('ContractService', () => {
         'provider',
         'signatures',
         'supersedesContract',
+        'settlements',
+        'audits',
+        'document',
       ],
     });
   });
@@ -352,13 +381,13 @@ describe('ContractService', () => {
     expect(contractRepository.findOne).not.toHaveBeenCalled();
   });
 
-  it('lets the customer sign and complete an in-progress contract', async () => {
+  it('lets the customer confirm a provider-completed contract', async () => {
     const contract = {
       id: 'contract-id',
       conversationId: conversation.id,
       providerId: conversation.providerId,
       clientId: conversation.userId,
-      status: ContractStatus.IN_PROGRESS,
+      status: ContractStatus.AWAITING_CUSTOMER_CONFIRMATION,
       version: 1,
     };
     const hydrated = {
@@ -397,6 +426,95 @@ describe('ContractService', () => {
     );
   });
 
+  it('records a one-time provider completion and customer deadline', async () => {
+    const contract = {
+      id: 'contract-id',
+      conversationId: conversation.id,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      status: ContractStatus.IN_PROGRESS,
+      version: 1,
+      deliveryCompanyId: null,
+    };
+    const hydrated = {
+      ...contract,
+      status: ContractStatus.AWAITING_CUSTOMER_CONFIRMATION,
+      signatures: [{ signatureType: 'PROVIDER_COMPLETION' }],
+    };
+    contractRepository.findOne
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(hydrated);
+    settingService.getSetting.mockResolvedValue({
+      completionConfirmationGraceHours: 24,
+    });
+
+    await expect(
+      service.providerCompleteContract(
+        { contractId: contract.id, signatureData: 'provider-signature.png' },
+        {
+          sub: conversation.providerId,
+          email: 'provider@example.com',
+          type: 'provider',
+        },
+      ),
+    ).resolves.toBe(hydrated);
+
+    expect(signatureRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signatureType: 'PROVIDER_COMPLETION',
+        signatureData: 'provider-signature.png',
+      }),
+    );
+    expect(contract.confirmationDeadlineAt).toBeInstanceOf(Date);
+    expect(auditRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'PROVIDER_COMPLETED',
+        newStatus: ContractStatus.AWAITING_CUSTOMER_CONFIRMATION,
+      }),
+    );
+  });
+
+  it('balances an early cancellation from the immutable payment snapshot', async () => {
+    const contract = {
+      id: 'contract-id',
+      conversationId: conversation.id,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      status: ContractStatus.IN_PROGRESS,
+      version: 1,
+      downPayment: 50,
+      commissionAmount: 10,
+    };
+    const hydrated = { ...contract, status: ContractStatus.CANCELLED };
+    contractRepository.findOne
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(hydrated);
+
+    await expect(
+      service.requestCancellation(
+        { contractId: contract.id, reason: 'Scope is no longer required' },
+        {
+          sub: conversation.userId,
+          email: 'customer@example.com',
+          type: 'user',
+        },
+      ),
+    ).resolves.toBe(hydrated);
+
+    expect(settlementRepository.save).toHaveBeenCalledTimes(3);
+    expect(settlementRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'CUSTOMER_REFUND', amount: 525 }),
+    );
+    expect(settlementRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'PROVIDER_RELEASE', amount: 40 }),
+    );
+    expect(settlementRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'PLATFORM_COMMISSION', amount: 10 }),
+    );
+  });
+
   it('resends a rejected contract as an immutable new version', async () => {
     const rejected = {
       id: 'rejected-contract-id',
@@ -408,6 +526,7 @@ describe('ContractService', () => {
     };
     contractRepository.findOne
       .mockResolvedValueOnce(rejected)
+      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(rejected);
     contractRepository.save.mockImplementation(async (value) => ({
       id: 'resent-contract-id',

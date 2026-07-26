@@ -1,4 +1,4 @@
-import { Controller, Get, Query, Res, Headers } from '@nestjs/common';
+import { Controller, Get, Query, Res, Headers, Param } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -11,6 +11,7 @@ import type { Response } from 'express';
 import { ContractService } from './contract.service';
 import { CsvExportService } from '../../lib/csv-export';
 import { AdminExport } from '../admin/decorators/admin-export.decorator';
+import { ContractDocumentService } from './contract-document.service';
 
 @ApiTags('Contracts', 'Export')
 @Controller('contracts')
@@ -19,6 +20,7 @@ export class ContractController {
   constructor(
     private readonly contractService: ContractService,
     private readonly csvExportService: CsvExportService,
+    private readonly documents: ContractDocumentService,
   ) {}
 
   @Get('export')
@@ -64,5 +66,19 @@ export class ContractController {
       selectedFields,
       language,
     );
+  }
+
+  @Get(':id/document')
+  async document(
+    @Param('id') id: string,
+    @Res() response: Response,
+  ): Promise<void> {
+    const buffer = await this.documents.forAdmin(id);
+    response.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="contract-${id}.pdf"`,
+      'Content-Length': buffer.length,
+    });
+    response.send(buffer);
   }
 }

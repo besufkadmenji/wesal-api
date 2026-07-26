@@ -2,16 +2,19 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
+import * as path from 'path';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Payment } from '../payment/entities/payment.entity';
 import { PaymentPurpose } from '../payment/enums/payment-purpose.enum';
 import { FeeReportInput } from './dto/fee-report.input';
 import {
   ConversationFeeReport,
-  ConversationFeeReportRow,
   PremiumAdFeeReport,
   PremiumAdFeeReportRow,
+  ContractFinancialReport,
+  ContractFinancialReportRow,
 } from './dto/fee-report.response';
+import { ContractSettlementType } from '../contract/enums/contract-settlement-type.enum';
 
 @Injectable()
 export class ReportService {
@@ -23,10 +26,9 @@ export class ReportService {
   async conversationFees(
     input: FeeReportInput,
   ): Promise<ConversationFeeReport> {
-    const query = this.baseConversationQuery(input);
-    const totalsRaw = await query
-      .clone()
-      .select(
+    const totalsRaw = await this.baseConversationQuery(input)
+      .select('COUNT(DISTINCT conversation.id)', 'count')
+      .addSelect(
         `COALESCE(SUM(CASE WHEN payment.purpose = '${PaymentPurpose.CHAT_CUSTOMER}' THEN payment.amount ELSE 0 END), 0)`,
         'customer',
       )
@@ -34,19 +36,124 @@ export class ReportService {
         `COALESCE(SUM(CASE WHEN payment.purpose = '${PaymentPurpose.CHAT_PROVIDER}' THEN payment.amount ELSE 0 END), 0)`,
         'provider',
       )
-      .getRawOne<{ customer: string; provider: string }>();
+      .getRawOne<{ count: string; customer: string; provider: string }>();
     const page = input.page ?? 1;
     const limit = input.limit ?? 10;
-    const [payments, total] = await query
-      .orderBy('payment.createdAt', 'DESC')
+    const rows = await this.baseConversationQuery(input)
+      .select('conversation.id', 'conversationId')
+      .addSelect('conversation.publicId', 'conversationNumber')
+      .addSelect('conversation.status', 'status')
+      .addSelect('user.name', 'customerName')
+      .addSelect('provider.commercialName', 'providerName')
+      .addSelect('provider.phone', 'providerPhone')
+      .addSelect('conversation.createdAt', 'startedAt')
+      .addSelect('conversation.closedAt', 'endedAt')
+      .addSelect(
+        `COALESCE(SUM(CASE WHEN payment.purpose = '${PaymentPurpose.CHAT_CUSTOMER}' THEN payment.amount ELSE 0 END), 0)`,
+        'customerFee',
+      )
+      .addSelect(
+        `COALESCE(SUM(CASE WHEN payment.purpose = '${PaymentPurpose.CHAT_PROVIDER}' THEN payment.amount ELSE 0 END), 0)`,
+        'providerFee',
+      )
+      .groupBy('conversation.id')
+      .addGroupBy('user.id')
+      .addGroupBy('provider.id')
+      .orderBy('MAX(payment.createdAt)', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
-      .getManyAndCount();
+      .getRawMany<{
+        conversationId: string;
+        conversationNumber: string | null;
+        status: string;
+        customerName: string | null;
+        providerName: string | null;
+        providerPhone: string | null;
+        startedAt: Date;
+        endedAt: Date | null;
+        customerFee: string;
+        providerFee: string;
+      }>();
+    const total = Number(totalsRaw?.count ?? 0);
     return {
-      items: payments.map((payment) => this.toConversationRow(payment)),
+      items: rows.map((row) => ({
+        conversationId: row.conversationId,
+        conversationNumber:
+          row.conversationNumber == null
+            ? null
+            : Number(row.conversationNumber),
+        status: row.status,
+        customerName: row.customerName,
+        providerName: row.providerName,
+        providerPhone: row.providerPhone,
+        startedAt: new Date(row.startedAt),
+        endedAt: row.endedAt == null ? null : new Date(row.endedAt),
+        customerFee: Number(row.customerFee),
+        providerFee: Number(row.providerFee),
+      })),
       meta: { total, page, limit },
       totalCustomerFees: Number(totalsRaw?.customer ?? 0),
       totalProviderFees: Number(totalsRaw?.provider ?? 0),
+    };
+  }
+
+  async contractFinancials(
+    input: FeeReportInput,
+  ): Promise<ContractFinancialReport> {
+    const query = this.paymentRepository
+      .createQueryBuilder('payment')
+      .leftJoinAndSelect('payment.contract', 'contract')
+      .leftJoinAndSelect('contract.client', 'client')
+      .leftJoinAndSelect('contract.provider', 'provider')
+      .leftJoinAndSelect('contract.settlements', 'settlements')
+      .where('payment.purpose = :contractPurpose', {
+        contractPurpose: PaymentPurpose.CONTRACT,
+      });
+    this.applyCommonFilters(query, input);
+    if (input.categoryId) {
+      query.andWhere('contract.categoryId = :categoryId', {
+        categoryId: input.categoryId,
+      });
+    }
+    if (input.status) {
+      query.andWhere('contract.status = :status', { status: input.status });
+    }
+    if (input.customerId) {
+      query.andWhere('contract.clientId = :customerId', {
+        customerId: input.customerId,
+      });
+    }
+    if (input.providerId) {
+      query.andWhere('contract.providerId = :providerId', {
+        providerId: input.providerId,
+      });
+    }
+    if (input.search?.trim()) {
+      query.andWhere(
+        `(contract."publicId"::text ILIKE :search OR client.name ILIKE :search
+          OR provider."commercialName" ILIKE :search
+          OR contract."deliveryCompanyNameEn" ILIKE :search
+          OR contract."deliveryCompanyNameAr" ILIKE :search)`,
+        { search: `%${input.search.trim()}%` },
+      );
+    }
+    const payments = await query.orderBy('payment.createdAt', 'DESC').getMany();
+    const rows = payments
+      .filter((payment) => payment.contract)
+      .map((payment) => this.toContractRow(payment));
+    const page = input.page ?? 1;
+    const limit = input.limit ?? 10;
+    const items = rows.slice((page - 1) * limit, page * limit);
+    return {
+      items,
+      meta: { total: rows.length, page, limit },
+      completedCount: rows.filter((row) => row.status === 'COMPLETED').length,
+      totalProviderNet: this.sum(rows, 'providerNet'),
+      totalVat: this.sum(rows, 'vat'),
+      totalCommission: this.sum(rows, 'commission'),
+      totalPaid: this.sum(rows, 'totalPaid'),
+      totalCustomerRefunds: this.sum(rows, 'customerRefund'),
+      totalProviderReleases: this.sum(rows, 'providerRelease'),
     };
   }
 
@@ -73,21 +180,33 @@ export class ReportService {
   async exportConversationFees(
     input: FeeReportInput,
     format: 'pdf' | 'xlsx',
+    language: 'ar' | 'en' = 'en',
   ): Promise<Buffer> {
     const report = await this.conversationFees({
       ...input,
       page: 1,
       limit: 100000,
     });
-    const headers = [
-      'Conversation',
-      'Customer',
-      'Provider',
-      'Status',
-      'Customer Fee',
-      'Provider Fee',
-      'Date',
-    ];
+    const headers =
+      language === 'ar'
+        ? [
+            'المحادثة',
+            'العميل',
+            'مقدم الخدمة',
+            'الحالة',
+            'رسوم العميل',
+            'رسوم مقدم الخدمة',
+            'التاريخ',
+          ]
+        : [
+            'Conversation',
+            'Customer',
+            'Provider',
+            'Status',
+            'Customer Fee',
+            'Provider Fee',
+            'Date',
+          ];
     const rows = report.items.map((item) => [
       item.conversationId,
       item.customerName ?? '',
@@ -95,19 +214,99 @@ export class ReportService {
       item.status,
       item.customerFee,
       item.providerFee,
+      item.startedAt.toISOString(),
+    ]);
+    return format === 'xlsx'
+      ? this.xlsx(
+          language === 'ar' ? 'رسوم المحادثات' : 'Conversation fees',
+          headers,
+          rows,
+          language,
+        )
+      : this.pdf(
+          language === 'ar' ? 'رسوم المحادثات' : 'Conversation fees',
+          headers,
+          rows,
+          language,
+        );
+  }
+
+  async exportContractFinancials(
+    input: FeeReportInput,
+    format: 'pdf' | 'xlsx',
+    language: 'ar' | 'en' = 'en',
+  ): Promise<Buffer> {
+    const report = await this.contractFinancials({
+      ...input,
+      page: 1,
+      limit: 100000,
+    });
+    const headers =
+      language === 'ar'
+        ? [
+            'التعاقد',
+            'العميل',
+            'مقدم الخدمة',
+            'الحالة',
+            'صافي مقدم الخدمة',
+            'الضريبة',
+            'العمولة',
+            'المدفوع',
+            'المسترد',
+            'المحول لمقدم الخدمة',
+            'التاريخ',
+          ]
+        : [
+            'Contract',
+            'Customer',
+            'Provider',
+            'Status',
+            'Provider net',
+            'VAT',
+            'Commission',
+            'Paid',
+            'Refund',
+            'Provider release',
+            'Date',
+          ];
+    const rows = report.items.map((item) => [
+      item.contractNumber ?? item.contractId,
+      item.customerName ?? '',
+      item.providerName ?? '',
+      item.status,
+      item.providerNet,
+      item.vat,
+      item.commission,
+      item.totalPaid,
+      item.customerRefund,
+      item.providerRelease,
       item.createdAt.toISOString(),
     ]);
     return format === 'xlsx'
-      ? this.xlsx('Conversation fees', headers, rows)
-      : this.pdf('Conversation fees', headers, rows);
+      ? this.xlsx(
+          language === 'ar' ? 'ماليات التعاقدات' : 'Contract financials',
+          headers,
+          rows,
+          language,
+        )
+      : this.pdf(
+          language === 'ar' ? 'ماليات التعاقدات' : 'Contract financials',
+          headers,
+          rows,
+          language,
+        );
   }
 
   async exportPremiumAds(
     input: FeeReportInput,
     format: 'pdf' | 'xlsx',
+    language: 'ar' | 'en' = 'en',
   ): Promise<Buffer> {
     const report = await this.premiumAds({ ...input, page: 1, limit: 100000 });
-    const headers = ['Listing', 'Provider', 'Phone', 'Status', 'Fee', 'Date'];
+    const headers =
+      language === 'ar'
+        ? ['الإعلان', 'مقدم الخدمة', 'الجوال', 'الحالة', 'الرسوم', 'التاريخ']
+        : ['Listing', 'Provider', 'Phone', 'Status', 'Fee', 'Date'];
     const rows = report.items.map((item) => [
       item.listingName,
       item.providerName ?? '',
@@ -117,8 +316,22 @@ export class ReportService {
       item.createdAt.toISOString(),
     ]);
     return format === 'xlsx'
-      ? this.xlsx('Premium advertisement fees', headers, rows)
-      : this.pdf('Premium advertisement fees', headers, rows);
+      ? this.xlsx(
+          language === 'ar'
+            ? 'رسوم الإعلانات المميزة'
+            : 'Premium advertisement fees',
+          headers,
+          rows,
+          language,
+        )
+      : this.pdf(
+          language === 'ar'
+            ? 'رسوم الإعلانات المميزة'
+            : 'Premium advertisement fees',
+          headers,
+          rows,
+          language,
+        );
   }
 
   private baseConversationQuery(
@@ -129,10 +342,16 @@ export class ReportService {
       .leftJoinAndSelect('payment.conversation', 'conversation')
       .leftJoinAndSelect('conversation.user', 'user')
       .leftJoinAndSelect('conversation.provider', 'provider')
+      .leftJoinAndSelect('conversation.listing', 'listing')
       .where('payment.purpose IN (:...purposes)', {
         purposes: [PaymentPurpose.CHAT_CUSTOMER, PaymentPurpose.CHAT_PROVIDER],
       });
     this.applyCommonFilters(query, input);
+    if (input.categoryId) {
+      query.andWhere('listing.categoryId = :categoryId', {
+        categoryId: input.categoryId,
+      });
+    }
     if (input.status) {
       query.andWhere('conversation.status = :status', { status: input.status });
     }
@@ -169,8 +388,15 @@ export class ReportService {
         purpose: PaymentPurpose.PREMIUM_AD,
       });
     this.applyCommonFilters(query, input);
+    if (input.categoryId) {
+      query.andWhere('listing.categoryId = :categoryId', {
+        categoryId: input.categoryId,
+      });
+    }
     if (input.status) {
-      query.andWhere('listing.status = :status', { status: input.status });
+      query.andWhere('listing.promotionStatus = :status', {
+        status: input.status,
+      });
     }
     if (input.providerId) {
       query.andWhere('listing.providerId = :providerId', {
@@ -195,40 +421,12 @@ export class ReportService {
     query: SelectQueryBuilder<Payment>,
     input: FeeReportInput,
   ): void {
-    if (input.categoryId) {
-      query.andWhere('payment.categoryId = :categoryId', {
-        categoryId: input.categoryId,
-      });
-    }
     if (input.from) {
       query.andWhere('payment.createdAt >= :from', { from: input.from });
     }
     if (input.to) {
       query.andWhere('payment.createdAt <= :to', { to: input.to });
     }
-  }
-
-  private toConversationRow(payment: Payment): ConversationFeeReportRow {
-    const conversation = payment.conversation;
-    return {
-      paymentId: payment.id,
-      conversationId: conversation?.id ?? payment.conversationId ?? '',
-      customerName: conversation?.user?.name ?? null,
-      providerName:
-        conversation?.provider?.commercialName ??
-        conversation?.provider?.name ??
-        null,
-      status: conversation?.status ?? 'UNKNOWN',
-      customerFee:
-        payment.purpose === PaymentPurpose.CHAT_CUSTOMER
-          ? Number(payment.amount)
-          : 0,
-      providerFee:
-        payment.purpose === PaymentPurpose.CHAT_PROVIDER
-          ? Number(payment.amount)
-          : 0,
-      createdAt: payment.createdAt,
-    };
   }
 
   private toPremiumRow(payment: Payment): PremiumAdFeeReportRow {
@@ -240,19 +438,62 @@ export class ReportService {
       providerName:
         listing?.provider?.commercialName ?? listing?.provider?.name ?? null,
       providerPhone: listing?.provider?.phone ?? null,
-      status: listing?.status ?? 'UNKNOWN',
+      status: listing?.promotionStatus ?? 'UNKNOWN',
       fee: Number(payment.amount),
       createdAt: payment.createdAt,
+      featuredStartsAt: listing?.featuredStartsAt ?? null,
+      featuredEndsAt: listing?.featuredEndsAt ?? null,
     };
+  }
+
+  private toContractRow(payment: Payment): ContractFinancialReportRow {
+    const contract = payment.contract!;
+    const settlements = contract.settlements ?? [];
+    const amountFor = (type: ContractSettlementType) =>
+      settlements
+        .filter((entry) => entry.type === type)
+        .reduce((sum, entry) => sum + Number(entry.amount), 0);
+    return {
+      contractId: contract.id,
+      contractNumber: contract.publicId,
+      status: contract.status,
+      customerName: contract.client?.name ?? null,
+      providerName:
+        contract.provider?.commercialName ?? contract.provider?.name ?? null,
+      deliveryCompanyName:
+        contract.deliveryCompanyNameAr ?? contract.deliveryCompanyNameEn,
+      providerNet: Number(contract.providerNetAmount),
+      vat: Number(contract.vatAmount),
+      commission: Number(contract.commissionAmount),
+      totalPaid: Number(payment.amount),
+      customerRefund: amountFor(ContractSettlementType.CUSTOMER_REFUND),
+      providerRelease: amountFor(ContractSettlementType.PROVIDER_RELEASE),
+      createdAt: payment.createdAt,
+    };
+  }
+
+  private sum(
+    rows: ContractFinancialReportRow[],
+    key:
+      | 'providerNet'
+      | 'vat'
+      | 'commission'
+      | 'totalPaid'
+      | 'customerRefund'
+      | 'providerRelease',
+  ): number {
+    return rows.reduce((total, row) => total + Number(row[key]), 0);
   }
 
   private async xlsx(
     title: string,
     headers: string[],
     rows: Array<Array<string | number>>,
+    language: 'ar' | 'en' = 'en',
   ): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet(title.slice(0, 31));
+    sheet.views = [{ rightToLeft: language === 'ar' }];
     sheet.addRow(headers);
     for (const row of rows) sheet.addRow(row);
     sheet.getRow(1).font = { bold: true };
@@ -266,6 +507,7 @@ export class ReportService {
     title: string,
     headers: string[],
     rows: Array<Array<string | number>>,
+    language: 'ar' | 'en' = 'en',
   ): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const document = new PDFDocument({ margin: 36, size: 'A4' });
@@ -273,9 +515,20 @@ export class ReportService {
       document.on('data', (chunk: Buffer) => chunks.push(chunk));
       document.on('error', reject);
       document.on('end', () => resolve(Buffer.concat(chunks)));
-      document.fontSize(18).text(title);
-      document.moveDown().fontSize(8).text(headers.join(' | '));
-      for (const row of rows) document.text(row.join(' | '));
+      if (language === 'ar') {
+        document.registerFont(
+          'NotoArabic',
+          path.join(
+            process.cwd(),
+            'node_modules/@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-400-normal.woff',
+          ),
+        );
+        document.font('NotoArabic');
+      }
+      const align = language === 'ar' ? 'right' : 'left';
+      document.fontSize(18).text(title, { align });
+      document.moveDown().fontSize(8).text(headers.join(' | '), { align });
+      for (const row of rows) document.text(row.join(' | '), { align });
       document.end();
     });
   }

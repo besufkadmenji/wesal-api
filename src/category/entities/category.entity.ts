@@ -128,6 +128,30 @@ export class Category {
   contractDocumentText: string;
 
   @Field()
+  @Column({ type: 'boolean', default: false })
+  undertakingEnabled: boolean;
+
+  @Field()
+  @Column({ type: 'text', default: '' })
+  undertakingTextAr: string;
+
+  @Field()
+  @Column({ type: 'text', default: '' })
+  undertakingTextEn: string;
+
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  refundPolicyEnabled: boolean;
+
+  @Field()
+  @Column({ type: 'text', default: '' })
+  refundPolicyAr: string;
+
+  @Field()
+  @Column({ type: 'text', default: '' })
+  refundPolicyEn: string;
+
+  @Field()
   @CreateDateColumn()
   createdAt: Date;
 

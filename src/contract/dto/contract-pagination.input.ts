@@ -1,5 +1,13 @@
 import { InputType, Field, registerEnumType } from '@nestjs/graphql';
-import { IsOptional, IsUUID, IsEnum, IsIn } from 'class-validator';
+import {
+  IsOptional,
+  IsUUID,
+  IsEnum,
+  IsIn,
+  IsString,
+  IsDate,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 import { ContractStatus } from '../enums/contract-status.enum';
 
@@ -49,6 +57,28 @@ export class ContractPaginationInput extends PaginationInput {
   @IsOptional()
   @IsEnum(ContractStatus)
   status?: ContractStatus;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsUUID()
+  categoryId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @Field(() => Date, { nullable: true })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  from?: Date;
+
+  @Field(() => Date, { nullable: true })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  to?: Date;
 
   @Field(() => ContractSortFieldEnum, {
     nullable: true,

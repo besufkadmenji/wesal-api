@@ -24,6 +24,9 @@ import { ComplaintMessage } from './entities/complaint-message.entity';
 import { ComplaintMessageAuthorType } from './enums/complaint-message-author-type.enum';
 import { ComplaintReporterType } from './enums/complaint-reporter-type.enum';
 import { ComplaintStatus } from './enums/complaint-status.enum';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
+import { NotificationType } from '../notification/enums/notification-type.enum';
 
 const CLOSED_STATUSES = new Set([
   ComplaintStatus.RESOLVED,
@@ -43,6 +46,7 @@ export class ComplaintService {
     @InjectRepository(Contract)
     private readonly contractRepository: Repository<Contract>,
     private readonly fileUploadService: FileUploadService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async create(
@@ -179,12 +183,21 @@ export class ComplaintService {
     complaint.reviewedByAdminId = admin.sub;
     complaint.reviewedAt = new Date();
     await this.complaintRepository.save(complaint);
-    return this.saveMessage(
+    const message = await this.saveMessage(
       complaint.id,
       admin.sub,
       ComplaintMessageAuthorType.ADMIN,
       content,
     );
+    await this.notifyReporter(
+      complaint,
+      NotificationType.COMPLAINT_RESPONSE,
+      language === 'ar' ? 'رد على الشكوى' : 'Complaint response',
+      language === 'ar'
+        ? 'ردت الإدارة على شكواك.'
+        : 'The administration replied to your complaint.',
+    );
+    return message;
   }
 
   async setStatus(
@@ -194,10 +207,45 @@ export class ComplaintService {
     language: LanguageCode = 'en',
   ): Promise<Complaint> {
     const complaint = await this.load(id, language);
+    if (complaint.status === status) return complaint;
+    if (CLOSED_STATUSES.has(complaint.status)) {
+      throw new BadRequestException('Complaint is in a terminal state');
+    }
     complaint.status = status;
     complaint.reviewedByAdminId = admin.sub;
     complaint.reviewedAt = new Date();
-    return this.complaintRepository.save(complaint);
+    const saved = await this.complaintRepository.save(complaint);
+    await this.notifyReporter(
+      saved,
+      status === ComplaintStatus.RESOLVED
+        ? NotificationType.COMPLAINT_RESOLVED
+        : NotificationType.COMPLAINT_RESPONSE,
+      language === 'ar' ? 'تم تحديث حالة الشكوى' : 'Complaint status updated',
+      language === 'ar'
+        ? `أصبحت حالة شكواك الآن ${status}.`
+        : `Your complaint status is now ${status}.`,
+    );
+    return saved;
+  }
+
+  private notifyReporter(
+    complaint: Complaint,
+    type: NotificationType,
+    title: string,
+    message: string,
+  ) {
+    return this.notificationService.createForRecipient({
+      recipientId: complaint.reporterId,
+      recipientType:
+        complaint.reporterType === ComplaintReporterType.PROVIDER
+          ? NotificationRecipientType.PROVIDER
+          : NotificationRecipientType.USER,
+      type,
+      title,
+      message,
+      relatedEntityId: complaint.id,
+      relatedEntityType: 'complaint',
+    });
   }
 
   private async findAll(
@@ -210,6 +258,10 @@ export class ComplaintService {
       status,
       conversationId,
       search,
+      reporterType,
+      reviewerId,
+      from,
+      to,
       sortBy,
       sortOrder = SortOrder.DESC,
     } = input;
@@ -217,6 +269,8 @@ export class ComplaintService {
       .createQueryBuilder('complaint')
       .leftJoinAndSelect('complaint.listing', 'listing')
       .leftJoinAndSelect('complaint.conversation', 'conversation')
+      .leftJoinAndSelect('conversation.user', 'customer')
+      .leftJoinAndSelect('conversation.provider', 'provider')
       .leftJoinAndSelect('complaint.messages', 'messages')
       .leftJoinAndSelect('complaint.reviewer', 'reviewer');
     if (scope) {
@@ -229,9 +283,30 @@ export class ComplaintService {
         conversationId,
       });
     }
+    if (reporterType) {
+      query.andWhere('complaint.reporterType = :reporterType', {
+        reporterType,
+      });
+    }
+    if (reviewerId) {
+      query.andWhere('complaint.reviewedByAdminId = :reviewerId', {
+        reviewerId,
+      });
+    }
+    if (from) query.andWhere('complaint.createdAt >= :from', { from });
+    if (to) query.andWhere('complaint.createdAt <= :to', { to });
     if (search?.trim()) {
       query.andWhere(
-        '(complaint.title ILIKE :search OR complaint.description ILIKE :search)',
+        `(complaint."publicId"::text ILIKE :search
+          OR complaint.title ILIKE :search
+          OR complaint.description ILIKE :search
+          OR conversation."publicId"::text ILIKE :search
+          OR customer.name ILIKE :search
+          OR customer.phone ILIKE :search
+          OR provider.name ILIKE :search
+          OR provider."commercialName" ILIKE :search
+          OR provider.phone ILIKE :search
+          OR listing.name ILIKE :search)`,
         { search: `%${search.trim()}%` },
       );
     }
@@ -263,6 +338,8 @@ export class ComplaintService {
       relations: [
         'listing',
         'conversation',
+        'conversation.user',
+        'conversation.provider',
         'contract',
         'messages',
         'reviewer',

@@ -6,6 +6,7 @@ import {
   UpdateDateColumn,
   ManyToOne,
   OneToMany,
+  OneToOne,
   JoinColumn,
   Unique,
 } from 'typeorm';
@@ -15,6 +16,9 @@ import { User } from '../../user/entities/user.entity';
 import { Provider } from '../../provider/entities/provider.entity';
 import { ContractStatus } from '../enums/contract-status.enum';
 import { ContractSignature } from './contract-signature.entity';
+import { ContractSettlement } from './contract-settlement.entity';
+import { ContractAudit } from './contract-audit.entity';
+import { ContractDocument } from './contract-document.entity';
 
 @ObjectType()
 @Entity('contracts')
@@ -169,6 +173,22 @@ export class Contract {
   @Column({ type: 'text', default: '' })
   contractDocumentText: string;
 
+  @Field()
+  @Column({ type: 'text', default: '' })
+  undertakingTextAr: string;
+
+  @Field()
+  @Column({ type: 'text', default: '' })
+  undertakingTextEn: string;
+
+  @Field()
+  @Column({ type: 'text', default: '' })
+  refundPolicyAr: string;
+
+  @Field()
+  @Column({ type: 'text', default: '' })
+  refundPolicyEn: string;
+
   @Field(() => Int, { nullable: true })
   @Column({ type: 'int', nullable: true })
   maxCompletionDays: number | null;
@@ -193,6 +213,14 @@ export class Contract {
   @Column({ type: 'text', nullable: true })
   rejectionReason: string | null;
 
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  cancellationReason: string | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  disputeReason: string | null;
+
   @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamptz', nullable: true })
   acceptedAt: Date | null;
@@ -201,11 +229,59 @@ export class Contract {
   @Column({ type: 'timestamptz', nullable: true })
   rejectedAt: Date | null;
 
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  paidAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  providerCompletedAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  deliveryStartedAt: Date | null;
+
+  @Field(() => Int, { nullable: true })
+  @Column({ type: 'int', nullable: true })
+  deliveryEstimateDays: number | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  confirmationDeadlineAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  cancellationRequestedAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  disputedAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  completedAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  cancelledAt: Date | null;
+
   @Field(() => [ContractSignature])
   @OneToMany(() => ContractSignature, (signature) => signature.contract, {
     cascade: true,
   })
   signatures: ContractSignature[];
+
+  @Field(() => [ContractSettlement])
+  @OneToMany(() => ContractSettlement, (settlement) => settlement.contract)
+  settlements: ContractSettlement[];
+
+  @Field(() => [ContractAudit])
+  @OneToMany(() => ContractAudit, (audit) => audit.contract)
+  audits: ContractAudit[];
+
+  @Field(() => ContractDocument, { nullable: true })
+  @OneToOne(() => ContractDocument, (document) => document.contract)
+  document: ContractDocument | null;
 
   @Field()
   @CreateDateColumn()

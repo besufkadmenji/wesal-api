@@ -136,4 +136,34 @@ export class CreateCategoryInput {
   @IsOptional()
   @IsString()
   contractDocumentText?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  undertakingEnabled?: boolean;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  undertakingTextAr?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  undertakingTextEn?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  refundPolicyEnabled?: boolean;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  refundPolicyAr?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  refundPolicyEn?: string;
 }

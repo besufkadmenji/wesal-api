@@ -1,5 +1,6 @@
 import { InputType, Field, registerEnumType } from '@nestjs/graphql';
-import { IsOptional, IsUUID, IsIn, IsEnum } from 'class-validator';
+import { IsOptional, IsUUID, IsIn, IsEnum, IsString, IsDate } from 'class-validator';
+import { Type } from 'class-transformer';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 import { ConversationStatus } from '../enums/conversation-status.enum';
 
@@ -48,6 +49,23 @@ export class ConversationPaginationInput extends PaginationInput {
   @IsOptional()
   @IsEnum(ConversationStatus)
   status?: ConversationStatus;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @Field(() => Date, { nullable: true })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  from?: Date;
+
+  @Field(() => Date, { nullable: true })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  to?: Date;
 
   @Field(() => ConversationSortFieldEnum, {
     nullable: true,

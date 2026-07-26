@@ -9,6 +9,7 @@ import {
 import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
 import { User } from 'src/user/entities/user.entity';
 import { NotificationType } from '../enums/notification-type.enum';
+import { NotificationRecipientType } from '../enums/notification-recipient-type.enum';
 
 @ObjectType()
 @Entity('notifications')
@@ -26,14 +27,26 @@ export class Notification {
   })
   publicId: number | null;
 
+  @Field(() => ID, { nullable: true })
+  @Column({ type: 'uuid', nullable: true })
+  userId: string | null;
+
+  @Field(() => User, { nullable: true })
+  @ManyToOne(() => User, { nullable: true })
+  @JoinColumn({ name: 'userId' })
+  user: User | null;
+
   @Field()
   @Column({ type: 'uuid' })
-  userId: string;
+  recipientId: string;
 
-  @Field(() => User)
-  @ManyToOne(() => User)
-  @JoinColumn({ name: 'userId' })
-  user: User;
+  @Field(() => NotificationRecipientType)
+  @Column({
+    type: 'enum',
+    enum: NotificationRecipientType,
+    default: NotificationRecipientType.USER,
+  })
+  recipientType: NotificationRecipientType;
 
   @Field(() => NotificationType)
   @Column({

@@ -7,6 +7,7 @@ import { FeeReportInput } from './dto/fee-report.input';
 import {
   ConversationFeeReport,
   PremiumAdFeeReport,
+  ContractFinancialReport,
 } from './dto/fee-report.response';
 import { ReportService } from './report.service';
 
@@ -28,5 +29,12 @@ export class ReportResolver {
     @Args('input', { nullable: true }) input?: FeeReportInput,
   ) {
     return this.reportService.premiumAds(input ?? {});
+  }
+
+  @Query(() => ContractFinancialReport)
+  contractFinancialReport(
+    @Args('input', { nullable: true }) input?: FeeReportInput,
+  ) {
+    return this.reportService.contractFinancials(input ?? {});
   }
 }

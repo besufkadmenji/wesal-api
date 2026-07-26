@@ -1,50 +1,41 @@
 import { ReportService } from './report.service';
-import { PaymentPurpose } from '../payment/enums/payment-purpose.enum';
 
 describe('ReportService', () => {
-  function queryBuilder(payments: unknown[], total: number) {
-    const totals = {
-      select: jest.fn().mockReturnThis(),
-      addSelect: jest.fn().mockReturnThis(),
-      getRawOne: jest
-        .fn()
-        .mockResolvedValue({ customer: '12.5', provider: '20' }),
-    };
+  function queryBuilder() {
     return {
+      leftJoin: jest.fn().mockReturnThis(),
       leftJoinAndSelect: jest.fn().mockReturnThis(),
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
-      clone: jest.fn(() => totals),
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      groupBy: jest.fn().mockReturnThis(),
+      addGroupBy: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
-      getManyAndCount: jest.fn().mockResolvedValue([payments, total]),
+      getRawOne: jest
+        .fn()
+        .mockResolvedValue({ count: '1', customer: '12.5', provider: '20' }),
+      getRawMany: jest.fn().mockResolvedValue([
+        {
+          conversationId: 'conversation-id',
+          conversationNumber: '42',
+          status: 'ACTIVE',
+          customerName: 'Customer',
+          providerName: 'Provider',
+          providerPhone: '+966500000000',
+          startedAt: '2026-07-19T00:00:00Z',
+          endedAt: null,
+          customerFee: '12.5',
+          providerFee: '20',
+        },
+      ]),
     };
   }
 
   it('returns separate customer and provider conversation-fee totals', async () => {
-    const createdAt = new Date('2026-07-19T00:00:00Z');
-    const builder = queryBuilder(
-      [
-        {
-          id: 'customer-payment',
-          purpose: PaymentPurpose.CHAT_CUSTOMER,
-          amount: 12.5,
-          conversationId: 'conversation-id',
-          conversation: { id: 'conversation-id', status: 'ACTIVE' },
-          createdAt,
-        },
-        {
-          id: 'provider-payment',
-          purpose: PaymentPurpose.CHAT_PROVIDER,
-          amount: 20,
-          conversationId: 'conversation-id',
-          conversation: { id: 'conversation-id', status: 'ACTIVE' },
-          createdAt,
-        },
-      ],
-      2,
-    );
+    const builder = queryBuilder();
     const service = new ReportService({
       createQueryBuilder: jest.fn(() => builder),
     } as never);
@@ -54,14 +45,10 @@ describe('ReportService', () => {
     expect(report).toMatchObject({
       totalCustomerFees: 12.5,
       totalProviderFees: 20,
-      meta: { total: 2, page: 1, limit: 10 },
+      meta: { total: 1, page: 1, limit: 10 },
     });
     expect(report.items[0]).toMatchObject({
       customerFee: 12.5,
-      providerFee: 0,
-    });
-    expect(report.items[1]).toMatchObject({
-      customerFee: 0,
       providerFee: 20,
     });
   });

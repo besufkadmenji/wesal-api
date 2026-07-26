@@ -18,12 +18,14 @@ describe('ComplaintService', () => {
   const conversationRepository = { findOne: jest.fn() };
   const contractRepository = { findOne: jest.fn() };
   const fileUploadService = { saveFile: jest.fn() };
+  const notificationService = { createForRecipient: jest.fn() };
   const service = new ComplaintService(
     complaintRepository as never,
     messageRepository as never,
     conversationRepository as never,
     contractRepository as never,
     fileUploadService as never,
+    notificationService as never,
   );
   const principal = {
     sub: 'customer-id',
@@ -112,6 +114,8 @@ describe('ComplaintService', () => {
       relations: [
         'listing',
         'conversation',
+        'conversation.user',
+        'conversation.provider',
         'contract',
         'messages',
         'reviewer',

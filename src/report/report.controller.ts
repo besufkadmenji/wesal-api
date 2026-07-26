@@ -17,10 +17,10 @@ export class ReportController {
     @Query() query: ReportExportQuery,
     @Res() response: Response,
   ): Promise<void> {
-    const { format, ...input } = query;
+    const { format, language, ...input } = query;
     this.send(
       response,
-      await this.reportService.exportConversationFees(input, format),
+      await this.reportService.exportConversationFees(input, format, language),
       `conversation-fees.${format}`,
       format,
     );
@@ -31,11 +31,29 @@ export class ReportController {
     @Query() query: ReportExportQuery,
     @Res() response: Response,
   ): Promise<void> {
-    const { format, ...input } = query;
+    const { format, language, ...input } = query;
     this.send(
       response,
-      await this.reportService.exportPremiumAds(input, format),
+      await this.reportService.exportPremiumAds(input, format, language),
       `premium-ad-fees.${format}`,
+      format,
+    );
+  }
+
+  @Get('contracts/export')
+  async contracts(
+    @Query() query: ReportExportQuery,
+    @Res() response: Response,
+  ): Promise<void> {
+    const { format, language, ...input } = query;
+    this.send(
+      response,
+      await this.reportService.exportContractFinancials(
+        input,
+        format,
+        language,
+      ),
+      `contract-financials.${format}`,
       format,
     );
   }

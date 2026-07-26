@@ -11,6 +11,7 @@ import { Contract } from '../contract/entities/contract.entity';
 import { FileUploadModule } from '../../lib/file-upload';
 import { AdminPermissionGuardModule } from '../../lib/common/admin-permission-guard.module';
 import { AdminPermission } from '../admin-permission/entities/admin-permission.entity';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { AdminPermission } from '../admin-permission/entities/admin-permission.e
     ]),
     FileUploadModule,
     AdminPermissionGuardModule,
+    NotificationModule,
   ],
   providers: [ComplaintResolver, ComplaintService],
   exports: [ComplaintService],

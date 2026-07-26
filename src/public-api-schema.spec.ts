@@ -57,6 +57,18 @@ describe('public transaction GraphQL schema', () => {
     expect(sdl).toContain('acceptContract(input: AcceptContractInput!)');
     expect(sdl).toContain('rejectContract(input: RejectContractInput!)');
     expect(sdl).toContain('completeContract(input: CompleteContractInput!)');
+    expect(sdl).toContain(
+      'providerCompleteContract(input: ProviderCompleteContractInput!)',
+    );
+    expect(sdl).toContain(
+      'requestContractCancellation(input: CancelContractInput!)',
+    );
+    expect(sdl).toContain(
+      'refuseContractDelivery(input: RefuseDeliveryInput!)',
+    );
+    expect(sdl).toContain(
+      'adminResolveContract(input: AdminResolveContractInput!)',
+    );
     expect(sdl).toContain('resendContract(input: ResendContractInput!)');
     expect(sdl).toContain('payContract(contractId: String!)');
     expect(sdl).toContain('payConversationFee(conversationId: String!)');
@@ -75,6 +87,7 @@ describe('public transaction GraphQL schema', () => {
     expect(sdl).toContain('adminComplaints(');
     expect(sdl).toContain('conversationFeeReport(');
     expect(sdl).toContain('premiumAdFeeReport(');
+    expect(sdl).toContain('contractFinancialReport(');
 
     for (const removedMutation of [
       'updateConversation',

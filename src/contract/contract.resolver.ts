@@ -21,6 +21,12 @@ import { ResendContractInput } from './dto/resend-contract.input';
 import { AdminAuthGuard } from '../admin/guards/admin-auth.guard';
 import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
 import { RequirePermission } from '../admin/decorators/require-permission.decorator';
+import { ProviderCompleteContractInput } from './dto/provider-complete-contract.input';
+import { CancelContractInput } from './dto/cancel-contract.input';
+import { RefuseDeliveryInput } from './dto/refuse-delivery.input';
+import { AdminResolveContractInput } from './dto/admin-resolve-contract.input';
+import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
+import type { AdminJwtPayload } from '../admin/types/admin-jwt-payload.type';
 
 @Resolver(() => Contract)
 @UseGuards(JwtAuthGuard)
@@ -131,6 +137,57 @@ export class ContractResolver {
     @GetLanguage() language: LanguageCode,
   ): Promise<Contract> {
     return this.contractService.completeContract(input, principal, language);
+  }
+
+  @Mutation(() => Contract, {
+    description: 'Provider signs and submits completed work or delivery',
+  })
+  providerCompleteContract(
+    @Args('input') input: ProviderCompleteContractInput,
+    @CurrentPrincipal() principal: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Contract> {
+    return this.contractService.providerCompleteContract(
+      input,
+      principal,
+      language,
+    );
+  }
+
+  @Mutation(() => Contract, {
+    description: 'Customer requests cancellation before final completion',
+  })
+  requestContractCancellation(
+    @Args('input') input: CancelContractInput,
+    @CurrentPrincipal() principal: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Contract> {
+    return this.contractService.requestCancellation(input, principal, language);
+  }
+
+  @Mutation(() => Contract, {
+    description: 'Customer refuses a delivered contract and opens a dispute',
+  })
+  refuseContractDelivery(
+    @Args('input') input: RefuseDeliveryInput,
+    @CurrentPrincipal() principal: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Contract> {
+    return this.contractService.refuseDelivery(input, principal, language);
+  }
+
+  @Mutation(() => Contract, {
+    description:
+      'Resolve a disputed or overdue contract as an authorized admin',
+  })
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('contract', 'resolve')
+  adminResolveContract(
+    @Args('input') input: AdminResolveContractInput,
+    @CurrentAdmin() admin: AdminJwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Contract> {
+    return this.contractService.adminResolveContract(input, admin, language);
   }
 
   @Mutation(() => Contract, {

@@ -178,6 +178,9 @@ export class ConversationService {
       limit = 10,
       listingId,
       status,
+      search,
+      from,
+      to,
       sortBy,
       sortOrder,
     } = paginationInput;
@@ -210,6 +213,24 @@ export class ConversationService {
 
     if (status) {
       queryBuilder.andWhere('conversation.status = :status', { status });
+    }
+    if (search?.trim()) {
+      queryBuilder.andWhere(
+        `(conversation."publicId"::text ILIKE :search
+          OR user.name ILIKE :search
+          OR user.phone ILIKE :search
+          OR provider.name ILIKE :search
+          OR provider."commercialName" ILIKE :search
+          OR provider.phone ILIKE :search
+          OR listing.name ILIKE :search)`,
+        { search: `%${search.trim()}%` },
+      );
+    }
+    if (from) {
+      queryBuilder.andWhere('conversation.createdAt >= :from', { from });
+    }
+    if (to) {
+      queryBuilder.andWhere('conversation.createdAt <= :to', { to });
     }
 
     const orderByField = sortBy

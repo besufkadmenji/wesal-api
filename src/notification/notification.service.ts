@@ -15,6 +15,8 @@ import { NotificationStats } from './dto/notification-stats.response';
 import { Notification } from './entities/notification.entity';
 import { User } from '../user/entities/user.entity';
 import { NOTIFICATION_ERROR_MESSAGES } from './errors/notification.error-messages';
+import { NotificationRecipientType } from './enums/notification-recipient-type.enum';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Injectable()
 export class NotificationService {
@@ -59,14 +61,38 @@ export class NotificationService {
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
 
-    const notification = this.notificationRepository.create(
-      createNotificationInput,
-    );
+    const notification = this.notificationRepository.create({
+      ...createNotificationInput,
+      recipientId: createNotificationInput.userId,
+      recipientType: NotificationRecipientType.USER,
+    });
     return await this.notificationRepository.save(notification);
+  }
+
+  async createForRecipient(input: {
+    recipientId: string;
+    recipientType: NotificationRecipientType;
+    type: import('./enums/notification-type.enum').NotificationType;
+    title: string;
+    message: string;
+    relatedEntityId?: string;
+    relatedEntityType?: string;
+  }): Promise<Notification> {
+    return this.notificationRepository.save(
+      this.notificationRepository.create({
+        ...input,
+        userId:
+          input.recipientType === NotificationRecipientType.USER
+            ? input.recipientId
+            : null,
+        isRead: false,
+      }),
+    );
   }
 
   async findAll(
     paginationInput: NotificationPaginationInput,
+    principal?: JwtPayload,
   ): Promise<IPaginatedType<Notification>> {
     const {
       page = 1,
@@ -82,6 +108,19 @@ export class NotificationService {
     const queryBuilder = this.notificationRepository
       .createQueryBuilder('notification')
       .leftJoinAndSelect('notification.user', 'user');
+
+    if (principal) {
+      queryBuilder.andWhere(
+        'notification.recipientId = :recipientId AND notification.recipientType = :recipientType',
+        {
+          recipientId: principal.sub,
+          recipientType:
+            principal.type === 'provider'
+              ? NotificationRecipientType.PROVIDER
+              : NotificationRecipientType.USER,
+        },
+      );
+    }
 
     if (userId) {
       queryBuilder.andWhere('notification.userId = :userId', { userId });
@@ -124,6 +163,7 @@ export class NotificationService {
   async findOne(
     id: string,
     language: LanguageCode = 'en',
+    principal?: JwtPayload,
   ): Promise<Notification> {
     const notification = await this.notificationRepository.findOne({
       where: { id },
@@ -137,6 +177,20 @@ export class NotificationService {
       );
       throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
+    if (
+      principal &&
+      (notification.recipientId !== principal.sub ||
+        notification.recipientType !==
+          (principal.type === 'provider'
+            ? NotificationRecipientType.PROVIDER
+            : NotificationRecipientType.USER))
+    ) {
+      const message = I18nService.translate(
+        NOTIFICATION_ERROR_MESSAGES['UNAUTHORIZED_ACCESS'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
 
     return notification;
   }
@@ -144,8 +198,9 @@ export class NotificationService {
   async remove(
     id: string,
     language: LanguageCode = 'en',
+    principal?: JwtPayload,
   ): Promise<Notification> {
-    const notification = await this.findOne(id, language);
+    const notification = await this.findOne(id, language, principal);
     await this.notificationRepository.remove(notification);
     return notification;
   }
@@ -153,8 +208,9 @@ export class NotificationService {
   async markAsRead(
     id: string,
     language: LanguageCode = 'en',
+    principal?: JwtPayload,
   ): Promise<Notification> {
-    const notification = await this.findOne(id, language);
+    const notification = await this.findOne(id, language, principal);
 
     if (!notification.isRead) {
       notification.isRead = true;
@@ -168,8 +224,9 @@ export class NotificationService {
   async markAsUnread(
     id: string,
     language: LanguageCode = 'en',
+    principal?: JwtPayload,
   ): Promise<Notification> {
-    const notification = await this.findOne(id, language);
+    const notification = await this.findOne(id, language, principal);
 
     if (notification.isRead) {
       notification.isRead = false;
@@ -180,34 +237,63 @@ export class NotificationService {
     return notification;
   }
 
-  async markAllAsRead(userId: string): Promise<boolean> {
+  async markAllAsRead(principal: JwtPayload): Promise<boolean> {
+    const recipientType =
+      principal.type === 'provider'
+        ? NotificationRecipientType.PROVIDER
+        : NotificationRecipientType.USER;
     await this.notificationRepository.update(
-      { userId, isRead: false },
+      { recipientId: principal.sub, recipientType, isRead: false },
       { isRead: true, readAt: new Date() },
     );
     return true;
   }
 
-  async markMultipleAsRead(ids: string[]): Promise<boolean> {
+  async markMultipleAsRead(
+    ids: string[],
+    principal: JwtPayload,
+  ): Promise<boolean> {
+    const recipientType =
+      principal.type === 'provider'
+        ? NotificationRecipientType.PROVIDER
+        : NotificationRecipientType.USER;
     await this.notificationRepository.update(
-      { id: In(ids), isRead: false },
+      {
+        id: In(ids),
+        recipientId: principal.sub,
+        recipientType,
+        isRead: false,
+      },
       { isRead: true, readAt: new Date() },
     );
     return true;
   }
 
-  async deleteAllForUser(userId: string): Promise<boolean> {
-    await this.notificationRepository.delete({ userId });
+  async deleteAllForUser(principal: JwtPayload): Promise<boolean> {
+    await this.notificationRepository.delete({
+      recipientId: principal.sub,
+      recipientType:
+        principal.type === 'provider'
+          ? NotificationRecipientType.PROVIDER
+          : NotificationRecipientType.USER,
+    });
     return true;
   }
 
-  async getStats(userId: string): Promise<NotificationStats> {
+  async getStats(principal: JwtPayload): Promise<NotificationStats> {
+    const recipient = {
+      recipientId: principal.sub,
+      recipientType:
+        principal.type === 'provider'
+          ? NotificationRecipientType.PROVIDER
+          : NotificationRecipientType.USER,
+    };
     const totalNotifications = await this.notificationRepository.count({
-      where: { userId },
+      where: recipient,
     });
 
     const unreadCount = await this.notificationRepository.count({
-      where: { userId, isRead: false },
+      where: { ...recipient, isRead: false },
     });
 
     const readCount = totalNotifications - unreadCount;

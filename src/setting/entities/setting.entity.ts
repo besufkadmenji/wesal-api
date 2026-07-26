@@ -114,4 +114,8 @@ export class Setting {
   @Field(() => Int)
   @Column({ type: 'int', default: 30 })
   premiumAdDurationDays: number;
+
+  @Field(() => Int)
+  @Column({ type: 'int', default: 24 })
+  completionConfirmationGraceHours: number;
 }
