@@ -510,11 +510,27 @@ export class ReportService {
     language: 'ar' | 'en' = 'en',
   ): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const document = new PDFDocument({ margin: 36, size: 'A4' });
+      const document = new PDFDocument({
+        bufferPages: true,
+        layout: 'landscape',
+        margin: 32,
+        size: 'A4',
+      });
       const chunks: Buffer[] = [];
       document.on('data', (chunk: Buffer) => chunks.push(chunk));
       document.on('error', reject);
       document.on('end', () => resolve(Buffer.concat(chunks)));
+
+      const colors = {
+        accent: '#7C3AED',
+        accentDark: '#5B21B6',
+        border: '#E5E7EB',
+        ink: '#111827',
+        muted: '#6B7280',
+        soft: '#F5F3FF',
+        stripe: '#F9FAFB',
+        white: '#FFFFFF',
+      };
       if (language === 'ar') {
         document.registerFont(
           'NotoArabic',
@@ -525,11 +541,227 @@ export class ReportService {
         );
         document.font('NotoArabic');
       }
-      const align = language === 'ar' ? 'right' : 'left';
-      document.fontSize(18).text(title, { align });
-      document.moveDown().fontSize(8).text(headers.join(' | '), { align });
-      for (const row of rows) document.text(row.join(' | '), { align });
+
+      const rtl = language === 'ar';
+      const align: PDFKit.Mixins.TextOptions['align'] = rtl ? 'right' : 'left';
+      const margin = 32;
+      const pageWidth = document.page.width;
+      const pageHeight = document.page.height;
+      const contentWidth = pageWidth - margin * 2;
+      const tableBottom = pageHeight - 75;
+      const displayHeaders = rtl ? [...headers].reverse() : headers;
+      const displayRows = rows.map((row) => (rtl ? [...row].reverse() : row));
+      const formattedRows = displayRows.map((row) =>
+        row.map((value) => this.formatPdfCell(value, language)),
+      );
+      const columnWidths = this.pdfColumnWidths(
+        displayHeaders,
+        formattedRows,
+        contentWidth,
+      );
+      const generatedAt = new Intl.DateTimeFormat(rtl ? 'ar-SA' : 'en-GB', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'Asia/Riyadh',
+      }).format(new Date());
+      const labels = rtl
+        ? {
+            generated: 'تاريخ الإنشاء',
+            page: 'صفحة',
+            records: 'عدد السجلات',
+            empty: 'لا توجد بيانات مطابقة لعوامل التصفية المحددة',
+          }
+        : {
+            generated: 'Generated',
+            page: 'Page',
+            records: 'Records',
+            empty: 'No records match the selected filters',
+          };
+      let y = 0;
+
+      const drawHeader = () => {
+        document.save().rect(0, 0, pageWidth, 8).fill(colors.accent).restore();
+        document
+          .fillColor(colors.accentDark)
+          .fontSize(10)
+          .text('WESAL', margin, 25, {
+            align,
+            characterSpacing: 1.2,
+            width: contentWidth,
+          });
+        document.fillColor(colors.ink).fontSize(22).text(title, margin, 45, {
+          align,
+          lineBreak: false,
+          width: contentWidth,
+        });
+        document
+          .fillColor(colors.muted)
+          .fontSize(8)
+          .text(
+            `${labels.records}: ${rows.length.toLocaleString(rtl ? 'ar-SA' : 'en-US')}   |   ${labels.generated}: ${generatedAt}`,
+            margin,
+            76,
+            { align, width: contentWidth },
+          );
+        document
+          .moveTo(margin, 94)
+          .lineTo(pageWidth - margin, 94)
+          .lineWidth(0.7)
+          .strokeColor(colors.border)
+          .stroke();
+        y = 108;
+      };
+
+      const drawTableHeader = () => {
+        const headerHeight = 30;
+        document
+          .save()
+          .roundedRect(margin, y, contentWidth, headerHeight, 4)
+          .fill(colors.accentDark)
+          .restore();
+        let x = margin;
+        displayHeaders.forEach((header, index) => {
+          const width = columnWidths[index];
+          document
+            .fillColor(colors.white)
+            .fontSize(7)
+            .text(header, x + 5, y + 8, {
+              align,
+              ellipsis: true,
+              height: headerHeight - 12,
+              lineBreak: false,
+              width: width - 10,
+            });
+          x += width;
+        });
+        y += headerHeight;
+      };
+
+      const addPage = () => {
+        document.addPage();
+        drawHeader();
+        drawTableHeader();
+      };
+
+      drawHeader();
+      drawTableHeader();
+
+      if (formattedRows.length === 0) {
+        document
+          .save()
+          .roundedRect(margin, y + 12, contentWidth, 72, 6)
+          .fill(colors.soft)
+          .restore();
+        document
+          .fillColor(colors.muted)
+          .fontSize(10)
+          .text(labels.empty, margin + 18, y + 40, {
+            align: 'center',
+            width: contentWidth - 36,
+          });
+      }
+
+      formattedRows.forEach((row, rowIndex) => {
+        const cellHeights = row.map((value, index) =>
+          document.heightOfString(value, {
+            align,
+            width: columnWidths[index] - 10,
+          }),
+        );
+        const rowHeight = Math.max(
+          25,
+          Math.min(42, Math.max(...cellHeights) + 12),
+        );
+        if (y + rowHeight > tableBottom) addPage();
+
+        if (rowIndex % 2 === 1) {
+          document
+            .save()
+            .rect(margin, y, contentWidth, rowHeight)
+            .fill(colors.stripe)
+            .restore();
+        }
+        document
+          .moveTo(margin, y + rowHeight)
+          .lineTo(pageWidth - margin, y + rowHeight)
+          .lineWidth(0.5)
+          .strokeColor(colors.border)
+          .stroke();
+
+        let x = margin;
+        row.forEach((value, columnIndex) => {
+          const width = columnWidths[columnIndex];
+          document
+            .fillColor(colors.ink)
+            .fontSize(7)
+            .text(value, x + 5, y + 7, {
+              align:
+                typeof displayRows[rowIndex][columnIndex] === 'number'
+                  ? 'right'
+                  : align,
+              ellipsis: true,
+              height: rowHeight - 10,
+              width: width - 10,
+            });
+          x += width;
+        });
+        y += rowHeight;
+      });
+
+      const pageRange = document.bufferedPageRange();
+      for (let index = 0; index < pageRange.count; index += 1) {
+        document.switchToPage(pageRange.start + index);
+        document.x = 0;
+        document.y = 0;
+        document
+          .moveTo(margin, pageHeight - 62)
+          .lineTo(pageWidth - margin, pageHeight - 62)
+          .lineWidth(0.5)
+          .strokeColor(colors.border)
+          .stroke();
+        document
+          .fillColor(colors.muted)
+          .fontSize(7)
+          .text(
+            `${labels.page} ${index + 1} / ${pageRange.count}`,
+            margin,
+            pageHeight - 56,
+            { align: 'center', lineBreak: false, width: contentWidth },
+          );
+      }
       document.end();
     });
+  }
+
+  private formatPdfCell(value: string | number, language: 'ar' | 'en'): string {
+    if (typeof value === 'number') {
+      return new Intl.NumberFormat(language === 'ar' ? 'ar-SA' : 'en-US', {
+        maximumFractionDigits: 2,
+      }).format(value);
+    }
+    const date = new Date(value);
+    if (/^\d{4}-\d{2}-\d{2}T/.test(value) && !Number.isNaN(date.getTime())) {
+      return new Intl.DateTimeFormat(language === 'ar' ? 'ar-SA' : 'en-GB', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(date);
+    }
+    return value.replaceAll('_', ' ');
+  }
+
+  private pdfColumnWidths(
+    headers: string[],
+    rows: string[][],
+    totalWidth: number,
+  ): number[] {
+    const weights = headers.map((header, index) => {
+      const longestValue = rows.reduce(
+        (longest, row) => Math.max(longest, row[index]?.length ?? 0),
+        header.length,
+      );
+      return Math.min(18, Math.max(7, longestValue));
+    });
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+    return weights.map((weight) => (weight / totalWeight) * totalWidth);
   }
 }
