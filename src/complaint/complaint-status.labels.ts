@@ -1,4 +1,4 @@
-import type { TranslatedError } from '../../../lib/i18n/i18n.service';
+import type { TranslatedError } from '../../lib/i18n/i18n.service';
 import { ComplaintStatus } from './enums/complaint-status.enum';
 
 export const COMPLAINT_STATUS_LABELS: Record<
