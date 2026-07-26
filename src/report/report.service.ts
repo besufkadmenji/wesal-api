@@ -522,12 +522,12 @@ export class ReportService {
       document.on('end', () => resolve(Buffer.concat(chunks)));
 
       const colors = {
-        accent: '#7C3AED',
-        accentDark: '#5B21B6',
+        accent: '#2563EB',
+        accentDark: '#1D4ED8',
         border: '#E5E7EB',
         ink: '#111827',
         muted: '#6B7280',
-        soft: '#F5F3FF',
+        soft: '#EFF6FF',
         stripe: '#F9FAFB',
         white: '#FFFFFF',
       };
