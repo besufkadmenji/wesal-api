@@ -310,6 +310,26 @@ describe('ContractService', () => {
       'listing.provider',
       'listingProvider',
     );
+    expect(contractQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+      'contract.settlements',
+      'settlements',
+    );
+    expect(contractQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+      'contract.audits',
+      'audits',
+    );
+    expect(contractQueryBuilder.leftJoinAndSelect).toHaveBeenCalledWith(
+      'contract.document',
+      'document',
+    );
+  });
+
+  it('defaults non-null contract relation lists to empty arrays', () => {
+    const contract = new Contract();
+
+    expect(contract.signatures).toEqual([]);
+    expect(contract.settlements).toEqual([]);
+    expect(contract.audits).toEqual([]);
   });
 
   it('calculates contract terms on the server', async () => {

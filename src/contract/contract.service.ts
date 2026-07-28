@@ -999,7 +999,10 @@ export class ContractService {
       .leftJoinAndSelect('listing.provider', 'listingProvider')
       .leftJoinAndSelect('contract.client', 'client')
       .leftJoinAndSelect('contract.provider', 'provider')
-      .leftJoinAndSelect('contract.signatures', 'signatures');
+      .leftJoinAndSelect('contract.signatures', 'signatures')
+      .leftJoinAndSelect('contract.settlements', 'settlements')
+      .leftJoinAndSelect('contract.audits', 'audits')
+      .leftJoinAndSelect('contract.document', 'document');
     if (principal) {
       query.andWhere(
         principal.type === 'provider'
