@@ -138,6 +138,7 @@ describe('ListingService provider finalization', () => {
   it('orders public listings with featured ads before free ads', async () => {
     const orderBy = jest.fn().mockReturnThis();
     const addOrderBy = jest.fn().mockReturnThis();
+    const addSelect = jest.fn().mockReturnThis();
     const setParameter = jest.fn().mockReturnThis();
     const qb = {
       where: jest.fn().mockReturnThis(),
@@ -146,7 +147,7 @@ describe('ListingService provider finalization', () => {
       orderBy,
       addOrderBy,
       setParameter,
-      addSelect: jest.fn().mockReturnThis(),
+      addSelect,
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn().mockResolvedValue([
@@ -165,10 +166,11 @@ describe('ListingService provider finalization', () => {
       categoryId: 'category-id',
     });
 
-    expect(orderBy).toHaveBeenCalledWith(
+    expect(addSelect).toHaveBeenCalledWith(
       expect.stringContaining('listing.type'),
-      'ASC',
+      'featured_rank',
     );
+    expect(orderBy).toHaveBeenCalledWith('featured_rank', 'ASC');
     expect(setParameter).toHaveBeenCalledWith(
       'featuredType',
       ListingType.FEATURED,

@@ -228,19 +228,22 @@ export class ListingService {
 
       // BRD §4.2.10: Featured first, then badge tier (placeholder until badges exist),
       // then rating, sales, then requested sort.
-      query.orderBy(
+      query.addSelect(
         `CASE WHEN listing.type = :featuredType THEN 0 ELSE 1 END`,
-        'ASC',
+        'featured_rank',
       );
       query.setParameter('featuredType', ListingType.FEATURED);
-      query.addOrderBy(
+      query.addSelect(
         `(SELECT COALESCE(AVG(r.rating), 0) FROM ratings r WHERE r."listingId" = listing.id)`,
-        'DESC',
+        'rating_rank',
       );
-      query.addOrderBy(
+      query.addSelect(
         `(SELECT COUNT(*)::int FROM contracts c WHERE c."listingId" = listing.id AND c.status = 'COMPLETED')`,
-        'DESC',
+        'sales_rank',
       );
+      query.orderBy('featured_rank', 'ASC');
+      query.addOrderBy('rating_rank', 'DESC');
+      query.addOrderBy('sales_rank', 'DESC');
 
       if (userId) {
         const popularListings = await this.trackingService.getPopularListings(
