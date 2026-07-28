@@ -116,6 +116,31 @@ describe('ConversationService', () => {
     );
   });
 
+  it('aggregates unread messages for the authenticated participant', async () => {
+    const queryBuilder = {
+      innerJoin: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getCount: jest.fn().mockResolvedValue(4),
+    };
+    messageRepository.createQueryBuilder.mockReturnValue(queryBuilder);
+
+    await expect(
+      service.getStats({
+        sub: '7842b840-fcb2-4ebf-8de4-64af766a1333',
+        email: 'provider@example.com',
+        type: 'provider',
+      }),
+    ).resolves.toEqual({ unreadCount: 4 });
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      'conversation.providerId = :principalId',
+      { principalId: '7842b840-fcb2-4ebf-8de4-64af766a1333' },
+    );
+    expect(queryBuilder.andWhere).toHaveBeenCalledWith(
+      expect.stringContaining('conversation.providerLastReadAt'),
+    );
+  });
+
   it('returns the existing conversation when create is retried', async () => {
     const existing = {
       id: '5fa17f3e-5eb4-4b87-958a-85859b83656d',

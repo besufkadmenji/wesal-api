@@ -20,6 +20,7 @@ import { CONVERSATION_ERROR_CODES } from './errors/conversation.error-codes';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { Category } from '../category/entities/category.entity';
 import { Message } from './entities/message.entity';
+import { ConversationStats } from './dto/conversation-stats.response';
 import { ConversationAccess } from './dto/conversation-access.response';
 import { ConversationSenderType } from './enums/sender-type.enum';
 import { ConversationStatus } from './enums/conversation-status.enum';
@@ -461,5 +462,37 @@ export class ConversationService {
       query.andWhere('message.createdAt > :lastReadAt', { lastReadAt });
     }
     return query.getCount();
+  }
+
+  async getStats(principal: JwtPayload): Promise<ConversationStats> {
+    const isProvider = principal.type === 'provider';
+    const participantField = isProvider ? 'providerId' : 'userId';
+    const lastReadField = isProvider
+      ? 'providerLastReadAt'
+      : 'customerLastReadAt';
+    const senderType = isProvider
+      ? ConversationSenderType.PROVIDER
+      : ConversationSenderType.USER;
+
+    const unreadCount = await this.messageRepository
+      .createQueryBuilder('message')
+      .innerJoin(
+        Conversation,
+        'conversation',
+        'conversation.id = message.conversationId',
+      )
+      .where(`conversation.${participantField} = :principalId`, {
+        principalId: principal.sub,
+      })
+      .andWhere(
+        '(message.senderType != :senderType OR message.senderId IS NULL OR message.senderId != :principalId)',
+        { senderType, principalId: principal.sub },
+      )
+      .andWhere(
+        `(conversation.${lastReadField} IS NULL OR message.createdAt > conversation.${lastReadField})`,
+      )
+      .getCount();
+
+    return { unreadCount };
   }
 }

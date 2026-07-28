@@ -6,6 +6,8 @@ import { SortOrder } from '../../lib/common/dto/pagination.input';
 import { SignedContractPaginationInput } from './dto/signed-contract-pagination.input';
 import { SignedContract } from './signed-contract.entity';
 import { SignedContractStatus } from 'src/provider/enums/contract.enum';
+import { I18nNotFoundException } from '../../lib/errors';
+import type { LanguageCode } from '../../lib/i18n/language.types';
 
 @Injectable()
 export class SignedContractService {
@@ -115,11 +117,21 @@ export class SignedContractService {
     return this.signedContractRepository.findOneBy({ id });
   }
 
-  async delete(id: string): Promise<SignedContract | null> {
+  async delete(
+    id: string,
+    language: LanguageCode = 'en',
+  ): Promise<SignedContract> {
     const contract = await this.signedContractRepository.findOneBy({ id });
-    if (contract) {
-      await this.signedContractRepository.remove(contract);
+    if (!contract) {
+      throw new I18nNotFoundException(
+        {
+          en: 'Signed contract not found',
+          ar: 'العقد الإلكتروني غير موجود',
+        },
+        language,
+      );
     }
+    await this.signedContractRepository.remove(contract);
     return contract;
   }
 

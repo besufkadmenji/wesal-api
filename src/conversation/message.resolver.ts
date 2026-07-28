@@ -35,6 +35,19 @@ export const MessageSender = createUnionType({
     value instanceof Provider ? Provider : User,
 });
 
+export const isMessagePayloadParticipant = (
+  payload: MessageAddedPayload,
+  principal: JwtPayload,
+) =>
+  payload.participants.some(
+    (participant) =>
+      participant.id === principal.sub &&
+      participant.type ===
+        (principal.type === 'provider'
+          ? ConversationSenderType.PROVIDER
+          : ConversationSenderType.USER),
+  );
+
 @Resolver(() => Message)
 export class MessageResolver {
   constructor(
@@ -88,14 +101,7 @@ export class MessageResolver {
       context: { principal: JwtPayload },
     ) =>
       payload.messageAdded.conversationId === variables.conversationId &&
-      payload.participants.some(
-        (participant) =>
-          participant.id === context.principal.sub &&
-          participant.type ===
-            (context.principal.type === 'provider'
-              ? ConversationSenderType.PROVIDER
-              : ConversationSenderType.USER),
-      ),
+      isMessagePayloadParticipant(payload, context.principal),
   })
   @UseGuards(WsJwtAuthGuard)
   async messageAdded(
@@ -108,6 +114,21 @@ export class MessageResolver {
       principal,
       language,
     );
+    return this.pubSub.asyncIterableIterator(MESSAGE_ADDED_EVENT);
+  }
+
+  @Subscription(() => Message, {
+    description:
+      'Subscribe to all new messages for the authenticated participant',
+    filter: (
+      payload: MessageAddedPayload,
+      _variables: Record<string, never>,
+      context: { principal: JwtPayload },
+    ) => isMessagePayloadParticipant(payload, context.principal),
+    resolve: (payload: MessageAddedPayload) => payload.messageAdded,
+  })
+  @UseGuards(WsJwtAuthGuard)
+  participantMessageAdded() {
     return this.pubSub.asyncIterableIterator(MESSAGE_ADDED_EVENT);
   }
 }

@@ -4,6 +4,8 @@ import { PaginatedSignedContractResponse } from './dto/paginated-signed-contract
 import { SignedContractPaginationInput } from './dto/signed-contract-pagination.input';
 import { SignedContract } from './signed-contract.entity';
 import { SignedContractService } from './signed-contract.service';
+import { GetLanguage } from '../../lib/i18n';
+import type { LanguageCode } from '../../lib/i18n/language.types';
 
 @Resolver(() => SignedContract)
 export class SignedContractResolver {
@@ -28,7 +30,10 @@ export class SignedContractResolver {
   }
 
   @Mutation(() => SignedContract)
-  async deleteSignedContract(@Args('id') id: string) {
-    return this.signedContractService.delete(id);
+  async deleteSignedContract(
+    @Args('id') id: string,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<SignedContract> {
+    return this.signedContractService.delete(id, language);
   }
 }

@@ -24,6 +24,7 @@ import { Message } from './entities/message.entity';
 import { AdminAuthGuard } from '../admin/guards/admin-auth.guard';
 import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
 import { RequirePermission } from '../admin/decorators/require-permission.decorator';
+import { ConversationStats } from './dto/conversation-stats.response';
 
 @Resolver(() => Conversation)
 @UseGuards(JwtAuthGuard)
@@ -58,6 +59,17 @@ export class ConversationResolver {
     @GetLanguage() language: LanguageCode,
   ): Promise<Conversation> {
     return this.conversationService.findOne(id, principal, language);
+  }
+
+  @Query(() => ConversationStats, {
+    name: 'conversationStats',
+    description:
+      'Get aggregate conversation statistics for the authenticated participant',
+  })
+  async getStats(
+    @CurrentPrincipal() principal: JwtPayload,
+  ): Promise<ConversationStats> {
+    return this.conversationService.getStats(principal);
   }
 
   @Query(() => PaginatedConversationResponse, { name: 'adminConversations' })

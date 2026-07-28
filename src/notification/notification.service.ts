@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
+import { PubSub } from 'graphql-subscriptions';
+import { PUB_SUB } from '../../lib/pubsub/pubsub.module';
 import {
   I18nNotFoundException,
   I18nBadRequestException,
@@ -18,13 +20,22 @@ import { NOTIFICATION_ERROR_MESSAGES } from './errors/notification.error-message
 import { NotificationRecipientType } from './enums/notification-recipient-type.enum';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
+export const NOTIFICATION_ADDED_EVENT = 'notificationAdded';
+
+export type NotificationAddedPayload = {
+  notificationAdded: Notification;
+};
+
 @Injectable()
 export class NotificationService {
+  private readonly logger = new Logger(NotificationService.name);
+
   constructor(
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @Inject(PUB_SUB) private readonly pubSub: PubSub,
   ) {}
 
   async create(
@@ -66,7 +77,9 @@ export class NotificationService {
       recipientId: createNotificationInput.userId,
       recipientType: NotificationRecipientType.USER,
     });
-    return await this.notificationRepository.save(notification);
+    const saved = await this.notificationRepository.save(notification);
+    await this.publishSafely(saved);
+    return saved;
   }
 
   async createForRecipient(input: {
@@ -78,7 +91,7 @@ export class NotificationService {
     relatedEntityId?: string;
     relatedEntityType?: string;
   }): Promise<Notification> {
-    return this.notificationRepository.save(
+    const saved = await this.notificationRepository.save(
       this.notificationRepository.create({
         ...input,
         userId:
@@ -88,6 +101,8 @@ export class NotificationService {
         isRead: false,
       }),
     );
+    await this.publishSafely(saved);
+    return saved;
   }
 
   async findAll(
@@ -303,5 +318,17 @@ export class NotificationService {
       unreadCount,
       readCount,
     };
+  }
+
+  private async publishSafely(notification: Notification): Promise<void> {
+    try {
+      await this.pubSub.publish(NOTIFICATION_ADDED_EVENT, {
+        notificationAdded: notification,
+      } satisfies NotificationAddedPayload);
+    } catch (error) {
+      this.logger.warn(
+        `Notification ${notification.id} persisted but realtime publish failed: ${String(error)}`,
+      );
+    }
   }
 }
