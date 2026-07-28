@@ -6,6 +6,7 @@ import { ProviderResolver } from './provider.resolver';
 
 describe('ProviderResolver security', () => {
   const providerService = {
+    findOne: jest.fn(),
     update: jest.fn(),
     removeAvatar: jest.fn(),
   };
@@ -21,6 +22,13 @@ describe('ProviderResolver security', () => {
   };
 
   beforeEach(() => jest.clearAllMocks());
+
+  it('returns null when meProvider is queried with a non-provider token', async () => {
+    await expect(
+      resolver.getCurrentProvider(undefined, 'en'),
+    ).resolves.toBeNull();
+    expect(providerService.findOne).not.toHaveBeenCalled();
+  });
 
   it('uses token ownership for profile update and avatar removal', async () => {
     const update = {

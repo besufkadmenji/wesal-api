@@ -41,12 +41,14 @@ export class UserResolver {
   @Query(() => User, {
     name: 'meUser',
     description: 'Get current authenticated user',
+    nullable: true,
   })
   @UseGuards(JwtAuthGuard)
   async getCurrentUser(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: JwtPayload | undefined,
     @GetLanguage() language: LanguageCode,
-  ) {
+  ): Promise<User | null> {
+    if (!user) return null;
     const currentUser = await this.userService.findOne(user.sub, language);
     if (currentUser.status !== UserStatus.ACTIVE) {
       const message = I18nService.translate(

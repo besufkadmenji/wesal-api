@@ -1,5 +1,12 @@
 import { UseGuards } from '@nestjs/common';
-import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
+import {
+  Resolver,
+  Query,
+  Mutation,
+  Args,
+  Parent,
+  ResolveField,
+} from '@nestjs/graphql';
 import { ContractService } from './contract.service';
 import { Contract } from './entities/contract.entity';
 import { CreateContractInput } from './dto/create-contract.input';
@@ -27,11 +34,29 @@ import { RefuseDeliveryInput } from './dto/refuse-delivery.input';
 import { AdminResolveContractInput } from './dto/admin-resolve-contract.input';
 import { CurrentAdmin } from '../admin/decorators/current-admin.decorator';
 import type { AdminJwtPayload } from '../admin/types/admin-jwt-payload.type';
+import { ContractSignature } from './entities/contract-signature.entity';
+import { ContractSettlement } from './entities/contract-settlement.entity';
+import { ContractAudit } from './entities/contract-audit.entity';
 
 @Resolver(() => Contract)
 @UseGuards(JwtAuthGuard)
 export class ContractResolver {
   constructor(private readonly contractService: ContractService) {}
+
+  @ResolveField(() => [ContractSignature])
+  signatures(@Parent() contract: Contract): ContractSignature[] {
+    return contract.signatures ?? [];
+  }
+
+  @ResolveField(() => [ContractSettlement])
+  settlements(@Parent() contract: Contract): ContractSettlement[] {
+    return contract.settlements ?? [];
+  }
+
+  @ResolveField(() => [ContractAudit])
+  audits(@Parent() contract: Contract): ContractAudit[] {
+    return contract.audits ?? [];
+  }
 
   @Mutation(() => Contract, {
     description:

@@ -12,6 +12,7 @@ import { User } from '../user/entities/user.entity';
 import { ContractSettlement } from './entities/contract-settlement.entity';
 import { ContractAudit } from './entities/contract-audit.entity';
 import { Payment } from '../payment/entities/payment.entity';
+import { ContractResolver } from './contract.resolver';
 
 describe('ContractService', () => {
   const contractQueryBuilder = {
@@ -579,5 +580,16 @@ describe('ContractService', () => {
         signatureData: 'customer-signature.png',
       }),
     );
+  });
+});
+
+describe('ContractResolver non-null relation fields', () => {
+  const resolver = new ContractResolver({} as never);
+  const contract = { id: 'contract-id' } as Contract;
+
+  it('returns empty arrays when contract relations were not hydrated', () => {
+    expect(resolver.signatures(contract)).toEqual([]);
+    expect(resolver.settlements(contract)).toEqual([]);
+    expect(resolver.audits(contract)).toEqual([]);
   });
 });

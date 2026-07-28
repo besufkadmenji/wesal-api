@@ -15,6 +15,7 @@ import { ListingResolver } from './listing/listing.resolver';
 import { ReportResolver } from './report/report.resolver';
 import { ProviderResolver } from './provider/provider.resolver';
 import { NotificationResolver } from './notification/notification.resolver';
+import { UserResolver } from './user/user.resolver';
 
 describe('public transaction GraphQL schema', () => {
   let module: TestingModule;
@@ -43,6 +44,7 @@ describe('public transaction GraphQL schema', () => {
         ReportResolver,
         ProviderResolver,
         NotificationResolver,
+        UserResolver,
       ],
       {
         scalarsMap: [{ type: () => Object, scalar: GraphQLJSON }],
@@ -58,6 +60,10 @@ describe('public transaction GraphQL schema', () => {
     expect(sdl).toContain('conversationStats: ConversationStats!');
     expect(sdl).toContain('participantMessageAdded: Message!');
     expect(sdl).toContain('notificationAdded: Notification!');
+    expect(sdl).toContain('meProvider: Provider');
+    expect(sdl).not.toContain('meProvider: Provider!');
+    expect(sdl).toContain('meUser: User');
+    expect(sdl).not.toContain('meUser: User!');
     expect(sdl).toContain('contractQuote(input: ContractQuoteInput!)');
     expect(sdl).toContain('acceptContract(input: AcceptContractInput!)');
     expect(sdl).toContain('rejectContract(input: RejectContractInput!)');

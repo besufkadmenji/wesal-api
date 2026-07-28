@@ -102,12 +102,14 @@ export class ProviderResolver {
   @Query(() => Provider, {
     name: 'meProvider',
     description: 'Get current authenticated provider',
+    nullable: true,
   })
   @UseGuards(JwtAuthGuard)
   async getCurrentProvider(
-    @CurrentProvider() provider: JwtPayload,
+    @CurrentProvider() provider: JwtPayload | undefined,
     @GetLanguage() language: LanguageCode,
-  ) {
+  ): Promise<Provider | null> {
+    if (!provider) return null;
     const currentProvider = await this.providerService.findOne(
       provider.sub,
       language,
