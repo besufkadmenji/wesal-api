@@ -325,12 +325,12 @@ describe('ContractService', () => {
     );
   });
 
-  it('defaults non-null contract relation lists to empty arrays', () => {
+  it('leaves relation collections uninitialized for TypeORM hydration', () => {
     const contract = new Contract();
 
-    expect(contract.signatures).toEqual([]);
-    expect(contract.settlements).toEqual([]);
-    expect(contract.audits).toEqual([]);
+    expect(contract.signatures).toBeUndefined();
+    expect(contract.settlements).toBeUndefined();
+    expect(contract.audits).toBeUndefined();
   });
 
   it('calculates contract terms on the server', async () => {

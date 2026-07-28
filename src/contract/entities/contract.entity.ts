@@ -269,15 +269,15 @@ export class Contract {
   @OneToMany(() => ContractSignature, (signature) => signature.contract, {
     cascade: true,
   })
-  signatures: ContractSignature[] = [];
+  signatures: ContractSignature[];
 
   @Field(() => [ContractSettlement])
   @OneToMany(() => ContractSettlement, (settlement) => settlement.contract)
-  settlements: ContractSettlement[] = [];
+  settlements: ContractSettlement[];
 
   @Field(() => [ContractAudit])
   @OneToMany(() => ContractAudit, (audit) => audit.contract)
-  audits: ContractAudit[] = [];
+  audits: ContractAudit[];
 
   @Field(() => ContractDocument, { nullable: true })
   @OneToOne(() => ContractDocument, (document) => document.contract)
