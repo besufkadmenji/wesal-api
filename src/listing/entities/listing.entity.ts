@@ -99,9 +99,9 @@ export class Listing {
   @Column({ type: 'timestamptz', nullable: true })
   featuredEndsAt: Date | null;
 
-  @Field(() => ListingMedia)
-  @Column('jsonb')
-  story: ListingMedia;
+  @Field(() => ListingMedia, { nullable: true })
+  @Column('jsonb', { nullable: true })
+  story: ListingMedia | null;
 
   @Field(() => [ListingMedia])
   @Column('jsonb')

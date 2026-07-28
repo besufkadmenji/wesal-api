@@ -7,6 +7,7 @@ import {
   ListingType,
   PromotionStatus,
 } from './enums/listing.enum';
+import { MediaType } from './enums/media.enum';
 import { ListingService } from './listing.service';
 
 describe('ListingService provider finalization', () => {
@@ -15,6 +16,7 @@ describe('ListingService provider finalization', () => {
     find: jest.fn(),
     update: jest.fn(),
     create: jest.fn((value) => value),
+    merge: jest.fn((target, value) => ({ ...target, ...value })),
     save: jest
       .fn()
       .mockImplementation((value) =>
@@ -31,7 +33,9 @@ describe('ListingService provider finalization', () => {
   };
   const settingService = { getSetting: jest.fn() };
   const paymentService = {
-    recordMockPremiumAdPayment: jest.fn().mockResolvedValue({ id: 'payment-id' }),
+    recordMockPremiumAdPayment: jest
+      .fn()
+      .mockResolvedValue({ id: 'payment-id' }),
   };
   const service = new ListingService(
     listingRepository as never,
@@ -80,7 +84,7 @@ describe('ListingService provider finalization', () => {
           description: 'Listing description',
           price: 100,
           type: ListingType.FREE,
-          story: undefined as never,
+          story: null,
           photos: [],
         },
         'provider-id',
@@ -98,7 +102,7 @@ describe('ListingService provider finalization', () => {
         description: 'Featured listing description',
         price: 100,
         type: ListingType.FEATURED,
-        story: undefined as never,
+        story: null,
         photos: [],
       },
       'provider-id',
@@ -117,6 +121,59 @@ describe('ListingService provider finalization', () => {
       75,
       30,
     );
+  });
+
+  it('rejects a non-video story when creating a listing', async () => {
+    await expect(
+      service.create(
+        {
+          categoryId: 'category-id',
+          cityId: 'city-id',
+          name: 'Listing',
+          description: 'Listing description',
+          price: 100,
+          type: ListingType.FREE,
+          story: {
+            id: 'd606b5d9-8501-4897-a0ee-9a8b9fc603d1',
+            filename: 'story.jpg',
+            originalFilename: 'story.jpg',
+            size: 1024,
+            sortOrder: 0,
+            type: MediaType.IMAGE,
+          },
+          photos: [],
+        },
+        'provider-id',
+      ),
+    ).rejects.toThrow('Listing story must be a video');
+    expect(categoryRepository.findOne).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-video story when updating a listing', async () => {
+    listingRepository.findOne.mockResolvedValue({
+      id: 'listing-id',
+      providerId: 'provider-id',
+      story: null,
+    });
+
+    await expect(
+      service.update(
+        'listing-id',
+        {
+          id: 'listing-id',
+          story: {
+            id: 'd606b5d9-8501-4897-a0ee-9a8b9fc603d1',
+            filename: 'story.jpg',
+            originalFilename: 'story.jpg',
+            size: 1024,
+            sortOrder: 0,
+            type: MediaType.IMAGE,
+          },
+        },
+        'provider-id',
+      ),
+    ).rejects.toThrow('Listing story must be a video');
+    expect(listingRepository.save).not.toHaveBeenCalled();
   });
 
   it('returns a non-public listing only to its provider owner', async () => {

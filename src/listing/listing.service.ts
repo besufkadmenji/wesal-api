@@ -25,7 +25,9 @@ import { CreateListingInput } from './dto/create-listing.input';
 import { ListingPaginationInput } from './dto/listing-pagination.input';
 import { PaginatedListingResponse } from './dto/paginated-listings.response';
 import { UpdateListingInput } from './dto/update-listing.input';
+import { CreateListingMediaInput } from './dto/create-listing-media.input';
 import { Listing } from './entities/listing.entity';
+import { MediaType } from './enums/media.enum';
 import {
   ListingStatus,
   ListingType,
@@ -67,6 +69,7 @@ export class ListingService {
     language: LanguageCode = 'en',
   ): Promise<Listing> {
     await this.assertProviderCanPublish(providerId, language);
+    this.assertVideoStory(createListingInput.story, language);
 
     // Validate category exists
     const category = await this.categoryRepository.findOne({
@@ -120,7 +123,7 @@ export class ListingService {
       promotionCycle: isFeatured ? 1 : 0,
       featuredStartsAt: isFeatured ? now : null,
       featuredEndsAt,
-      story: createListingInput.story,
+      story: createListingInput.story ?? null,
       photos: createListingInput.photos,
       tags: '',
     });
@@ -458,6 +461,8 @@ export class ListingService {
       );
     }
 
+    this.assertVideoStory(updateListingInput.story, language);
+
     // Validate category if provided
     if (updateListingInput.categoryId) {
       const category = await this.categoryRepository.findOne({
@@ -672,6 +677,18 @@ export class ListingService {
     if (provider.signedContract?.status !== SignedContractStatus.ACTIVE) {
       throw new I18nBadRequestException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.ACTIVE_CONTRACT_REQUIRED],
+        language,
+      );
+    }
+  }
+
+  private assertVideoStory(
+    story: CreateListingMediaInput | null | undefined,
+    language: LanguageCode,
+  ): void {
+    if (story && story.type !== MediaType.VIDEO) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.INVALID_STORY_TYPE],
         language,
       );
     }

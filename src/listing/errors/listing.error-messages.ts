@@ -23,6 +23,10 @@ export const LISTING_ERROR_MESSAGES: Record<ListingErrorCode, TranslatedError> =
       en: 'Invalid listing status',
       ar: 'حالة الإعلان غير صحيحة',
     },
+    [LISTING_ERROR_CODES.INVALID_STORY_TYPE]: {
+      en: 'Listing story must be a video',
+      ar: 'يجب أن تكون قصة الإعلان مقطع فيديو',
+    },
     [LISTING_ERROR_CODES.PROVIDER_ONLY]: {
       en: 'Only providers can create listings',
       ar: 'فقط مقدمو الخدمات يمكنهم إنشاء إعلانات',

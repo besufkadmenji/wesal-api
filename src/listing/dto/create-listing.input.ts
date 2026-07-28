@@ -60,9 +60,10 @@ export class CreateListingInput {
   type: ListingType;
 
   @Field(() => CreateListingMediaInput, { nullable: true })
+  @IsOptional()
   @ValidateNested()
   @Type(() => CreateListingMediaInput)
-  story: CreateListingMediaInput;
+  story?: CreateListingMediaInput | null;
 
   @Field(() => [CreateListingMediaInput], { nullable: true })
   @ValidateNested({ each: true })

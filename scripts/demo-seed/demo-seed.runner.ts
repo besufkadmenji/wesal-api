@@ -590,14 +590,6 @@ export class DemoSeedRunner {
               size: asset.size,
             },
           ],
-          story: {
-            id: randomUUID(),
-            filename: asset.filename,
-            type: 'IMAGE',
-            sortOrder: 0,
-            originalFilename: asset.originalFilename,
-            size: asset.size,
-          },
         };
         const data = await this.publicClient
           .withToken(provider.accessToken)
