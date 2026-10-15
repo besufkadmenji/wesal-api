@@ -43,7 +43,10 @@ export class RatingController {
     @Headers('accept-language') acceptLanguage: string,
     @Res() res: Response,
   ): Promise<void> {
-    const result = await this.ratingService.findAll({ page: 1, limit: 999999 });
+    const result = await this.ratingService.findAdmin({
+      page: 1,
+      limit: 999999,
+    });
     const ratings = result.items;
 
     const selectedFields = fields

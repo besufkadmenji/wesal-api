@@ -1,4 +1,4 @@
-import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
+import { Field, Float, ID, Int, ObjectType } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
@@ -11,6 +11,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { numericColumnTransformer } from '../../../lib/common/transformers/numeric-column.transformer';
 import { Category } from '../../category/entities/category.entity';
 import { City } from '../../city/entities/city.entity';
 import { Country } from '../../country/entities/country.entity';
@@ -174,6 +175,25 @@ export class Provider {
   @Field(() => String, { nullable: true })
   @Column({ type: 'varchar', length: 500, nullable: true })
   deleteReason?: string | null;
+
+  @Field(() => Float, {
+    description: "Mean of the provider's rated listings' averages (BRD 4.3.18)",
+  })
+  @Column({
+    type: 'numeric',
+    precision: 3,
+    scale: 2,
+    default: 0,
+    transformer: numericColumnTransformer,
+  })
+  ratingAverage: number;
+
+  @Field(() => Int, {
+    description:
+      'Number of published ratings across all of the provider listings',
+  })
+  @Column({ type: 'int', default: 0 })
+  ratingCount: number;
 
   @Field()
   @CreateDateColumn()

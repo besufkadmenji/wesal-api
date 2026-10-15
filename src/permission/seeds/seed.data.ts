@@ -1906,4 +1906,21 @@ export const seedData = [
     createdAt: '2026-07-19T00:00:00.000Z',
     updatedAt: '2026-07-19T00:00:00.000Z',
   })),
+  // Sprint 4: comments (ratings) management.
+  ...[
+    ['rating', 'read', 'Read Comments', 'عرض التعليقات'],
+    ['rating', 'update', 'Update Comments', 'تحديث التعليقات'],
+    ['rating', 'full_access', 'Full Access Comments', 'وصول كامل للتعليقات'],
+  ].map(([module, action, name, nameAr], index) => ({
+    id: 340 + index,
+    name,
+    nameAr,
+    description: `Can ${action} ${module}`,
+    module,
+    action,
+    resource: module,
+    permissionPlatform: 'ADMIN',
+    createdAt: '2026-10-15T00:00:00.000Z',
+    updatedAt: '2026-10-15T00:00:00.000Z',
+  })),
 ];

@@ -41,6 +41,9 @@ import { SignedContract } from '../src/signed-contract/signed-contract.entity';
 import { User } from '../src/user/entities/user.entity';
 import { UserStatus } from '../src/user/enums/user-status.enum';
 import type { JwtPayload } from '../src/auth/strategies/jwt.strategy';
+import { RatingService } from '../src/rating/rating.service';
+import { RatingStatus } from '../src/rating/enums/rating-status.enum';
+import { AdminPermissionType } from '../src/admin/enums/admin-permission-type.enum';
 
 jest.setTimeout(120_000);
 
@@ -51,6 +54,8 @@ describe('Sprint 3 API boundaries (e2e)', () => {
   let transactionConversationId: string;
   let transactionCustomer: JwtPayload;
   let transactionProvider: JwtPayload;
+  let transactionContractId: string;
+  let transactionListingId: string;
 
   beforeAll(async () => {
     container = await new PostgreSqlContainer('postgres:16-alpine').start();
@@ -223,6 +228,7 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     };
     transactionCustomer = customerPrincipal;
     transactionProvider = providerPrincipal;
+    transactionListingId = listing.id;
     const conversation = await app
       .get(ConversationService)
       .create({ listingId: listing.id }, customerPrincipal);
@@ -296,6 +302,7 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     expect(Number(firstPayment.payment.amount)).toBe(690);
     expect(retry.payment.id).toBe(firstPayment.payment.id);
     expect(retry.contract.status).toBe(ContractStatus.IN_PROGRESS);
+    transactionContractId = secondContract.id;
     const events = await dataSource.getRepository(Message).find({
       where: { conversationId: conversation.id },
     });
@@ -436,7 +443,8 @@ describe('Sprint 3 API boundaries (e2e)', () => {
         categoryId: category.id,
         cityId: city.id,
         name: 'Featured premium listing',
-        description: 'This premium listing is published after mock payment at create.',
+        description:
+          'This premium listing is published after mock payment at create.',
         price: 250,
         type: ListingType.FEATURED,
         story: {
@@ -479,6 +487,152 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       status: ListingStatus.ACTIVE,
       promotionStatus: PromotionStatus.EXPIRED,
     });
+  });
+
+  it('lets only the customer rate a completed contract once and keeps averages in sync with moderation', async () => {
+    const dataSource = app.get(DataSource);
+    const contractService = app.get(ContractService);
+    type GraphqlBody<T> = {
+      data: T;
+      errors?: Array<{ message: string }>;
+    };
+    type RatedContract = {
+      rateContract: { id: string; status: string; contractId: string };
+    };
+    type Reviews = {
+      listingReviews: { items: unknown[]; meta: { total: number } };
+    };
+    const graphql = async <T = unknown>(
+      query: string,
+      variables: object,
+      token?: string,
+    ): Promise<GraphqlBody<T>> => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set(token ? { Authorization: `Bearer ${token}` } : {})
+        .send({ query, variables });
+      return response.body as GraphqlBody<T>;
+    };
+    const tokenFor = (principal: JwtPayload) =>
+      jwt.sign(principal, process.env.JWT_SECRET!, { expiresIn: '5m' });
+    const rate = `mutation Rate($input: RateContractInput!) {
+      rateContract(input: $input) { id rating comment status contractId }
+    }`;
+    const input = {
+      contractId: transactionContractId,
+      rating: 4,
+      comment: 'Great work, on time',
+    };
+
+    const early = await graphql(rate, { input }, tokenFor(transactionCustomer));
+    expect(early.errors?.[0]?.message).toContain('completed contracts');
+
+    await contractService.providerCompleteContract(
+      {
+        contractId: transactionContractId,
+        signatureData: 'provider-completion-signature',
+      },
+      transactionProvider,
+    );
+    await contractService.completeContract(
+      { contractId: transactionContractId },
+      transactionCustomer,
+    );
+
+    const anonymous = await graphql(rate, { input });
+    expect(anonymous.errors?.[0]).toBeDefined();
+    const asProvider = await graphql(
+      rate,
+      { input },
+      tokenFor(transactionProvider),
+    );
+    expect(asProvider.errors?.[0]?.message).toContain('not authorized');
+
+    const rated = await graphql<RatedContract>(
+      rate,
+      { input },
+      tokenFor(transactionCustomer),
+    );
+    expect(rated.errors).toBeUndefined();
+    expect(rated.data.rateContract).toMatchObject({
+      rating: 4,
+      comment: 'Great work, on time',
+      status: 'PUBLISHED',
+      contractId: transactionContractId,
+    });
+    const duplicate = await graphql(
+      rate,
+      { input },
+      tokenFor(transactionCustomer),
+    );
+    expect(duplicate.errors?.[0]?.message).toContain('already rated');
+
+    const reviews = await graphql<Reviews>(
+      `
+        query Reviews($input: ListingReviewsInput!) {
+          listingReviews(input: $input) {
+            items {
+              rating
+              comment
+              reviewerName
+            }
+            meta {
+              total
+            }
+          }
+        }
+      `,
+      { input: { listingId: transactionListingId } },
+    );
+    expect(reviews.data.listingReviews).toEqual({
+      items: [
+        {
+          rating: 4,
+          comment: 'Great work, on time',
+          reviewerName: 'Sprint Customer',
+        },
+      ],
+      meta: { total: 1 },
+    });
+
+    const adminList = await graphql('{ adminRatings { meta { total } } }', {});
+    expect(adminList.errors?.[0]).toBeDefined();
+
+    const aggregates = async () => {
+      const listing = await dataSource
+        .getRepository(Listing)
+        .findOneByOrFail({ id: transactionListingId });
+      const provider = await dataSource
+        .getRepository(Provider)
+        .findOneByOrFail({ id: transactionProvider.sub });
+      return {
+        listing: [listing.ratingAverage, listing.ratingCount],
+        provider: [provider.ratingAverage, provider.ratingCount],
+      };
+    };
+    expect(await aggregates()).toEqual({ listing: [4, 1], provider: [4, 1] });
+
+    await app
+      .get(RatingService)
+      .setStatus(rated.data.rateContract.id, RatingStatus.HIDDEN, {
+        sub: '00000000-0000-4000-8000-0000000000ad',
+        email: 'admin@example.com',
+        permissionType: AdminPermissionType.SUPER_ADMIN,
+      });
+    expect(await aggregates()).toEqual({ listing: [0, 0], provider: [0, 0] });
+    const hiddenReviews = await graphql<Reviews>(
+      `
+        query Reviews($input: ListingReviewsInput!) {
+          listingReviews(input: $input) {
+            meta {
+              total
+            }
+          }
+        }
+      `,
+      { input: { listingId: transactionListingId } },
+    );
+    expect(hiddenReviews.data.listingReviews.meta.total).toBe(0);
   });
 });
 

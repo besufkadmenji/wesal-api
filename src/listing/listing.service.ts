@@ -237,15 +237,12 @@ export class ListingService {
       );
       query.setParameter('featuredType', ListingType.FEATURED);
       query.addSelect(
-        `(SELECT COALESCE(AVG(r.rating), 0) FROM ratings r WHERE r."listingId" = listing.id)`,
-        'rating_rank',
-      );
-      query.addSelect(
         `(SELECT COUNT(*)::int FROM contracts c WHERE c."listingId" = listing.id AND c.status = 'COMPLETED')`,
         'sales_rank',
       );
       query.orderBy('featured_rank', 'ASC');
-      query.addOrderBy('rating_rank', 'DESC');
+      // Cached average of published ratings (kept fresh by RatingService).
+      query.addOrderBy('listing.ratingAverage', 'DESC');
       query.addOrderBy('sales_rank', 'DESC');
 
       if (userId) {
