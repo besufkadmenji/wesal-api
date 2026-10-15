@@ -1,6 +1,7 @@
 allowBuilds:
   '@apollo/protobufjs': true
   '@nestjs/core': true
+  '@parcel/watcher': false
   '@scarf/scarf': true
   bcrypt: true
   cpu-features: false
