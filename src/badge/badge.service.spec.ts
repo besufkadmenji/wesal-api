@@ -1,4 +1,4 @@
-import { QueryFailedError, Repository } from 'typeorm';
+import { FindOperator, QueryFailedError, Repository } from 'typeorm';
 import { Contract } from '../contract/entities/contract.entity';
 import { NotificationType } from '../notification/enums/notification-type.enum';
 import { NotificationService } from '../notification/notification.service';
@@ -198,6 +198,30 @@ describe('BadgeService', () => {
         type: NotificationType.BADGE_CHANGED,
       }),
     );
+  });
+
+  it('stamps every evaluated provider so none stays "Newly Added"', async () => {
+    providers = [
+      provider({ id: 'unrated', ratingAverage: 0, ratingCount: 0 }),
+      provider({
+        id: 'kept',
+        ratingAverage: 4.2,
+        ratingCount: 5,
+        badge: BadgeTier.TRUST,
+      }),
+    ];
+
+    const run = await service.runAssignment('2026-10', 'en');
+
+    const stamp = (providerUpdate.mock.calls as Array<[unknown, unknown]>).find(
+      ([criteria]) => typeof criteria === 'object',
+    );
+    const [criteria, values] = stamp!;
+    expect((criteria as { id: FindOperator<string[]> }).id.value).toEqual([
+      'unrated',
+      'kept',
+    ]);
+    expect(values).toEqual({ badgeEvaluatedAt: run.ranAt });
   });
 
   it('marks and warns a new Under-improvement provider without deleting', async () => {

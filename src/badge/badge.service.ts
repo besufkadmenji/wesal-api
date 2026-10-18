@@ -202,6 +202,7 @@ export class BadgeService {
     const skipped: BadgeRunProvider[] = [];
     const counts = { trust: 0, diligence: 0, underImprovement: 0, changed: 0 };
 
+    const evaluated: string[] = [];
     for (const provider of providers) {
       const tier =
         provider.ratingCount > 0
@@ -244,6 +245,7 @@ export class BadgeService {
         }
       }
 
+      evaluated.push(provider.id);
       if (tier === BadgeTier.TRUST) counts.trust++;
       if (tier === BadgeTier.DILIGENCE) counts.diligence++;
       if (tier === BadgeTier.UNDER_IMPROVEMENT) {
@@ -256,6 +258,14 @@ export class BadgeService {
           rule?.maxBound ?? null,
         );
       }
+    }
+    // Every evaluated provider, even with an unchanged or no tier, has now
+    // been through a run and is no longer "Newly Added" (S4-54).
+    if (evaluated.length > 0) {
+      await this.providerRepository.update(
+        { id: In(evaluated) },
+        { badgeEvaluatedAt: startedAt },
+      );
     }
 
     run.trustCount = counts.trust;

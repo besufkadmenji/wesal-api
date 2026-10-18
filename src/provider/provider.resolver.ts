@@ -4,7 +4,9 @@ import {
   Context,
   ID,
   Mutation,
+  Parent,
   Query,
+  ResolveField,
   Resolver,
   Subscription,
 } from '@nestjs/graphql';
@@ -31,6 +33,7 @@ import { SignContractInput } from './dto/sign-contract.input';
 import { AdminTerminateContractInput } from './dto/terminate-contract.input';
 import { UpdateProviderInput } from './dto/update-provider.input';
 import { ProviderStatus } from './enums/provider-status.enum';
+import { isNewlyAddedProvider } from './newly-added';
 import { PROVIDER_ERROR_CODES } from './errors/provider.error-codes';
 import { PROVIDER_ERROR_MESSAGES } from './errors/provider.error-messages';
 import { ProviderService } from './provider.service';
@@ -279,5 +282,13 @@ export class ProviderResolver {
       throw new UnauthorizedException('Provider not authenticated');
     }
     return this.pubSub.asyncIterableIterator('providerUpdated');
+  }
+
+  @ResolveField(() => Boolean, {
+    description:
+      'Not evaluated by a monthly badge run yet: shows "Newly Added" (S4-54)',
+  })
+  isNewlyAdded(@Parent() provider: Provider): boolean {
+    return isNewlyAddedProvider(provider);
   }
 }

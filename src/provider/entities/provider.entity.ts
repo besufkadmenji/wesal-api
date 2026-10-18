@@ -207,6 +207,10 @@ export class Provider {
   @Column({ type: 'timestamptz', nullable: true })
   badgeAssignedAt: Date | null;
 
+  /** Last monthly badge run that evaluated this provider (S4-54). */
+  @Column({ type: 'timestamptz', nullable: true })
+  badgeEvaluatedAt: Date | null;
+
   /** Start of the current Under-improvement streak; cleared when it ends. */
   @Column({ type: 'timestamptz', nullable: true })
   underImprovementSince: Date | null;

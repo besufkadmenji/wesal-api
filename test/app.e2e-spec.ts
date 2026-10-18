@@ -1719,6 +1719,36 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       .set({ Authorization: `Bearer ${customerToken}` });
     expect([401, 403]).toContain(forbidden.status);
   });
+  // Last: it runs a badge assignment, which may change other providers.
+  it('labels providers no badge run has evaluated as newly added', async () => {
+    const dataSource = app.get(DataSource);
+    const fresh = await dataSource.getRepository(Provider).save({
+      name: 'Fresh Provider',
+      commercialName: 'Fresh Services',
+      phone: '+966500000909',
+      email: 'fresh-provider@example.com',
+      password: '',
+      status: ProviderStatus.ACTIVE,
+    });
+    const isNewlyAdded = async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .send({
+          query: `query Provider($id: ID!) { provider(id: $id) { isNewlyAdded } }`,
+          variables: { id: fresh.id },
+        });
+      const body = response.body as {
+        data: { provider: { isNewlyAdded: boolean } } | null;
+        errors?: Array<{ message: string }>;
+      };
+      expect(body.errors).toBeUndefined();
+      return body.data!.provider.isNewlyAdded;
+    };
+
+    expect(await isNewlyAdded()).toBe(true);
+    await app.get(BadgeService).runAssignment('2099-12', 'en');
+    expect(await isNewlyAdded()).toBe(false);
+  });
 });
 
 function subscriptionError(
