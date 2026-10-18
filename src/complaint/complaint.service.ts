@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FileUpload } from 'graphql-upload-ts';
 import { Repository } from 'typeorm';
@@ -27,6 +27,7 @@ import { ComplaintReporterType } from './enums/complaint-reporter-type.enum';
 import { ComplaintStatus } from './enums/complaint-status.enum';
 import { COMPLAINT_STATUS_LABELS } from './complaint-status.labels';
 import { NotificationService } from '../notification/notification.service';
+import { AdminNotificationService } from '../notification/admin-notification.service';
 import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
 import { NotificationType } from '../notification/enums/notification-type.enum';
 
@@ -49,6 +50,8 @@ export class ComplaintService {
     private readonly contractRepository: Repository<Contract>,
     private readonly fileUploadService: FileUploadService,
     private readonly notificationService: NotificationService,
+    @Optional()
+    private readonly adminNotifications?: AdminNotificationService,
   ) {}
 
   async create(
@@ -107,6 +110,27 @@ export class ComplaintService {
         reviewedAt: null,
       }),
     );
+    const reporter =
+      reporterType === ComplaintReporterType.PROVIDER
+        ? 'مقدم خدمة'
+        : 'طالب خدمة';
+    const reporterEn =
+      reporterType === ComplaintReporterType.PROVIDER
+        ? 'a provider'
+        : 'a customer';
+    await this.adminNotifications?.notifyAdmins({
+      type: NotificationType.ADMIN_COMPLAINT,
+      ar: {
+        title: 'شكوى جديدة',
+        message: `شكوى جديدة من ${reporter}: ${saved.title}`,
+      },
+      en: {
+        title: 'New complaint',
+        message: `New complaint from ${reporterEn}: ${saved.title}`,
+      },
+      relatedEntityType: 'complaint',
+      relatedEntityId: saved.id,
+    });
     return this.load(saved.id, language);
   }
 
@@ -217,11 +241,7 @@ export class ComplaintService {
     complaint.reviewedByAdminId = admin.sub;
     complaint.reviewedAt = new Date();
     const saved = await this.complaintRepository.save(complaint);
-    const statusLabel = localizeEnum(
-      COMPLAINT_STATUS_LABELS,
-      status,
-      language,
-    );
+    const statusLabel = localizeEnum(COMPLAINT_STATUS_LABELS, status, language);
     await this.notifyReporter(
       saved,
       status === ComplaintStatus.RESOLVED

@@ -46,6 +46,8 @@ import type { JwtPayload } from '../src/auth/strategies/jwt.strategy';
 import { RatingService } from '../src/rating/rating.service';
 import { RatingStatus } from '../src/rating/enums/rating-status.enum';
 import { AdminPermissionType } from '../src/admin/enums/admin-permission-type.enum';
+import { Admin } from '../src/admin/entities/admin.entity';
+import { AdminStatus } from '../src/admin/enums/admin-status.enum';
 
 jest.setTimeout(120_000);
 
@@ -1032,9 +1034,10 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     expect(trustedBefore.data!.trustedListings).toEqual([
       { id: trusted.listing.id, provider: { id: trusted.provider.id } },
     ]);
+    const { id: _baseId, ...trustedListingFields } = trusted.listing;
+    void _baseId;
     const featured = await dataSource.getRepository(Listing).save({
-      ...trusted.listing,
-      id: undefined,
+      ...trustedListingFields,
       name: 'Trusty featured listing',
       type: ListingType.FEATURED,
       promotionStatus: PromotionStatus.ACTIVE,
@@ -1116,6 +1119,236 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       adminToken,
     );
     expect(lastRun.data!.badgeLastRun.period).toBe('2099-02');
+  });
+
+  it('sends admin broadcasts live to customers and pushes admin header notifications', async () => {
+    const dataSource = app.get(DataSource);
+    const url = `${appUrl.replace(/^http/, 'ws')}/graphql`;
+    const graphql = async <T>(
+      query: string,
+      variables: object = {},
+      token?: string,
+    ) => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set(token ? { Authorization: `Bearer ${token}` } : {})
+        .send({ query, variables });
+      return response.body as {
+        data: T | null;
+        errors?: Array<{ message: string }>;
+      };
+    };
+    const admin = await dataSource.getRepository(Admin).save({
+      email: 'notify-admin@example.com',
+      fullName: 'Notify Admin',
+      organizationName: 'Wesal',
+      roleName: 'Super admin',
+      permissionType: AdminPermissionType.SUPER_ADMIN,
+      status: AdminStatus.ACTIVE,
+    });
+    const adminToken = jwt.sign(
+      {
+        sub: admin.id,
+        email: admin.email,
+        permissionType: AdminPermissionType.SUPER_ADMIN,
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    const customerToken = jwt.sign(
+      transactionCustomer,
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    const sendBroadcast = `mutation Send($input: SendBroadcastInput!) {
+      sendBroadcast(input: $input) { id recipientCount audience }
+    }`;
+    const broadcastInput = {
+      title: 'Planned maintenance',
+      message: 'The platform will be unavailable at 2am.',
+      recipientTypes: ['USER'],
+      audience: 'SELECTED',
+      recipients: [{ id: transactionCustomer.sub, type: 'USER' }],
+    };
+
+    // Customers cannot broadcast.
+    expect(
+      (await graphql(sendBroadcast, { input: broadcastInput }, customerToken))
+        .errors,
+    ).toBeDefined();
+
+    // The selected customer receives it live on the existing channel.
+    let customerConnected: () => void;
+    const customerReady = new Promise<void>((resolve) => {
+      customerConnected = resolve;
+    });
+    const customer = createClient({
+      url,
+      webSocketImpl: WebSocket,
+      retryAttempts: 0,
+      connectionParams: { Authorization: `Bearer ${customerToken}` },
+      on: { connected: () => customerConnected() },
+    });
+    const received = subscriptionUntil<{
+      notificationAdded: { type: string; title: string };
+    }>(
+      customer,
+      {
+        query: `subscription { notificationAdded { type title relatedEntityType } }`,
+      },
+      (value) => value.notificationAdded.title === broadcastInput.title,
+    );
+    await customerReady;
+    await waitForSubscriptionRegistration();
+    const sent = await graphql<{
+      sendBroadcast: { id: string; recipientCount: number };
+    }>(sendBroadcast, { input: broadcastInput }, adminToken);
+    expect(sent.errors).toBeUndefined();
+    expect(sent.data!.sendBroadcast.recipientCount).toBe(1);
+    await expect(received).resolves.toMatchObject({
+      notificationAdded: { type: 'SYSTEM_ANNOUNCEMENT' },
+    });
+    await customer.dispose();
+
+    const listed = await graphql<{
+      adminBroadcasts: { items: Array<{ id: string }> };
+    }>(
+      `
+        {
+          adminBroadcasts(input: { search: "maintenance" }) {
+            items {
+              id
+            }
+          }
+        }
+      `,
+      {},
+      adminToken,
+    );
+    expect(listed.data!.adminBroadcasts.items.map((b) => b.id)).toContain(
+      sent.data!.sendBroadcast.id,
+    );
+
+    // A contact-us message reaches the admin header bell live.
+    let adminConnected: () => void;
+    const adminReady = new Promise<void>((resolve) => {
+      adminConnected = resolve;
+    });
+    const adminSocket = createClient({
+      url,
+      webSocketImpl: WebSocket,
+      retryAttempts: 0,
+      connectionParams: { Authorization: `Bearer ${adminToken}` },
+      on: { connected: () => adminConnected() },
+    });
+    const adminPush = subscriptionUntil<{
+      adminNotificationAdded: {
+        id: string;
+        type: string;
+        translations: unknown;
+      };
+    }>(
+      adminSocket,
+      {
+        query: `subscription { adminNotificationAdded { id type title translations } }`,
+      },
+      (value) => value.adminNotificationAdded.type === 'ADMIN_CONTACT_MESSAGE',
+    );
+    await adminReady;
+    await waitForSubscriptionRegistration();
+    const contact = await graphql(
+      `
+        mutation Contact($input: CreateContactMessageInput!) {
+          createContactMessage(createContactMessageInput: $input) {
+            id
+          }
+        }
+      `,
+      {
+        input: {
+          name: 'Visitor Sara',
+          email: 'sara@example.com',
+          phone: '+966500000777',
+          messageContent: 'Hello there',
+        },
+      },
+    );
+    expect(contact.errors).toBeUndefined();
+    const pushed = await adminPush;
+    expect(pushed.adminNotificationAdded.translations).toMatchObject({
+      en: { title: 'New contact message' },
+    });
+    await adminSocket.dispose();
+
+    // Read state: one, then all.
+    const feed = async () =>
+      (
+        await graphql<{
+          adminNotifications: { items: Array<{ id: string; isRead: boolean }> };
+          adminUnreadNotificationCount: number;
+        }>(
+          `
+            {
+              adminNotifications {
+                items {
+                  id
+                  isRead
+                }
+              }
+              adminUnreadNotificationCount
+            }
+          `,
+          {},
+          adminToken,
+        )
+      ).data!;
+    const before = await feed();
+    expect(before.adminUnreadNotificationCount).toBeGreaterThanOrEqual(1);
+    await graphql(
+      `
+        mutation Read($id: ID!) {
+          adminMarkNotificationRead(id: $id) {
+            id
+          }
+        }
+      `,
+      { id: pushed.adminNotificationAdded.id },
+      adminToken,
+    );
+    const afterOne = await feed();
+    expect(
+      afterOne.adminNotifications.items.find(
+        (n) => n.id === pushed.adminNotificationAdded.id,
+      )?.isRead,
+    ).toBe(true);
+    await graphql(
+      `
+        mutation {
+          adminMarkAllNotificationsRead
+        }
+      `,
+      {},
+      adminToken,
+    );
+    expect((await feed()).adminUnreadNotificationCount).toBe(0);
+    // Customers never see admin rows in their own feed.
+    expect(
+      (
+        await graphql(
+          `
+            {
+              adminNotifications {
+                items {
+                  id
+                }
+              }
+            }
+          `,
+          {},
+          customerToken,
+        )
+      ).errors,
+    ).toBeDefined();
   });
 });
 

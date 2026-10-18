@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { NotificationModule } from '../notification/notification.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PaymentService } from './payment.service';
 import { PaymentResolver } from './payment.resolver';
@@ -15,6 +16,7 @@ import { SettingModule } from '../setting/setting.module';
 
 @Module({
   imports: [
+    NotificationModule,
     TypeOrmModule.forFeature([
       Payment,
       Contract,

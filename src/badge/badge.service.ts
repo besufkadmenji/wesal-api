@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, QueryFailedError, Repository } from 'typeorm';
@@ -10,6 +10,7 @@ import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
 import { NotificationType } from '../notification/enums/notification-type.enum';
 import { NotificationService } from '../notification/notification.service';
+import { AdminNotificationService } from '../notification/admin-notification.service';
 import { Provider } from '../provider/entities/provider.entity';
 import { ProviderStatus } from '../provider/enums/provider-status.enum';
 import { ProviderService } from '../provider/provider.service';
@@ -78,6 +79,8 @@ export class BadgeService {
     private readonly contractRepository: Repository<Contract>,
     private readonly notificationService: NotificationService,
     private readonly providerService: ProviderService,
+    @Optional()
+    private readonly adminNotifications?: AdminNotificationService,
   ) {}
 
   /** All three tiers, highest first; missing rows read as unset and disabled. */
@@ -195,6 +198,7 @@ export class BadgeService {
     });
 
     const deleted: BadgeRunProvider[] = [];
+    const newlyUnderImprovement: BadgeRunProvider[] = [];
     const skipped: BadgeRunProvider[] = [];
     const counts = { trust: 0, diligence: 0, underImprovement: 0, changed: 0 };
 
@@ -232,6 +236,12 @@ export class BadgeService {
         if (tier && tier !== BadgeTier.UNDER_IMPROVEMENT) {
           await this.notify(provider, NotificationType.BADGE_CHANGED, tier);
         }
+        if (tier === BadgeTier.UNDER_IMPROVEMENT) {
+          newlyUnderImprovement.push({
+            id: provider.id,
+            name: provider.name ?? undefined,
+          });
+        }
       }
 
       if (tier === BadgeTier.TRUST) counts.trust++;
@@ -254,7 +264,47 @@ export class BadgeService {
     run.changedCount = counts.changed;
     run.deletedProviders = deleted;
     run.skippedProviders = skipped;
-    return this.runRepository.save(run);
+    const saved = await this.runRepository.save(run);
+    await this.notifyAdminsOfRun(newlyUnderImprovement, deleted);
+    return saved;
+  }
+
+  /** BRD 4.3.25 / 4.3.18: admin header lists new Under-improvement and deleted providers. */
+  private async notifyAdminsOfRun(
+    underImprovement: BadgeRunProvider[],
+    deleted: BadgeRunProvider[],
+  ): Promise<void> {
+    if (!this.adminNotifications) return;
+    const names = (list: BadgeRunProvider[]) =>
+      list.map((provider) => provider.name ?? provider.id).join('، ');
+    if (underImprovement.length > 0) {
+      await this.adminNotifications.notifyAdmins({
+        type: NotificationType.ADMIN_BADGE_UNDER_IMPROVEMENT,
+        ar: {
+          title: 'مقدمو خدمة بلقب قيد التحسن',
+          message: `حصل على لقب قيد التحسن: ${names(underImprovement)}`,
+        },
+        en: {
+          title: 'Providers under improvement',
+          message: `"Under improvement" given to: ${names(underImprovement)}`,
+        },
+        relatedEntityType: 'badge',
+      });
+    }
+    if (deleted.length > 0) {
+      await this.adminNotifications.notifyAdmins({
+        type: NotificationType.ADMIN_BADGE_DELETED,
+        ar: {
+          title: 'حذف مقدمي خدمة تلقائياً',
+          message: `تم حذف الحسابات التالية لبقائها قيد التحسن: ${names(deleted)}`,
+        },
+        en: {
+          title: 'Providers deleted automatically',
+          message: `Deleted for staying under improvement: ${names(deleted)}`,
+        },
+        relatedEntityType: 'badge',
+      });
+    }
   }
 
   /** Inserts the run row first; the unique period makes a second run fail. */

@@ -320,7 +320,8 @@ export class NotificationService {
     };
   }
 
-  private async publishSafely(notification: Notification): Promise<void> {
+  /** Pushes a saved notification to its recipient; never throws. */
+  async publishSafely(notification: Notification): Promise<void> {
     try {
       await this.pubSub.publish(NOTIFICATION_ADDED_EVENT, {
         notificationAdded: notification,

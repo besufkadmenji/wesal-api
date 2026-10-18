@@ -58,6 +58,7 @@ import { Payment } from '../payment/entities/payment.entity';
 import { PaymentPurpose } from '../payment/enums/payment-purpose.enum';
 import { PaymentStatus } from '../payment/enums/payment-status.enum';
 import { NotificationService } from '../notification/notification.service';
+import { AdminNotificationService } from '../notification/admin-notification.service';
 import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
 import { NotificationType } from '../notification/enums/notification-type.enum';
 
@@ -147,6 +148,8 @@ export class ContractService {
     private readonly messageService: MessageService,
     @Optional()
     private readonly notificationService?: NotificationService,
+    @Optional()
+    private readonly adminNotifications?: AdminNotificationService,
   ) {}
 
   private error(
@@ -366,6 +369,7 @@ export class ContractService {
       NotificationRecipientType.PROVIDER,
       result.contract,
       language,
+      'created',
     );
     return result.contract;
   }
@@ -964,12 +968,14 @@ export class ContractService {
         NotificationRecipientType.USER,
         result.contract,
         language,
+        null,
       ),
       this.notifyContract(
         result.contract.providerId,
         NotificationRecipientType.PROVIDER,
         result.contract,
         language,
+        null,
       ),
     ]);
     return this.findOneAdmin(input.contractId, language);
@@ -1614,12 +1620,73 @@ export class ContractService {
     return Number(value.toFixed(2));
   }
 
+  /** BRD 4.3.25: admins hear about new contracts and status changes, with names. */
+  private async notifyAdminsOfContract(
+    contract: Contract,
+    event: 'created' | 'status',
+  ): Promise<void> {
+    if (!this.adminNotifications) return;
+    try {
+      const loaded = await this.contractRepository.findOne({
+        where: { id: contract.id },
+        relations: ['client', 'provider'],
+      });
+      const reference = contract.publicId ?? contract.id;
+      const customer = loaded?.client?.name ?? '—';
+      const provider =
+        loaded?.provider?.commercialName ?? loaded?.provider?.name ?? '—';
+      const statusAr = localizeEnum(
+        CONTRACT_STATUS_LABELS,
+        contract.status,
+        'ar',
+      );
+      const statusEn = localizeEnum(
+        CONTRACT_STATUS_LABELS,
+        contract.status,
+        'en',
+      );
+      await this.adminNotifications.notifyAdmins(
+        event === 'created'
+          ? {
+              type: NotificationType.ADMIN_CONTRACT_CREATED,
+              ar: {
+                title: 'تعاقد جديد',
+                message: `تم إنشاء التعاقد رقم ${reference} بين ${customer} و${provider}`,
+              },
+              en: {
+                title: 'New contract',
+                message: `Contract ${reference} was created between ${customer} and ${provider}`,
+              },
+              relatedEntityType: 'contract',
+              relatedEntityId: contract.id,
+            }
+          : {
+              type: NotificationType.ADMIN_CONTRACT_STATUS,
+              ar: {
+                title: 'تحديث حالة تعاقد',
+                message: `التعاقد رقم ${reference} بين ${customer} و${provider} أصبح ${statusAr}`,
+              },
+              en: {
+                title: 'Contract status changed',
+                message: `Contract ${reference} between ${customer} and ${provider} is now ${statusEn}`,
+              },
+              relatedEntityType: 'contract',
+              relatedEntityId: contract.id,
+            },
+      );
+    } catch (error) {
+      this.logger.warn(`Admin contract notification failed: ${String(error)}`);
+    }
+  }
+
   private async notifyContract(
     recipientId: string,
     recipientType: NotificationRecipientType,
     contract: Contract,
     language: LanguageCode,
+    adminEvent: 'created' | 'status' | null = 'status',
   ): Promise<void> {
+    if (adminEvent) await this.notifyAdminsOfContract(contract, adminEvent);
     if (!this.notificationService) return;
     const reference = contract.publicId ?? contract.id;
     const statusLabel = localizeEnum(

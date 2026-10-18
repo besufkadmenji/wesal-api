@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { PubSub } from 'graphql-subscriptions';
@@ -27,6 +27,8 @@ import { SignContractInput } from './dto/sign-contract.input';
 import { AdminTerminateContractInput } from './dto/terminate-contract.input';
 import { UpdateProviderInput } from './dto/update-provider.input';
 import { SignedContractStatus } from './enums/contract.enum';
+import { AdminNotificationService } from '../notification/admin-notification.service';
+import { NotificationType } from '../notification/enums/notification-type.enum';
 import { Listing } from '../listing/entities/listing.entity';
 import { ListingStatus } from '../listing/enums/listing.enum';
 
@@ -47,6 +49,8 @@ export class ProviderService {
     private readonly signedContractService: SignedContractService,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
     private readonly emailService: EmailService,
+    @Optional()
+    private readonly adminNotifications?: AdminNotificationService,
   ) {}
 
   async create(
@@ -106,7 +110,22 @@ export class ProviderService {
       status: ProviderStatus.PENDING_APPROVAL,
     });
 
-    return this.providerRepository.save(provider);
+    const saved = await this.providerRepository.save(provider);
+    const name = saved.commercialName ?? saved.name ?? saved.phone;
+    await this.adminNotifications?.notifyAdmins({
+      type: NotificationType.ADMIN_PROVIDER_REQUEST,
+      ar: {
+        title: 'طلب انضمام مقدم خدمة',
+        message: `طلب انضمام جديد من ${name}`,
+      },
+      en: {
+        title: 'Provider join request',
+        message: `New join request from ${name}`,
+      },
+      relatedEntityType: 'provider_request',
+      relatedEntityId: saved.id,
+    });
+    return saved;
   }
 
   async findAll(

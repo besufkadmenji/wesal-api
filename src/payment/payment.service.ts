@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import {
@@ -38,6 +38,8 @@ import { SettingService } from '../setting/setting.service';
 
 export type PaymentPayer = User | Provider;
 
+import { AdminNotificationService } from '../notification/admin-notification.service';
+import { NotificationType } from '../notification/enums/notification-type.enum';
 @Injectable()
 export class PaymentService {
   private readonly logger = new Logger(PaymentService.name);
@@ -53,6 +55,8 @@ export class PaymentService {
     private readonly contractService: ContractService,
     private readonly messageService: MessageService,
     private readonly settingService: SettingService,
+    @Optional()
+    private readonly adminNotifications?: AdminNotificationService,
   ) {}
 
   async settleContractPayment(
@@ -174,6 +178,7 @@ export class PaymentService {
     });
     if (result.event) {
       await this.publishSafely(result.event);
+      await this.notifyAdminsOfPayment(result.payment);
     }
     // Contract rows are locked without joins inside the transaction. Re-read
     // the committed contract with its GraphQL detail relations before returning
@@ -344,6 +349,7 @@ export class PaymentService {
     });
     if (result.event) {
       await this.publishSafely(result.event);
+      await this.notifyAdminsOfPayment(result.payment);
     }
     return {
       payment: result.payment,
@@ -371,7 +377,7 @@ export class PaymentService {
       where: { obligationKey },
     });
     if (existing) return existing;
-    return this.paymentRepository.save(
+    const saved = await this.paymentRepository.save(
       this.paymentRepository.create({
         purpose: PaymentPurpose.PREMIUM_AD,
         payerId: listing.providerId,
@@ -398,6 +404,38 @@ export class PaymentService {
         notes: 'Mock premium advertisement settled at create; no money moved.',
       }),
     );
+    await this.notifyAdminsOfPayment(saved);
+    return saved;
+  }
+
+  /** BRD 4.3.25: admins see every successful fee or contract payment. */
+  private async notifyAdminsOfPayment(payment: Payment | null): Promise<void> {
+    if (!payment || !this.adminNotifications) return;
+    const labels: Record<string, { ar: string; en: string }> = {
+      [PaymentPurpose.PREMIUM_AD]: {
+        ar: 'رسوم إعلان مميز',
+        en: 'featured-ad fee',
+      },
+      [PaymentPurpose.CONTRACT]: { ar: 'دفع تعاقد', en: 'contract payment' },
+    };
+    const label = labels[payment.purpose] ?? {
+      ar: 'رسوم محادثة',
+      en: 'chat fee',
+    };
+    const amount = Number(payment.amount).toFixed(2);
+    await this.adminNotifications.notifyAdmins({
+      type: NotificationType.ADMIN_PAYMENT,
+      ar: {
+        title: 'عملية دفع ناجحة',
+        message: `تم استلام ${label.ar} بقيمة ${amount} ر.س`,
+      },
+      en: {
+        title: 'Successful payment',
+        message: `Received a ${label.en} of SAR ${amount}`,
+      },
+      relatedEntityType: payment.contractId ? 'contract' : 'payment',
+      relatedEntityId: payment.contractId ?? payment.id,
+    });
   }
 
   async findAll(
