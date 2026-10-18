@@ -492,8 +492,8 @@ export class ContractService {
       }
       this.assertTransition(contract.status, ContractStatus.ACCEPTED, language);
       if (
-        contract.maxCompletionDays != null &&
-        input.deliveryTimeDays > contract.maxCompletionDays
+        contract.maxExecutionHours != null &&
+        input.executionHours > contract.maxExecutionHours
       ) {
         throw this.error('INVALID_DELIVERY_TIME', language);
       }
@@ -506,7 +506,7 @@ export class ContractService {
         manager,
         language,
       );
-      contract.deliveryTimeDays = input.deliveryTimeDays;
+      contract.executionHours = input.executionHours;
       contract.status = ContractStatus.ACCEPTED;
       contract.acceptedAt = new Date();
       const saved = await manager.getRepository(Contract).save(contract);
@@ -714,23 +714,18 @@ export class ContractService {
       const setting = await this.settingService.getSetting();
       const now = new Date();
       const usesDelivery = Boolean(contract.deliveryCompanyId);
-      if (usesDelivery && !input.deliveryEstimateDays) {
-        throw new I18nBadRequestException(
-          {
-            en: 'A delivery estimate is required for this contract',
-            ar: 'مدة التوصيل مطلوبة لهذا العقد',
-          },
-          language,
-        );
+      if (usesDelivery && !input.deliveryHours) {
+        throw this.error('DELIVERY_HOURS_REQUIRED', language);
       }
       contract.providerCompletedAt = now;
-      contract.deliveryEstimateDays = input.deliveryEstimateDays ?? null;
+      contract.deliveryHours = input.deliveryHours ?? null;
       contract.deliveryStartedAt = usesDelivery ? now : null;
       const graceHours = Math.max(
         1,
         Number(setting.completionConfirmationGraceHours ?? 24),
       );
-      const deliveryHours = (input.deliveryEstimateDays ?? 0) * 24;
+      // Delivery and grace are both in hours (PO 2026-10-18).
+      const deliveryHours = input.deliveryHours ?? 0;
       contract.confirmationDeadlineAt = new Date(
         now.getTime() + (deliveryHours + graceHours) * 3_600_000,
       );
@@ -751,7 +746,7 @@ export class ContractService {
         ContractStatus.IN_PROGRESS,
         contract.status,
         null,
-        { deliveryEstimateDays: input.deliveryEstimateDays ?? null },
+        { deliveryHours: input.deliveryHours ?? null },
       );
       const event = await this.messageService.persistSystemEvent(
         contract.conversationId,
@@ -1534,11 +1529,11 @@ export class ContractService {
       contractDocumentText: category.contractDocumentEnabled
         ? category.contractDocumentText
         : '',
-      maxCompletionDays: category.maxCompletionDaysEnabled
-        ? category.maxCompletionDays
+      maxExecutionHours: category.maxExecutionHoursEnabled
+        ? category.maxExecutionHours
         : null,
-      maxTerminationDays: category.maxTerminationDaysEnabled
-        ? category.maxTerminationDays
+      maxTerminationHours: category.maxTerminationHoursEnabled
+        ? category.maxTerminationHours
         : null,
     };
   }
@@ -1581,9 +1576,9 @@ export class ContractService {
       undertakingTextEn: snapshot.undertakingTextEn,
       refundPolicyAr: snapshot.refundPolicyAr,
       refundPolicyEn: snapshot.refundPolicyEn,
-      maxCompletionDays: snapshot.maxCompletionDays,
-      maxTerminationDays: snapshot.maxTerminationDays,
-      deliveryTimeDays: null,
+      maxExecutionHours: snapshot.maxExecutionHours,
+      maxTerminationHours: snapshot.maxTerminationHours,
+      executionHours: null,
       rejectionReason: null,
       acceptedAt: null,
       rejectedAt: null,
@@ -1604,8 +1599,8 @@ export class ContractService {
       totalPayable: snapshot.totalPayable,
       providerNetAmount: snapshot.providerNetAmount,
       contractDocumentText: snapshot.contractDocumentText,
-      maxCompletionDays: snapshot.maxCompletionDays,
-      maxTerminationDays: snapshot.maxTerminationDays,
+      maxExecutionHours: snapshot.maxExecutionHours,
+      maxTerminationHours: snapshot.maxTerminationHours,
     };
   }
 

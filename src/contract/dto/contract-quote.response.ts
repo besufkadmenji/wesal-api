@@ -45,8 +45,8 @@ export class ContractQuote {
   contractDocumentText: string;
 
   @Field(() => Int, { nullable: true })
-  maxCompletionDays: number | null;
+  maxExecutionHours: number | null;
 
   @Field(() => Int, { nullable: true })
-  maxTerminationDays: number | null;
+  maxTerminationHours: number | null;
 }

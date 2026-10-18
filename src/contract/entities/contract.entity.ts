@@ -206,15 +206,19 @@ export class Contract {
 
   @Field(() => Int, { nullable: true })
   @Column({ type: 'int', nullable: true })
-  maxCompletionDays: number | null;
+  maxExecutionHours: number | null;
 
   @Field(() => Int, { nullable: true })
   @Column({ type: 'int', nullable: true })
-  maxTerminationDays: number | null;
+  maxTerminationHours: number | null;
 
-  @Field(() => Int, { nullable: true })
+  @Field(() => Int, {
+    nullable: true,
+    description:
+      'Execution time the provider committed to at acceptance, in hours',
+  })
   @Column({ type: 'int', nullable: true })
-  deliveryTimeDays: number | null;
+  executionHours: number | null;
 
   @Field(() => ContractStatus)
   @Column({
@@ -256,9 +260,12 @@ export class Contract {
   @Column({ type: 'timestamptz', nullable: true })
   deliveryStartedAt: Date | null;
 
-  @Field(() => Int, { nullable: true })
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Delivery time entered at provider completion, in hours',
+  })
   @Column({ type: 'int', nullable: true })
-  deliveryEstimateDays: number | null;
+  deliveryHours: number | null;
 
   @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamptz', nullable: true })

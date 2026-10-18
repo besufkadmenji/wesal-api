@@ -83,27 +83,27 @@ export class CreateCategoryInput {
   @IsBoolean()
   depositEnabled?: boolean;
 
-  @Field(() => Int, { nullable: true })
+  @Field(() => Int, { nullable: true, description: 'In hours' })
   @IsOptional()
   @IsInt()
   @Min(0)
-  maxCompletionDays?: number;
+  maxExecutionHours?: number;
 
   @Field({ nullable: true })
   @IsOptional()
   @IsBoolean()
-  maxCompletionDaysEnabled?: boolean;
+  maxExecutionHoursEnabled?: boolean;
 
-  @Field(() => Int, { nullable: true })
+  @Field(() => Int, { nullable: true, description: 'In hours' })
   @IsOptional()
   @IsInt()
   @Min(0)
-  maxTerminationDays?: number;
+  maxTerminationHours?: number;
 
   @Field({ nullable: true })
   @IsOptional()
   @IsBoolean()
-  maxTerminationDaysEnabled?: boolean;
+  maxTerminationHoursEnabled?: boolean;
 
   @Field(() => Float, { nullable: true })
   @IsOptional()

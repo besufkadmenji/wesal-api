@@ -12,8 +12,10 @@ export class AcceptContractInput {
   @MinLength(1)
   signatureData: string;
 
-  @Field(() => Int)
+  @Field(() => Int, {
+    description: 'Execution time the provider commits to, in hours',
+  })
   @IsInt()
   @Min(1)
-  deliveryTimeDays: number;
+  executionHours: number;
 }

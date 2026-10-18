@@ -62,7 +62,7 @@ export class Category {
 
   // --- Per-section fee & contract rules (admin-editable). See BRD § Section
   // Management. Percentages are decimals (e.g. 2.00 = 2%); amounts/fees are in
-  // the platform currency; day-limits are whole days. Nullable so admins opt in.
+  // the platform currency; time limits are whole hours (PO 2026-10-18). Nullable so admins opt in.
   @Field(() => Float, { nullable: true })
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   commissionPercent: number | null;
@@ -87,21 +87,27 @@ export class Category {
   @Column({ type: 'boolean', default: false })
   depositEnabled: boolean;
 
-  @Field(() => Int, { nullable: true })
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Longest execution time a provider may commit to, in hours',
+  })
   @Column({ type: 'int', nullable: true })
-  maxCompletionDays: number | null;
+  maxExecutionHours: number | null;
 
   @Field()
   @Column({ type: 'boolean', default: false })
-  maxCompletionDaysEnabled: boolean;
+  maxExecutionHoursEnabled: boolean;
 
-  @Field(() => Int, { nullable: true })
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Termination limit, in hours',
+  })
   @Column({ type: 'int', nullable: true })
-  maxTerminationDays: number | null;
+  maxTerminationHours: number | null;
 
   @Field()
   @Column({ type: 'boolean', default: false })
-  maxTerminationDaysEnabled: boolean;
+  maxTerminationHoursEnabled: boolean;
 
   @Field(() => Float, { nullable: true })
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })

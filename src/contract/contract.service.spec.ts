@@ -126,10 +126,10 @@ describe('ContractService', () => {
       minCommissionEnabled: true,
       contractDocumentEnabled: true,
       contractDocumentText: 'Binding terms',
-      maxCompletionDays: 30,
-      maxCompletionDaysEnabled: true,
-      maxTerminationDays: 5,
-      maxTerminationDaysEnabled: true,
+      maxExecutionHours: 30,
+      maxExecutionHoursEnabled: true,
+      maxTerminationHours: 5,
+      maxTerminationHoursEnabled: true,
     });
     settingService.getSetting.mockResolvedValue({
       vatEnabled: true,
@@ -421,7 +421,7 @@ describe('ContractService', () => {
       clientId: conversation.userId,
       status: ContractStatus.PENDING,
       version: 1,
-      maxCompletionDays: 10,
+      maxExecutionHours: 10,
     };
     contractRepository.findOne
       .mockResolvedValueOnce(contract)
@@ -432,7 +432,7 @@ describe('ContractService', () => {
         {
           contractId: contract.id,
           signatureData: 'signature',
-          deliveryTimeDays: 11,
+          executionHours: 11,
         },
         {
           sub: conversation.providerId,
@@ -549,6 +549,63 @@ describe('ContractService', () => {
         action: 'PROVIDER_COMPLETED',
         newStatus: ContractStatus.AWAITING_CUSTOMER_CONFIRMATION,
       }),
+    );
+  });
+
+  it('sets the customer deadline from delivery hours plus grace hours', async () => {
+    const now = new Date('2026-10-18T09:00:00Z');
+    jest.useFakeTimers({ now, doNotFake: ['nextTick', 'setImmediate'] });
+    const contract = {
+      id: 'contract-id',
+      conversationId: conversation.id,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      status: ContractStatus.IN_PROGRESS,
+      version: 1,
+      deliveryCompanyId: 'delivery-company-id',
+    } as Record<string, unknown>;
+    contractRepository.findOne
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract);
+    settingService.getSetting.mockResolvedValue({
+      completionConfirmationGraceHours: 24,
+    });
+    const provider = {
+      sub: conversation.providerId,
+      email: 'provider@example.com',
+      type: 'provider' as const,
+    };
+
+    try {
+      await expect(
+        service.providerCompleteContract(
+          { contractId: contract.id as string, signatureData: 'sig.png' },
+          provider,
+        ),
+      ).rejects.toThrow('Delivery time in hours is required');
+
+      contractRepository.findOne
+        .mockResolvedValueOnce(contract)
+        .mockResolvedValueOnce(contract)
+        .mockResolvedValueOnce(contract);
+      await service.providerCompleteContract(
+        {
+          contractId: contract.id as string,
+          signatureData: 'sig.png',
+          deliveryHours: 5,
+        },
+        provider,
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+
+    expect(contract.deliveryHours).toBe(5);
+    expect(contract.status).toBe(ContractStatus.DELIVERY_IN_PROGRESS);
+    // 5 delivery hours + 24 grace hours, no day conversion.
+    expect(contract.confirmationDeadlineAt).toEqual(
+      new Date(now.getTime() + 29 * 3_600_000),
     );
   });
 

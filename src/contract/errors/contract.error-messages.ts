@@ -43,8 +43,12 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, TranslatedError> = {
     ar: 'يمكن تغيير أحدث نسخة من العقد فقط',
   },
   [CONTRACT_ERROR_CODES.INVALID_DELIVERY_TIME]: {
-    en: 'Delivery time exceeds the configured contract limit',
-    ar: 'مدة التوصيل تتجاوز الحد المحدد للعقد',
+    en: 'Execution time exceeds the maximum hours allowed for this category',
+    ar: 'مدة التنفيذ تتجاوز الحد الأقصى من الساعات المسموح به لهذا القسم',
+  },
+  [CONTRACT_ERROR_CODES.DELIVERY_HOURS_REQUIRED]: {
+    en: 'Delivery time in hours is required for this contract',
+    ar: 'مدة التوصيل بالساعات مطلوبة لهذا العقد',
   },
   [CONTRACT_ERROR_CODES.DELIVERY_COMPANY_NOT_FOUND]: {
     en: 'Delivery company not found or inactive',

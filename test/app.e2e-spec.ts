@@ -159,10 +159,10 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       minCommissionAmount: 5,
       depositEnabled: true,
       depositPercent: 10,
-      maxCompletionDaysEnabled: true,
-      maxCompletionDays: 30,
-      maxTerminationDaysEnabled: true,
-      maxTerminationDays: 5,
+      maxExecutionHoursEnabled: true,
+      maxExecutionHours: 30,
+      maxTerminationHoursEnabled: true,
+      maxTerminationHours: 5,
       customerConversationFeeEnabled: true,
       customerConversationFee: 10,
       providerConversationFeeEnabled: true,
@@ -292,7 +292,7 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       {
         contractId: secondContract.id,
         signatureData: 'provider-signature-v2',
-        deliveryTimeDays: 7,
+        executionHours: 7,
       },
       providerPrincipal,
     );
