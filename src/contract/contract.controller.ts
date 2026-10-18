@@ -12,6 +12,7 @@ import { ContractService } from './contract.service';
 import { CsvExportService } from '../../lib/csv-export';
 import { AdminExport } from '../admin/decorators/admin-export.decorator';
 import { ContractDocumentService } from './contract-document.service';
+import { ContractInvoiceService } from './contract-invoice.service';
 
 @ApiTags('Contracts', 'Export')
 @Controller('contracts')
@@ -21,6 +22,7 @@ export class ContractController {
     private readonly contractService: ContractService,
     private readonly csvExportService: CsvExportService,
     private readonly documents: ContractDocumentService,
+    private readonly invoices: ContractInvoiceService,
   ) {}
 
   @Get('export')
@@ -66,6 +68,27 @@ export class ContractController {
       selectedFields,
       language,
     );
+  }
+
+  @Get(':id/invoice')
+  @ApiOperation({ summary: 'Tax invoice PDF for a paid contract (S4-37)' })
+  @ApiQuery({ name: 'language', required: false, enum: ['ar', 'en'] })
+  @ApiProduces('application/pdf')
+  async invoice(
+    @Param('id') id: string,
+    @Query('language') language: string | undefined,
+    @Res() response: Response,
+  ): Promise<void> {
+    const { buffer, number } = await this.invoices.render(
+      id,
+      language === 'en' ? 'en' : 'ar',
+    );
+    response.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="invoice-${number}.pdf"`,
+      'Content-Length': buffer.length,
+    });
+    response.send(buffer);
   }
 
   @Get(':id/document')

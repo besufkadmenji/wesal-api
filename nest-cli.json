@@ -6,7 +6,7 @@
     "deleteOutDir": true,
     "assets": [
       {
-        "include": "report/fonts/*.ttf",
+        "include": "common/pdf/fonts/*.ttf",
         "outDir": "dist/src"
       }
     ]

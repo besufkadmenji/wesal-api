@@ -70,4 +70,8 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'A rejection reason is required',
     ar: 'سبب الرفض مطلوب',
   },
+  [CONTRACT_ERROR_CODES.INVOICE_NOT_AVAILABLE]: {
+    en: 'The invoice is available once the contract has been paid',
+    ar: 'تتوفر الفاتورة بعد سداد قيمة التعاقد',
+  },
 };

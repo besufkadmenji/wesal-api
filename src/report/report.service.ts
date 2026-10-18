@@ -2,8 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
-import * as path from 'path';
 import { Repository, SelectQueryBuilder } from 'typeorm';
+import {
+  formatPdfDate,
+  formatPdfNumber,
+  registerPdfFont,
+  shapePdfText,
+} from '../common/pdf/pdf-text';
 import { Contract } from '../contract/entities/contract.entity';
 import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { Payment } from '../payment/entities/payment.entity';
@@ -590,25 +595,10 @@ export class ReportService {
         stripe: '#F9FAFB',
         white: '#FFFFFF',
       };
-      // Cairo covers Arabic and Latin, so mixed names render in both
-      // languages (the Noto Arabic subset has no Latin letters or space).
-      document.registerFont('Cairo', path.join(__dirname, 'fonts/Cairo.ttf'));
-      document.font('Cairo');
+      registerPdfFont(document);
 
       const rtl = language === 'ar';
-      // pdfkit breaks text at spaces and shapes each Arabic word on its own,
-      // which drops the gaps; non-breaking spaces keep a phrase in one run.
-      // That run is laid out right-to-left, digits included, so digit runs
-      // are pre-reversed to read correctly.
-      const shaped = (text: string) =>
-        /[\u0600-\u06FF]/.test(text)
-          ? text
-              .replace(/[\u200E\u200F\u061C]/g, '')
-              .replace(/ /g, '\u00A0')
-              .replace(/\d[\d.,:/-]*\d|\d/g, (digits) =>
-                [...digits].reverse().join(''),
-              )
-          : text;
+      const shaped = shapePdfText;
       const align: PDFKit.Mixins.TextOptions['align'] = rtl ? 'right' : 'left';
       const margin = 32;
       const pageWidth = document.page.width;
@@ -810,18 +800,10 @@ export class ReportService {
   }
 
   private formatPdfCell(value: string | number, language: 'ar' | 'en'): string {
-    if (typeof value === 'number') {
-      // Latin digits: pdfkit lays Arabic-Indic digits out right-to-left.
-      return new Intl.NumberFormat('en-US', {
-        maximumFractionDigits: 2,
-      }).format(value);
-    }
+    if (typeof value === 'number') return formatPdfNumber(value);
     const date = new Date(value);
     if (/^\d{4}-\d{2}-\d{2}T/.test(value) && !Number.isNaN(date.getTime())) {
-      return new Intl.DateTimeFormat(
-        language === 'ar' ? 'ar-SA-u-nu-latn' : 'en-GB',
-        { dateStyle: 'medium', timeStyle: 'short' },
-      ).format(date);
+      return formatPdfDate(date, language);
     }
     return value.replaceAll('_', ' ');
   }

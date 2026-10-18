@@ -1685,6 +1685,40 @@ describe('Sprint 3 API boundaries (e2e)', () => {
 
     await contracts.delete(unpaid.id);
   });
+  it('serves a tax invoice PDF for a paid contract to admins only', async () => {
+    const adminToken = jwt.sign(
+      {
+        sub: '00000000-0000-4000-8000-0000000000af',
+        email: 'invoice-admin@example.com',
+        permissionType: AdminPermissionType.SUPER_ADMIN,
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    const response = await request(app.getHttpServer())
+      .get(`/contracts/${transactionContractId}/invoice?language=ar`)
+      .set({ Authorization: `Bearer ${adminToken}` })
+      .buffer(true)
+      .parse((res, callback) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => callback(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    expect(response.headers['content-type']).toBe('application/pdf');
+    expect(response.headers['content-disposition']).toMatch(/invoice-INV-/);
+    expect((response.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
+
+    const customerToken = jwt.sign(
+      transactionCustomer,
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    const forbidden = await request(app.getHttpServer())
+      .get(`/contracts/${transactionContractId}/invoice`)
+      .set({ Authorization: `Bearer ${customerToken}` });
+    expect([401, 403]).toContain(forbidden.status);
+  });
 });
 
 function subscriptionError(

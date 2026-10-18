@@ -8,6 +8,7 @@ import {
   IsNumber,
   IsInt,
   IsOptional,
+  MaxLength,
   IsString,
   Matches,
   Max,
@@ -87,6 +88,36 @@ export class SettingInput {
   @IsOptional()
   @IsString()
   platformManagerName?: string | null;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  sellerLegalNameAr?: string | null;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  sellerLegalNameEn?: string | null;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  sellerVatNumber?: string | null;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  sellerCrNumber?: string | null;
+
+  @Field(() => String, { nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  sellerAddress?: string | null;
 
   @Field(() => String, { nullable: true })
   @IsOptional()

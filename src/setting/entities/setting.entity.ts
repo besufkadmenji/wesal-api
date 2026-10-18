@@ -81,6 +81,38 @@ export class Setting {
   @Column({ type: 'text', nullable: true })
   platformManagerName: string | null;
 
+  @Field(() => String, {
+    nullable: true,
+    description: 'Legal name on invoices (Arabic)',
+  })
+  @Column({ type: 'text', nullable: true })
+  sellerLegalNameAr: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Legal name on invoices (English)',
+  })
+  @Column({ type: 'text', nullable: true })
+  sellerLegalNameEn: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'VAT registration number on invoices',
+  })
+  @Column({ type: 'text', nullable: true })
+  sellerVatNumber: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Commercial registration number on invoices',
+  })
+  @Column({ type: 'text', nullable: true })
+  sellerCrNumber: string | null;
+
+  @Field(() => String, { nullable: true, description: 'Address on invoices' })
+  @Column({ type: 'text', nullable: true })
+  sellerAddress: string | null;
+
   @Field(() => String, { nullable: true })
   @Column({ type: 'text', nullable: true })
   platformManagerSignature: string | null;
