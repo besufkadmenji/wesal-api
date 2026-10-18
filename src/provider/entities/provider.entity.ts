@@ -16,6 +16,7 @@ import { Category } from '../../category/entities/category.entity';
 import { City } from '../../city/entities/city.entity';
 import { Country } from '../../country/entities/country.entity';
 import { SignedContract } from '../../signed-contract/signed-contract.entity';
+import { BadgeTier } from '../../badge/enums/badge-tier.enum';
 import { ProviderStatus } from '../enums/provider-status.enum';
 
 @ObjectType()
@@ -194,6 +195,21 @@ export class Provider {
   })
   @Column({ type: 'int', default: 0 })
   ratingCount: number;
+
+  @Field(() => BadgeTier, {
+    nullable: true,
+    description: 'Badge from the latest monthly run (BRD 4.3.18)',
+  })
+  @Column({ type: 'enum', enum: BadgeTier, nullable: true })
+  badge: BadgeTier | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  badgeAssignedAt: Date | null;
+
+  /** Start of the current Under-improvement streak; cleared when it ends. */
+  @Column({ type: 'timestamptz', nullable: true })
+  underImprovementSince: Date | null;
 
   @Field()
   @CreateDateColumn()

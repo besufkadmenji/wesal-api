@@ -1923,4 +1923,21 @@ export const seedData = [
     createdAt: '2026-10-15T00:00:00.000Z',
     updatedAt: '2026-10-15T00:00:00.000Z',
   })),
+  // Sprint 4: badges (medals) management.
+  ...[
+    ['badge', 'read', 'Read Badges', 'عرض الأوسمة'],
+    ['badge', 'update', 'Update Badges', 'تحديث الأوسمة'],
+    ['badge', 'full_access', 'Full Access Badges', 'وصول كامل للأوسمة'],
+  ].map(([module, action, name, nameAr], index) => ({
+    id: 343 + index,
+    name,
+    nameAr,
+    description: `Can ${action} ${module}`,
+    module,
+    action,
+    resource: module,
+    permissionPlatform: 'ADMIN',
+    createdAt: '2026-10-18T00:00:00.000Z',
+    updatedAt: '2026-10-18T00:00:00.000Z',
+  })),
 ];

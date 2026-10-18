@@ -26,6 +26,7 @@ import { ListingPaginationInput } from './dto/listing-pagination.input';
 import { PaginatedListingResponse } from './dto/paginated-listings.response';
 import { UpdateListingInput } from './dto/update-listing.input';
 import { CreateListingMediaInput } from './dto/create-listing-media.input';
+import { BadgeTier } from '../badge/enums/badge-tier.enum';
 import { Listing } from './entities/listing.entity';
 import { MediaType } from './enums/media.enum';
 import {
@@ -229,18 +230,29 @@ export class ListingService {
         .leftJoinAndSelect('listing.category', 'category')
         .leftJoinAndSelect('listing.city', 'city');
 
-      // BRD §4.2.10: Featured first, then badge tier (placeholder until badges exist),
-      // then rating, sales, then requested sort.
+      // BRD §4.1.12 / §4.2.10: featured first, then badge tier (Trust,
+      // Diligence, no badge, Under-improvement), then rating, sales, then the
+      // requested sort.
       query.addSelect(
         `CASE WHEN listing.type = :featuredType THEN 0 ELSE 1 END`,
         'featured_rank',
       );
       query.setParameter('featuredType', ListingType.FEATURED);
       query.addSelect(
+        `CASE provider.badge WHEN :trustBadge THEN 0 WHEN :diligenceBadge THEN 1 WHEN :underImprovementBadge THEN 3 ELSE 2 END`,
+        'badge_rank',
+      );
+      query.setParameters({
+        trustBadge: BadgeTier.TRUST,
+        diligenceBadge: BadgeTier.DILIGENCE,
+        underImprovementBadge: BadgeTier.UNDER_IMPROVEMENT,
+      });
+      query.addSelect(
         `(SELECT COUNT(*)::int FROM contracts c WHERE c."listingId" = listing.id AND c.status = 'COMPLETED')`,
         'sales_rank',
       );
       query.orderBy('featured_rank', 'ASC');
+      query.addOrderBy('badge_rank', 'ASC');
       // Cached average of published ratings (kept fresh by RatingService).
       query.addOrderBy('listing.ratingAverage', 'DESC');
       query.addOrderBy('sales_rank', 'DESC');

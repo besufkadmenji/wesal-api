@@ -15,7 +15,9 @@ import { FileUploadService } from '../lib/file-upload';
 import { AppModule } from '../src/app.module';
 import { Category } from '../src/category/entities/category.entity';
 import { City } from '../src/city/entities/city.entity';
+import { BadgeService } from '../src/badge/badge.service';
 import { ContractService } from '../src/contract/contract.service';
+import { Contract } from '../src/contract/entities/contract.entity';
 import { ContractStatus } from '../src/contract/enums/contract-status.enum';
 import { ConversationService } from '../src/conversation/conversation.service';
 import { Message } from '../src/conversation/entities/message.entity';
@@ -812,6 +814,283 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       },
     });
     await admin.dispose();
+  });
+
+  it('assigns monthly badges, orders listings by tier, and deletes providers still under improvement', async () => {
+    const dataSource = app.get(DataSource);
+    const graphql = async <T>(
+      query: string,
+      variables: object = {},
+      token?: string,
+    ) => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set(token ? { Authorization: `Bearer ${token}` } : {})
+        .send({ query, variables });
+      return response.body as {
+        data: T | null;
+        errors?: Array<{ message: string }>;
+      };
+    };
+    const adminToken = jwt.sign(
+      {
+        sub: '00000000-0000-4000-8000-0000000000ad',
+        email: 'badge-admin@example.com',
+        permissionType: AdminPermissionType.SUPER_ADMIN,
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    const updateSettings = `mutation Update($input: UpdateBadgeSettingsInput!) {
+      updateBadgeSettings(input: $input) { tier maxBound minBound enabled }
+    }`;
+    const trust = {
+      tier: 'TRUST',
+      maxBound: 'EQ_5',
+      minBound: 'EQ_4',
+      enabled: true,
+    };
+    const diligence = {
+      tier: 'DILIGENCE',
+      maxBound: 'LT_4',
+      minBound: 'EQ_3',
+      enabled: true,
+    };
+    const underImprovement = {
+      tier: 'UNDER_IMPROVEMENT',
+      maxBound: 'LT_3',
+      minBound: 'ZERO',
+      enabled: true,
+    };
+
+    // Only admins may change settings, and overlapping ranges are refused.
+    const customerToken = jwt.sign(
+      transactionCustomer,
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    expect(
+      (
+        await graphql(
+          updateSettings,
+          { input: { settings: [trust] } },
+          customerToken,
+        )
+      ).errors,
+    ).toBeDefined();
+    const overlapping = await graphql(
+      updateSettings,
+      {
+        input: {
+          settings: [
+            trust,
+            { ...diligence, maxBound: 'EQ_4' },
+            underImprovement,
+          ],
+        },
+      },
+      adminToken,
+    );
+    expect(overlapping.errors?.[0]?.message).toContain('must not overlap');
+    const saved = await graphql<{
+      updateBadgeSettings: Array<{ tier: string; enabled: boolean }>;
+    }>(
+      updateSettings,
+      { input: { settings: [trust, diligence, underImprovement] } },
+      adminToken,
+    );
+    expect(saved.errors).toBeUndefined();
+    expect(saved.data!.updateBadgeSettings.map((s) => s.tier)).toEqual([
+      'TRUST',
+      'DILIGENCE',
+      'UNDER_IMPROVEMENT',
+    ]);
+
+    // Two rated providers next to the (unrated) transaction provider.
+    const baseListing = await dataSource
+      .getRepository(Listing)
+      .findOneByOrFail({ id: transactionListingId });
+    const makeProvider = async (
+      label: string,
+      phone: string,
+      ratingAverage: number,
+    ) => {
+      const created = await dataSource.getRepository(Provider).save({
+        name: `${label} Provider`,
+        commercialName: label,
+        phone,
+        email: `${label.toLowerCase()}-badge@example.com`,
+        password: '',
+        status: ProviderStatus.ACTIVE,
+        cityId: baseListing.cityId,
+        address: 'Badge address',
+        languageCode: 'en',
+      });
+      await dataSource
+        .getRepository(Provider)
+        .update(created.id, { ratingAverage, ratingCount: 3 });
+      const listing = await dataSource.getRepository(Listing).save({
+        providerId: created.id,
+        categoryId: baseListing.categoryId,
+        cityId: baseListing.cityId,
+        name: `${label} listing`,
+        description: 'A listing used by the badge e2e flow.',
+        price: 100,
+        status: ListingStatus.ACTIVE,
+        type: ListingType.FREE,
+        promotionStatus: PromotionStatus.NONE,
+        promotionCycle: 0,
+        story: baseListing.story,
+        photos: [],
+        tags: '',
+      });
+      return { provider: created, listing };
+    };
+    const trusted = await makeProvider('Trusty', '+966500000301', 4.8);
+    const lowly = await makeProvider('Lowly', '+966500000302', 2);
+    await dataSource.getRepository(SignedContract).save({
+      providerId: lowly.provider.id,
+      status: SignedContractStatus.ACTIVE,
+      serviceProviderSignature: 'provider-signature',
+      platformManagerName: 'Platform Manager',
+      platformManagerSignature: 'manager-signature',
+      contractSignedAt: new Date(),
+      terminationReason: null,
+      deletedAt: null,
+    });
+
+    const runMutation = `mutation { runBadgeAssignment {
+      period trustCount diligenceCount underImprovementCount changedCount
+      deletedProviders { id } skippedProviders { id }
+    } }`;
+    const firstRun = await graphql<{
+      runBadgeAssignment: {
+        trustCount: number;
+        underImprovementCount: number;
+        deletedProviders: unknown[];
+      };
+    }>(runMutation, {}, adminToken);
+    expect(firstRun.errors).toBeUndefined();
+    expect(firstRun.data!.runBadgeAssignment).toMatchObject({
+      trustCount: 1,
+      underImprovementCount: 1,
+      deletedProviders: [],
+    });
+    const badgeOf = async (id: string) =>
+      (await dataSource.getRepository(Provider).findOneByOrFail({ id })).badge;
+    expect(await badgeOf(trusted.provider.id)).toBe('TRUST');
+    expect(await badgeOf(lowly.provider.id)).toBe('UNDER_IMPROVEMENT');
+    expect(await badgeOf(transactionProvider.sub)).toBeNull();
+    const notifications = await dataSource.query<
+      Array<{ recipientId: string; type: string }>
+    >(
+      `SELECT "recipientId", type FROM notifications WHERE type IN ('BADGE_CHANGED', 'BADGE_WARNING')`,
+    );
+    expect(notifications).toEqual(
+      expect.arrayContaining([
+        { recipientId: trusted.provider.id, type: 'BADGE_CHANGED' },
+        { recipientId: lowly.provider.id, type: 'BADGE_WARNING' },
+      ]),
+    );
+
+    // The same month cannot run twice.
+    const secondRun = await graphql(runMutation, {}, adminToken);
+    expect(secondRun.errors?.[0]?.message).toContain(
+      'already been assigned for this month',
+    );
+
+    // Category order: Trust, then no badge, then Under-improvement.
+    const ordered = await graphql<{
+      listings: { items: Array<{ id: string }> };
+    }>(
+      `
+        query Listings($input: ListingPaginationInput!) {
+          listings(paginationInput: $input) {
+            items {
+              id
+            }
+          }
+        }
+      `,
+      { input: { categoryId: baseListing.categoryId, page: 1, limit: 20 } },
+    );
+    expect(ordered.errors).toBeUndefined();
+    const ids = ordered.data!.listings.items.map((item) => item.id);
+    expect(ids.indexOf(trusted.listing.id)).toBeLessThan(
+      ids.indexOf(transactionListingId),
+    );
+    expect(ids.indexOf(transactionListingId)).toBeLessThan(
+      ids.indexOf(lowly.listing.id),
+    );
+
+    // A month later: skipped while a contract is unfinished...
+    const badgeService = app.get(BadgeService);
+    const contracts = dataSource.getRepository(Contract);
+    const contract = await contracts.findOneByOrFail({
+      id: transactionContractId,
+    });
+    await contracts.update(contract.id, {
+      providerId: lowly.provider.id,
+      status: ContractStatus.IN_PROGRESS,
+    });
+    const skippedRun = await badgeService.runAssignment('2099-01', 'en');
+    expect(skippedRun.skippedProviders).toEqual([
+      { id: lowly.provider.id, name: 'Lowly Provider' },
+    ]);
+    expect(
+      (
+        await dataSource.getRepository(Provider).findOneByOrFail({
+          id: lowly.provider.id,
+        })
+      ).deletedAt,
+    ).toBeNull();
+    await contracts.update(contract.id, {
+      providerId: contract.providerId,
+      status: contract.status,
+    });
+
+    // ...and deleted the next month once nothing is open.
+    const deletedRun = await badgeService.runAssignment('2099-02', 'en');
+    expect(deletedRun.deletedProviders).toEqual([
+      { id: lowly.provider.id, name: 'Lowly Provider' },
+    ]);
+    const deletedProvider = await dataSource
+      .getRepository(Provider)
+      .findOneByOrFail({ id: lowly.provider.id });
+    expect(deletedProvider).toMatchObject({
+      status: ProviderStatus.DELETED,
+      isActive: false,
+    });
+    expect(deletedProvider.deletedAt).not.toBeNull();
+    expect(deletedProvider.email).toMatch(/^DELETED_/);
+    expect(
+      (
+        await dataSource
+          .getRepository(SignedContract)
+          .findOneByOrFail({ providerId: lowly.provider.id })
+      ).status,
+    ).toBe(SignedContractStatus.TERMINATED_BY_ADMIN);
+    expect(
+      (
+        await dataSource
+          .getRepository(Listing)
+          .findOneByOrFail({ id: lowly.listing.id })
+      ).status,
+    ).toBe(ListingStatus.INACTIVE);
+    expect(await badgeOf(trusted.provider.id)).toBe('TRUST');
+
+    const lastRun = await graphql<{ badgeLastRun: { period: string } }>(
+      `
+        {
+          badgeLastRun {
+            period
+          }
+        }
+      `,
+      {},
+      adminToken,
+    );
+    expect(lastRun.data!.badgeLastRun.period).toBe('2099-02');
   });
 });
 

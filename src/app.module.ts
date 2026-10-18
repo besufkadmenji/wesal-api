@@ -18,6 +18,7 @@ import { PaymentModule } from './payment/payment.module';
 import { FavoriteModule } from './favorite/favorite.module';
 import { RatingModule } from './rating/rating.module';
 import { StatisticsModule } from './statistics/statistics.module';
+import { BadgeModule } from './badge/badge.module';
 import { ComplaintModule } from './complaint/complaint.module';
 import { NotificationModule } from './notification/notification.module';
 import { AuthModule } from './auth/auth.module';
@@ -109,6 +110,7 @@ function getDatabaseConfig() {
     FavoriteModule,
     RatingModule,
     StatisticsModule,
+    BadgeModule,
     ComplaintModule,
     NotificationModule,
     FileUploadModule,

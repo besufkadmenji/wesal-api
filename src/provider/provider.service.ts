@@ -27,6 +27,8 @@ import { SignContractInput } from './dto/sign-contract.input';
 import { AdminTerminateContractInput } from './dto/terminate-contract.input';
 import { UpdateProviderInput } from './dto/update-provider.input';
 import { SignedContractStatus } from './enums/contract.enum';
+import { Listing } from '../listing/entities/listing.entity';
+import { ListingStatus } from '../listing/enums/listing.enum';
 
 @Injectable()
 export class ProviderService {
@@ -515,6 +517,70 @@ export class ProviderService {
 
     const saved = await this.providerRepository.save(provider);
     await this.pubSub.publish('providerUpdated', { providerUpdated: saved });
+    return saved;
+  }
+
+  /**
+   * BRD 4.3.18: deletes a provider who stayed Under-improvement for a full
+   * month. Ends the e-contract (kept for audit, unlike remove()), soft-deletes
+   * the account, unpublishes their ads and emails them. The caller has already
+   * checked that no contract is unfinished.
+   */
+  async autoDeleteForLowRating(
+    providerId: string,
+    reason: string,
+  ): Promise<Provider | null> {
+    const provider = await this.providerRepository.findOne({
+      where: { id: providerId },
+    });
+    if (!provider || provider.deletedAt) return null;
+
+    const originalEmail = provider.email;
+    const terminatedAt = new Date();
+    const saved = await this.providerRepository.manager.transaction(
+      async (manager) => {
+        if (
+          provider.signedContract &&
+          provider.signedContract.status === SignedContractStatus.ACTIVE
+        ) {
+          await manager.update(SignedContract, provider.signedContract.id, {
+            status: SignedContractStatus.TERMINATED_BY_ADMIN,
+            terminationReason: reason,
+          });
+          provider.signedContract.status =
+            SignedContractStatus.TERMINATED_BY_ADMIN;
+          provider.signedContract.terminationReason = reason;
+        }
+        await manager.update(
+          Listing,
+          { providerId: provider.id },
+          { status: ListingStatus.INACTIVE },
+        );
+
+        provider.email = `DELETED_${provider.id}_${provider.email}`;
+        provider.phone = `DELETED_${provider.id}_${provider.phone}`;
+        provider.status = ProviderStatus.DELETED;
+        provider.isActive = false;
+        provider.deletedAt = terminatedAt;
+        provider.deleteReason = reason;
+        return manager.save(Provider, provider);
+      },
+    );
+    await this.pubSub.publish('providerUpdated', { providerUpdated: saved });
+
+    void this.emailService
+      .sendContractTerminationEmail(
+        originalEmail,
+        reason,
+        (provider.languageCode as 'en' | 'ar') ?? 'ar',
+        provider.name ?? undefined,
+      )
+      .catch((err) =>
+        this.logger.error(
+          `Failed to send badge deletion email to ${originalEmail}`,
+          err,
+        ),
+      );
     return saved;
   }
 

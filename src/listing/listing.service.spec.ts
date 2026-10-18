@@ -192,11 +192,12 @@ describe('ListingService provider finalization', () => {
     ).resolves.toBe(listing);
   });
 
-  it('orders public listings with featured ads before free ads', async () => {
+  it('orders public listings by featured status, then badge tier', async () => {
     const orderBy = jest.fn().mockReturnThis();
     const addOrderBy = jest.fn().mockReturnThis();
     const addSelect = jest.fn().mockReturnThis();
     const setParameter = jest.fn().mockReturnThis();
+    const setParameters = jest.fn().mockReturnThis();
     const qb = {
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -204,6 +205,7 @@ describe('ListingService provider finalization', () => {
       orderBy,
       addOrderBy,
       setParameter,
+      setParameters,
       addSelect,
       skip: jest.fn().mockReturnThis(),
       take: jest.fn().mockReturnThis(),
@@ -228,6 +230,18 @@ describe('ListingService provider finalization', () => {
       'featured_rank',
     );
     expect(orderBy).toHaveBeenCalledWith('featured_rank', 'ASC');
+    expect(addSelect).toHaveBeenCalledWith(
+      expect.stringContaining('provider.badge'),
+      'badge_rank',
+    );
+    expect(setParameters).toHaveBeenCalledWith({
+      trustBadge: 'TRUST',
+      diligenceBadge: 'DILIGENCE',
+      underImprovementBadge: 'UNDER_IMPROVEMENT',
+    });
+    // Badge tier comes straight after featured status, before rating.
+    expect(addOrderBy.mock.calls[0]).toEqual(['badge_rank', 'ASC']);
+    expect(addOrderBy.mock.calls[1]).toEqual(['listing.ratingAverage', 'DESC']);
     expect(setParameter).toHaveBeenCalledWith(
       'featuredType',
       ListingType.FEATURED,
