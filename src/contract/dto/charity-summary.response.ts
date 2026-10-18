@@ -11,7 +11,7 @@ export class CharitySummary {
 
   @Field(() => Float, {
     description:
-      'Waived commission on completed charity contracts: the amount to donate (SAR)',
+      'Commission collected on completed charity contracts: the amount to donate (SAR)',
   })
   totalAmount: number;
 }

@@ -2,12 +2,14 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
  * Wesal Al-Khair (charity) contracts: a contract whose calculated commission
- * is at or below the category minimum has its commission waived (PO answer,
- * 2026-10-18). Stores the flag and the waived amount for the admin total.
+ * is at or below the category minimum is charity (PO answer, 2026-10-18).
+ * Its commission is still deducted from the provider, but set aside for
+ * donation; `charityAmount` holds that amount for the admin total.
  *
- * Backfill: contracts created under the old rule were waived when the price
- * was below the minimum, which left a commission percent with a zero amount.
- * Those are flagged with the commission they would have paid.
+ * Backfill: contracts created under the old rule had their commission waived
+ * when the price was below the minimum (a percent with a zero amount). They
+ * are flagged as charity, but nothing was collected, so their charityAmount
+ * stays 0 and they add nothing to the donation total.
  */
 export class CharityContracts2026101800200 implements MigrationInterface {
   name = 'CharityContracts2026101800200';
@@ -21,8 +23,7 @@ export class CharityContracts2026101800200 implements MigrationInterface {
     );
     await queryRunner.query(`
       UPDATE "contracts"
-      SET "isCharity" = true,
-          "charityAmount" = ROUND("agreedPrice" * "commissionPercent" / 100, 2)
+      SET "isCharity" = true
       WHERE "commissionPercent" > 0 AND "commissionAmount" = 0
     `);
   }

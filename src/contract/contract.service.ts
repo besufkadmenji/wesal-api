@@ -1487,14 +1487,15 @@ export class ContractService {
       ? Number(category.minCommissionAmount ?? 0)
       : 0;
     // PO 2026-10-18: a contract whose calculated commission is at or below
-    // the category minimum is charity (Wesal Al-Khair); the commission is
-    // waived, and the waived amount is kept for the admin donation total.
+    // the category minimum is charity (Wesal Al-Khair). The commission is
+    // still deducted from the provider's payout like any other, but it is
+    // set aside for donation through Ihsan instead of being platform revenue.
     const calculatedCommission = this.round(price * (commissionPercent / 100));
     const isCharity =
       commissionPercent > 0 &&
       threshold > 0 &&
       calculatedCommission <= threshold;
-    const commissionAmount = isCharity ? 0 : calculatedCommission;
+    const commissionAmount = calculatedCommission;
     const charityAmount = isCharity ? calculatedCommission : 0;
     const vatRate = setting.vatEnabled ? Number(setting.vatRate ?? 0) : 0;
     const vatAmount = this.round(price * (vatRate / 100));

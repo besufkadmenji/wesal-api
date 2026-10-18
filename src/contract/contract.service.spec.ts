@@ -363,17 +363,18 @@ describe('ContractService', () => {
   });
 
   it('makes a contract charity when the commission is at or below the minimum', async () => {
-    // 2% of 500 = 10 SAR ≤ 100 SAR minimum: waived, kept as the charity amount.
+    // 2% of 500 = 10 SAR ≤ 100 SAR minimum: still deducted from the
+    // provider, but set aside for donation instead of platform revenue.
     await expect(
       service.quote(
         { conversationId: conversation.id, agreedPrice: 500 },
         customer,
       ),
     ).resolves.toMatchObject({
-      commissionAmount: 0,
+      commissionAmount: 10,
       isCharity: true,
       charityAmount: 10,
-      providerNetAmount: 500,
+      providerNetAmount: 490,
     });
     // Boundary: 2% of 5,000 = 100 SAR equals the minimum, so still charity.
     await expect(

@@ -19,12 +19,13 @@ export class ContractQuote {
 
   @Field({
     description:
-      'Wesal Al-Khair: the calculated commission is at or below the category minimum, so it is waived',
+      'Wesal Al-Khair: the commission is at or below the category minimum, so it is donated instead of kept by the platform',
   })
   isCharity: boolean;
 
   @Field(() => Float, {
-    description: 'The waived commission on a charity contract (0 otherwise)',
+    description:
+      'Commission set aside for donation on a charity contract (0 otherwise)',
   })
   charityAmount: number;
 

@@ -1397,10 +1397,10 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     );
     expect(small.errors).toBeUndefined();
     expect(small.data!.contractQuote).toEqual({
-      commissionAmount: 0,
+      commissionAmount: 4,
       isCharity: true,
       charityAmount: 4,
-      providerNetAmount: 200,
+      providerNetAmount: 196,
     });
     const large = await graphql<{ contractQuote: { isCharity: boolean } }>(
       quote,
