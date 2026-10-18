@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Listing } from '../listing/entities/listing.entity';
 import { Provider } from '../provider/entities/provider.entity';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
@@ -11,6 +11,7 @@ import {
 import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { CategoryPaginationInput } from './dto/category-pagination.input';
+import { CategoryContractDefaults } from './dto/category-contract-defaults.response';
 import { CreateCategoryInput } from './dto/create-category.input';
 import { UpdateCategoryInput } from './dto/update-category.input';
 import { Category } from './entities/category.entity';
@@ -21,9 +22,36 @@ import { ActionType } from '../tracking/enums/action-type.enum';
 import { CategoryStatus } from './enum/category.enum';
 import { ProviderStatus } from '../provider/enums/provider-status.enum';
 import { SearchService } from '../search/search.service';
+import { Contract } from '../contract/entities/contract.entity';
+import { ContractStatus } from '../contract/enums/contract-status.enum';
+import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
+import { NotificationType } from '../notification/enums/notification-type.enum';
+import { NotificationService } from '../notification/notification.service';
+import { SettingService } from '../setting/setting.service';
+import { findContractControlProblem } from './contract-controls';
+import {
+  DEFAULT_CONTRACT_DOCUMENT_TEXT,
+  DEFAULT_REFUND_POLICY_AR,
+  DEFAULT_REFUND_POLICY_EN,
+  DEFAULT_UNDERTAKING_TEXT_AR,
+  DEFAULT_UNDERTAKING_TEXT_EN,
+} from './contract-text-defaults';
+
+/** Contracts that block deactivating or deleting their category. */
+export const UNFINISHED_CONTRACT_STATUSES: ContractStatus[] = [
+  ContractStatus.PENDING,
+  ContractStatus.ACCEPTED,
+  ContractStatus.IN_PROGRESS,
+  ContractStatus.AWAITING_CUSTOMER_CONFIRMATION,
+  ContractStatus.DELIVERY_IN_PROGRESS,
+  ContractStatus.CANCELLATION_REQUESTED,
+  ContractStatus.DISPUTED,
+];
 
 @Injectable()
 export class CategoryService {
+  private readonly logger = new Logger(CategoryService.name);
+
   constructor(
     @InjectRepository(Category)
     private readonly categoryRepository: Repository<Category>,
@@ -33,10 +61,26 @@ export class CategoryService {
     private readonly providerRepository: Repository<Provider>,
     private readonly trackingService: TrackingService,
     private readonly searchService: SearchService,
+    @Optional()
+    @InjectRepository(Contract)
+    private readonly contractRepository?: Repository<Contract>,
+    @Optional()
+    private readonly settingService?: SettingService,
+    @Optional()
+    private readonly notificationService?: NotificationService,
   ) {}
 
-  async create(createCategoryInput: CreateCategoryInput): Promise<Category> {
-    const category = this.categoryRepository.create(createCategoryInput);
+  /**
+   * BRD 4.3.8 / 4.3.17: values the admin leaves out come from the global
+   * Settings defaults, and empty texts get the BRD default wording.
+   */
+  async create(
+    createCategoryInput: CreateCategoryInput,
+    language: LanguageCode = 'en',
+  ): Promise<Category> {
+    const input = await this.withDefaults(createCategoryInput);
+    this.assertContractControls(input, language);
+    const category = this.categoryRepository.create(input);
     const saved = await this.categoryRepository.save(category);
     // Index in Elasticsearch asynchronously
     this.searchService
@@ -214,6 +258,7 @@ export class CategoryService {
     }
 
     Object.assign(category, updateCategoryInput);
+    this.assertContractControls(category, language);
     const saved = await this.categoryRepository.save(category);
     // Keep Elasticsearch index in sync
     this.searchService
@@ -250,6 +295,7 @@ export class CategoryService {
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
+    await this.assertNoOpenContracts(id, language);
 
     await this.categoryRepository.delete({ id });
     // Remove from Elasticsearch index
@@ -285,6 +331,7 @@ export class CategoryService {
       .catch((err) =>
         console.error('Failed to update category status in ES', err),
       );
+    await this.notifyProviders(saved, true);
     return saved;
   }
 
@@ -310,21 +357,17 @@ export class CategoryService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    // Prevent deactivating a category that has active providers assigned to it
-    const activeProviderCount = await this.providerRepository
-      .createQueryBuilder('provider')
-      .innerJoin('provider.categories', 'category')
-      .where('category.id = :categoryId', { categoryId: id })
-      .andWhere('provider.status = :status', { status: ProviderStatus.ACTIVE })
-      .getCount();
-
-    if (activeProviderCount > 0) {
+    // BRD 4.3.8: blocked while any (non-deleted) provider is linked, or
+    // while a contract in this category is unfinished.
+    const providerCount = await this.linkedProviders(id).getCount();
+    if (providerCount > 0) {
       const message = I18nService.translate(
-        CATEGORY_ERROR_MESSAGES['CATEGORY_HAS_ACTIVE_PROVIDERS'],
+        CATEGORY_ERROR_MESSAGES['CATEGORY_HAS_PROVIDERS'],
         language,
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
+    await this.assertNoOpenContracts(id, language);
 
     category.status = CategoryStatus.INACTIVE;
     const saved = await this.categoryRepository.save(category);
@@ -333,6 +376,143 @@ export class CategoryService {
       .catch((err) =>
         console.error('Failed to update category status in ES', err),
       );
+    await this.notifyProviders(saved, false);
     return saved;
+  }
+
+  private linkedProviders(categoryId: string) {
+    return this.providerRepository
+      .createQueryBuilder('provider')
+      .innerJoin('provider.categories', 'category')
+      .where('category.id = :categoryId', { categoryId })
+      .andWhere('provider.deletedAt IS NULL')
+      .andWhere('provider.status != :deleted', {
+        deleted: ProviderStatus.DELETED,
+      });
+  }
+
+  private async assertNoOpenContracts(
+    categoryId: string,
+    language: LanguageCode,
+  ): Promise<void> {
+    if (!this.contractRepository) return;
+    const open = await this.contractRepository.count({
+      where: { categoryId, status: In(UNFINISHED_CONTRACT_STATUSES) },
+    });
+    if (open > 0) {
+      const message = I18nService.translate(
+        CATEGORY_ERROR_MESSAGES['CATEGORY_HAS_OPEN_CONTRACTS'],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    }
+  }
+
+  private assertContractControls(
+    category: Partial<Category>,
+    language: LanguageCode,
+  ): void {
+    const problem = findContractControlProblem(category);
+    if (!problem) return;
+    const message = I18nService.translate(
+      CATEGORY_ERROR_MESSAGES[
+        problem.kind === 'value'
+          ? 'CONTRACT_VALUE_REQUIRED'
+          : 'CONTRACT_TEXT_REQUIRED'
+      ],
+      language,
+    );
+    throw new I18nBadRequestException({ en: message, ar: message }, language);
+  }
+
+  /** Settings values (0 when unset) and the BRD default texts. */
+  async contractDefaults(): Promise<CategoryContractDefaults> {
+    const setting = await this.settingService?.getSetting();
+    const value = (amount?: number | null) => Number(amount ?? 0);
+    return {
+      commissionPercent: value(setting?.defaultCommissionPercent),
+      minCommissionAmount: value(setting?.defaultMinCommissionAmount),
+      depositPercent: value(setting?.defaultDepositPercent),
+      maxExecutionHours: value(setting?.defaultMaxExecutionHours),
+      maxTerminationHours: value(setting?.defaultMaxTerminationHours),
+      customerConversationFee: value(setting?.defaultCustomerConversationFee),
+      providerConversationFee: value(setting?.defaultProviderConversationFee),
+      contractDocumentText: DEFAULT_CONTRACT_DOCUMENT_TEXT,
+      undertakingTextAr: DEFAULT_UNDERTAKING_TEXT_AR,
+      undertakingTextEn: DEFAULT_UNDERTAKING_TEXT_EN,
+      refundPolicyAr: DEFAULT_REFUND_POLICY_AR,
+      refundPolicyEn: DEFAULT_REFUND_POLICY_EN,
+    };
+  }
+
+  /** Fills values the input leaves out and texts it leaves empty. */
+  private async withDefaults(
+    input: CreateCategoryInput,
+  ): Promise<CreateCategoryInput> {
+    const defaults = await this.contractDefaults();
+    return {
+      ...input,
+      commissionPercent: input.commissionPercent ?? defaults.commissionPercent,
+      minCommissionAmount:
+        input.minCommissionAmount ?? defaults.minCommissionAmount,
+      depositPercent: input.depositPercent ?? defaults.depositPercent,
+      maxExecutionHours: input.maxExecutionHours ?? defaults.maxExecutionHours,
+      maxTerminationHours:
+        input.maxTerminationHours ?? defaults.maxTerminationHours,
+      customerConversationFee:
+        input.customerConversationFee ?? defaults.customerConversationFee,
+      providerConversationFee:
+        input.providerConversationFee ?? defaults.providerConversationFee,
+      contractDocumentText:
+        input.contractDocumentText?.trim() || defaults.contractDocumentText,
+      undertakingTextAr:
+        input.undertakingTextAr?.trim() || defaults.undertakingTextAr,
+      undertakingTextEn:
+        input.undertakingTextEn?.trim() || defaults.undertakingTextEn,
+      refundPolicyAr: input.refundPolicyAr?.trim() || defaults.refundPolicyAr,
+      refundPolicyEn: input.refundPolicyEn?.trim() || defaults.refundPolicyEn,
+    };
+  }
+
+  /** BRD 4.3.8: "a message is sent to providers on activate/deactivate". */
+  private async notifyProviders(
+    category: Category,
+    active: boolean,
+  ): Promise<void> {
+    if (!this.notificationService) return;
+    try {
+      const providers = await this.providerRepository
+        .createQueryBuilder('provider')
+        .innerJoin('provider.categories', 'category')
+        .where('category.id = :categoryId', { categoryId: category.id })
+        .andWhere('provider.deletedAt IS NULL')
+        .select(['provider.id', 'provider.languageCode'])
+        .getMany();
+      for (const provider of providers) {
+        const ar = provider.languageCode !== 'en';
+        const name = ar ? category.nameAr : category.nameEn;
+        await this.notificationService.createForRecipient({
+          recipientId: provider.id,
+          recipientType: NotificationRecipientType.PROVIDER,
+          type: NotificationType.SYSTEM_ANNOUNCEMENT,
+          title: ar
+            ? active
+              ? 'تفعيل قسم'
+              : 'تعطيل قسم'
+            : active
+              ? 'Category activated'
+              : 'Category deactivated',
+          message: ar
+            ? `تم ${active ? 'تفعيل' : 'تعطيل'} القسم "${name}".`
+            : `The category "${name}" has been ${active ? 'activated' : 'deactivated'}.`,
+          relatedEntityId: category.id,
+          relatedEntityType: 'category',
+        });
+      }
+    } catch (error) {
+      this.logger.warn(
+        `Category ${category.id} status changed but notifying providers failed: ${String(error)}`,
+      );
+    }
   }
 }

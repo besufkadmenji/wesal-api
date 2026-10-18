@@ -138,6 +138,49 @@ export class SettingInput {
   @IsInt()
   @Min(1)
   completionConfirmationGraceHours?: number;
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  defaultCommissionPercent?: number;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  defaultMinCommissionAmount?: number;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  defaultMaxExecutionHours?: number;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  defaultMaxTerminationHours?: number;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  defaultDepositPercent?: number;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  defaultCustomerConversationFee?: number;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  defaultProviderConversationFee?: number;
 }
 
 @InputType()

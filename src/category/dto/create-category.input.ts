@@ -3,7 +3,6 @@ import {
   IsBoolean,
   IsInt,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -50,7 +49,7 @@ export class CreateCategoryInput {
   // --- Per-section fee & contract rules (admin-editable) ---
   @Field(() => Float, { nullable: true })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(0)
   @Max(100)
   commissionPercent?: number;
@@ -62,7 +61,7 @@ export class CreateCategoryInput {
 
   @Field(() => Float, { nullable: true })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(0)
   minCommissionAmount?: number;
 
@@ -73,7 +72,7 @@ export class CreateCategoryInput {
 
   @Field(() => Float, { nullable: true })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(0)
   @Max(100)
   depositPercent?: number;
@@ -107,7 +106,7 @@ export class CreateCategoryInput {
 
   @Field(() => Float, { nullable: true })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(0)
   customerConversationFee?: number;
 
@@ -118,7 +117,7 @@ export class CreateCategoryInput {
 
   @Field(() => Float, { nullable: true })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(0)
   providerConversationFee?: number;
 

@@ -118,4 +118,43 @@ export class Setting {
   @Field(() => Int)
   @Column({ type: 'int', default: 24 })
   completionConfirmationGraceHours: number;
+
+  // BRD 4.3.17: contract defaults copied into new categories (all integers).
+  @Field(() => Int, { description: 'System commission (%) for new categories' })
+  @Column({ type: 'int', default: 0 })
+  defaultCommissionPercent: number;
+
+  @Field(() => Int, {
+    description: 'Minimum commission (SAR) for new categories',
+  })
+  @Column({ type: 'int', default: 0 })
+  defaultMinCommissionAmount: number;
+
+  @Field(() => Int, {
+    description: 'Max execution time (hours) for new categories',
+  })
+  @Column({ type: 'int', default: 0 })
+  defaultMaxExecutionHours: number;
+
+  @Field(() => Int, {
+    description: 'Termination limit (hours) for new categories',
+  })
+  @Column({ type: 'int', default: 0 })
+  defaultMaxTerminationHours: number;
+
+  @Field(() => Int, { description: 'Deposit (%) for new categories' })
+  @Column({ type: 'int', default: 0 })
+  defaultDepositPercent: number;
+
+  @Field(() => Int, {
+    description: 'Customer chat fee (SAR) for new categories',
+  })
+  @Column({ type: 'int', default: 0 })
+  defaultCustomerConversationFee: number;
+
+  @Field(() => Int, {
+    description: 'Provider chat fee (SAR) for new categories',
+  })
+  @Column({ type: 'int', default: 0 })
+  defaultProviderConversationFee: number;
 }

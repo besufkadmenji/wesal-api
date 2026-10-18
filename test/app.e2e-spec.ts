@@ -1464,6 +1464,98 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       .getRepository(Contract)
       .update(transactionContractId, { isCharity: false, charityAmount: 0 });
   });
+
+  it('fills new categories from the Settings defaults and blocks deactivation with open contracts', async () => {
+    const dataSource = app.get(DataSource);
+    const graphql = async <T>(query: string, variables: object = {}) => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set({ Authorization: `Bearer ${adminToken}`, 'Accept-Language': 'en' })
+        .send({ query, variables });
+      return response.body as {
+        data: T | null;
+        errors?: Array<{ message: string }>;
+      };
+    };
+    const adminToken = jwt.sign(
+      {
+        sub: '00000000-0000-4000-8000-0000000000ae',
+        email: 'category-admin@example.com',
+        permissionType: AdminPermissionType.SUPER_ADMIN,
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    await app.get(SettingService).setSetting({
+      defaultCommissionPercent: 3,
+      defaultMinCommissionAmount: 15,
+      defaultMaxExecutionHours: 48,
+    });
+
+    const created = await graphql<{
+      createCategory: {
+        id: string;
+        commissionPercent: number;
+        minCommissionAmount: number;
+        maxExecutionHours: number;
+        depositPercent: number;
+        undertakingTextEn: string;
+      };
+    }>(
+      `
+        mutation Create($input: CreateCategoryInput!) {
+          createCategory(input: $input) {
+            id
+            commissionPercent
+            minCommissionAmount
+            maxExecutionHours
+            depositPercent
+            undertakingTextEn
+          }
+        }
+      `,
+      {
+        input: {
+          image: 'category.png',
+          nameEn: 'Defaults',
+          nameAr: 'افتراضي',
+          descriptionEn: 'Defaults',
+          descriptionAr: 'افتراضي',
+          rulesEn: 'Rules',
+          rulesAr: 'شروط',
+        },
+      },
+    );
+    expect(created.errors).toBeUndefined();
+    expect(created.data!.createCategory).toMatchObject({
+      commissionPercent: 3,
+      minCommissionAmount: 15,
+      maxExecutionHours: 48,
+      depositPercent: 0,
+    });
+    expect(created.data!.createCategory.undertakingTextEn).toContain(
+      '{commission}%',
+    );
+
+    const deactivate = `mutation Deactivate($id: ID!) {
+      deactivateCategory(id: $id) { id status }
+    }`;
+    const contracts = dataSource.getRepository(Contract);
+    const contract = await contracts.findOneByOrFail({
+      id: transactionContractId,
+    });
+    await contracts.update(contract.id, { status: ContractStatus.ACCEPTED });
+    const blocked = await graphql(deactivate, { id: contract.categoryId });
+    expect(blocked.errors?.[0].message).toContain('unfinished contracts');
+    await contracts.update(contract.id, { status: contract.status });
+
+    const free = await graphql<{ deactivateCategory: { status: string } }>(
+      deactivate,
+      { id: created.data!.createCategory.id },
+    );
+    expect(free.errors).toBeUndefined();
+    expect(free.data!.deactivateCategory.status).toBe('INACTIVE');
+  });
 });
 
 function subscriptionError(

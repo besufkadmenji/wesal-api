@@ -44,6 +44,22 @@ export class ContractQuote {
   @Field()
   contractDocumentText: string;
 
+  @Field({
+    description: 'Customer undertaking with commission and minimum filled in',
+  })
+  undertakingTextAr: string;
+
+  @Field({
+    description: 'Customer undertaking with commission and minimum filled in',
+  })
+  undertakingTextEn: string;
+
+  @Field()
+  refundPolicyAr: string;
+
+  @Field()
+  refundPolicyEn: string;
+
   @Field(() => Int, { nullable: true })
   maxExecutionHours: number | null;
 

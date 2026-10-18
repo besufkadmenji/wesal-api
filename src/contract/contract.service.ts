@@ -16,6 +16,7 @@ import { ContractPaginationInput } from './dto/contract-pagination.input';
 import { ContractQuoteInput } from './dto/contract-quote.input';
 import { ContractQuote } from './dto/contract-quote.response';
 import { CharitySummary } from './dto/charity-summary.response';
+import { renderUndertaking } from '../category/contract-text-defaults';
 import { AcceptContractInput } from './dto/accept-contract.input';
 import { CompleteContractInput } from './dto/complete-contract.input';
 import { RejectContractInput } from './dto/reject-contract.input';
@@ -1503,11 +1504,20 @@ export class ContractService {
       deliveryCompanyNameAr: deliveryCompany?.nameAr ?? null,
       categoryRulesEn: category.rulesEn ?? '',
       categoryRulesAr: category.rulesAr ?? '',
+      // {commission} / {minimum} are filled with this contract's terms.
       undertakingTextAr: category.undertakingEnabled
-        ? (category.undertakingTextAr ?? '')
+        ? renderUndertaking(
+            category.undertakingTextAr ?? '',
+            commissionPercent,
+            threshold,
+          )
         : '',
       undertakingTextEn: category.undertakingEnabled
-        ? (category.undertakingTextEn ?? '')
+        ? renderUndertaking(
+            category.undertakingTextEn ?? '',
+            commissionPercent,
+            threshold,
+          )
         : '',
       refundPolicyAr: category.refundPolicyEnabled
         ? (category.refundPolicyAr ?? '')
@@ -1599,6 +1609,10 @@ export class ContractService {
       totalPayable: snapshot.totalPayable,
       providerNetAmount: snapshot.providerNetAmount,
       contractDocumentText: snapshot.contractDocumentText,
+      undertakingTextAr: snapshot.undertakingTextAr,
+      undertakingTextEn: snapshot.undertakingTextEn,
+      refundPolicyAr: snapshot.refundPolicyAr,
+      refundPolicyEn: snapshot.refundPolicyEn,
       maxExecutionHours: snapshot.maxExecutionHours,
       maxTerminationHours: snapshot.maxTerminationHours,
     };

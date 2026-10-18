@@ -10,10 +10,21 @@ import { Provider } from '../provider/entities/provider.entity';
 import { TrackingModule } from '../tracking/tracking.module';
 import { SearchModule } from '../search/search.module';
 import { AdminPermission } from 'src/admin-permission/entities/admin-permission.entity';
+import { Contract } from '../contract/entities/contract.entity';
+import { NotificationModule } from '../notification/notification.module';
+import { SettingModule } from '../setting/setting.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Category, Listing, Provider, AdminPermission]),
+    TypeOrmModule.forFeature([
+      Category,
+      Listing,
+      Provider,
+      Contract,
+      AdminPermission,
+    ]),
+    NotificationModule,
+    SettingModule,
     TrackingModule,
     SearchModule,
     AdminPermissionGuardModule,
