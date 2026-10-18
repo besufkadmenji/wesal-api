@@ -28,6 +28,11 @@ export class FeeReportInput extends PaginationInput {
   @Field({ nullable: true })
   @IsOptional()
   @IsUUID()
+  deliveryCompanyId?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsUUID()
   conversationId?: string;
 
   @Field({ nullable: true })

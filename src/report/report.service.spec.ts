@@ -36,9 +36,12 @@ describe('ReportService', () => {
 
   it('returns separate customer and provider conversation-fee totals', async () => {
     const builder = queryBuilder();
-    const service = new ReportService({
-      createQueryBuilder: jest.fn(() => builder),
-    } as never);
+    const service = new ReportService(
+      {
+        createQueryBuilder: jest.fn(() => builder),
+      } as never,
+      {} as never,
+    );
 
     const report = await service.conversationFees({});
 
@@ -54,7 +57,7 @@ describe('ReportService', () => {
   });
 
   it('emits valid PDF and XLSX signatures', async () => {
-    const service = new ReportService({} as never);
+    const service = new ReportService({} as never, {} as never);
     jest.spyOn(service, 'conversationFees').mockResolvedValue({
       items: [],
       meta: { total: 0, page: 1, limit: 100000 },

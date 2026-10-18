@@ -4,6 +4,8 @@ import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import * as path from 'path';
 import { Repository, SelectQueryBuilder } from 'typeorm';
+import { Contract } from '../contract/entities/contract.entity';
+import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { Payment } from '../payment/entities/payment.entity';
 import { PaymentPurpose } from '../payment/enums/payment-purpose.enum';
 import { FeeReportInput } from './dto/fee-report.input';
@@ -21,6 +23,8 @@ export class ReportService {
   constructor(
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
+    @InjectRepository(Contract)
+    private readonly contractRepository: Repository<Contract>,
   ) {}
 
   async conversationFees(
@@ -97,22 +101,95 @@ export class ReportService {
     };
   }
 
+  /**
+   * BRD 4.3.22: one row per contract (drafts excluded), paid or not. Totals
+   * cover every filtered contract, not just the current page.
+   */
   async contractFinancials(
     input: FeeReportInput,
   ): Promise<ContractFinancialReport> {
-    const query = this.paymentRepository
-      .createQueryBuilder('payment')
-      .leftJoinAndSelect('payment.contract', 'contract')
+    const page = input.page ?? 1;
+    const limit = input.limit ?? 10;
+    const base = this.baseContractQuery(input);
+    const totals = await base
+      .clone()
+      .select('COUNT(contract.id)', 'count')
+      .addSelect(
+        `COUNT(contract.id) FILTER (WHERE contract.status = '${ContractStatus.COMPLETED}')`,
+        'completed',
+      )
+      .addSelect('COALESCE(SUM(contract.providerNetAmount), 0)', 'providerNet')
+      .addSelect('COALESCE(SUM(contract.vatAmount), 0)', 'vat')
+      .addSelect('COALESCE(SUM(contract.commissionAmount), 0)', 'commission')
+      .addSelect(
+        'COALESCE(SUM(CASE WHEN contract.isCharity THEN 0 ELSE contract.commissionAmount END), 0)',
+        'adminProfit',
+      )
+      .addSelect(
+        'COALESCE(SUM(CASE WHEN contract.isCharity THEN contract.charityAmount ELSE 0 END), 0)',
+        'charity',
+      )
+      .addSelect('COALESCE(SUM(contract.totalPayable), 0)', 'contractTotal')
+      .addSelect(
+        'COALESCE(SUM(CASE WHEN contract.paidAt IS NOT NULL THEN contract.totalPayable ELSE 0 END), 0)',
+        'paid',
+      )
+      .getRawOne<Record<string, string>>();
+    const settlementTotals = await base
+      .clone()
+      .innerJoin('contract.settlements', 'settlement')
+      .select(
+        `COALESCE(SUM(CASE WHEN settlement.type = '${ContractSettlementType.CUSTOMER_REFUND}' THEN settlement.amount ELSE 0 END), 0)`,
+        'refunds',
+      )
+      .addSelect(
+        `COALESCE(SUM(CASE WHEN settlement.type = '${ContractSettlementType.PROVIDER_RELEASE}' THEN settlement.amount ELSE 0 END), 0)`,
+        'releases',
+      )
+      .getRawOne<Record<string, string>>();
+    const contracts = await base
+      .leftJoinAndSelect('contract.settlements', 'settlements')
+      .orderBy('contract.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+    const total = (key: string, raw = totals) => Number(raw?.[key] ?? 0);
+    return {
+      items: contracts.map((contract) => this.toContractRow(contract)),
+      meta: { total: total('count'), page, limit },
+      completedCount: total('completed'),
+      totalProviderNet: total('providerNet'),
+      totalVat: total('vat'),
+      totalCommission: total('commission'),
+      totalAdminProfit: total('adminProfit'),
+      totalCharity: total('charity'),
+      totalContractValue: total('contractTotal'),
+      totalPaid: total('paid'),
+      totalCustomerRefunds: total('refunds', settlementTotals),
+      totalProviderReleases: total('releases', settlementTotals),
+    };
+  }
+
+  private baseContractQuery(input: FeeReportInput) {
+    const query = this.contractRepository
+      .createQueryBuilder('contract')
       .leftJoinAndSelect('contract.client', 'client')
       .leftJoinAndSelect('contract.provider', 'provider')
-      .leftJoinAndSelect('contract.settlements', 'settlements')
-      .where('payment.purpose = :contractPurpose', {
-        contractPurpose: PaymentPurpose.CONTRACT,
-      });
-    this.applyCommonFilters(query, input);
+      .where('contract.status != :draft', { draft: ContractStatus.DRAFT });
+    if (input.from) {
+      query.andWhere('contract.createdAt >= :from', { from: input.from });
+    }
+    if (input.to) {
+      query.andWhere('contract.createdAt <= :to', { to: input.to });
+    }
     if (input.categoryId) {
       query.andWhere('contract.categoryId = :categoryId', {
         categoryId: input.categoryId,
+      });
+    }
+    if (input.deliveryCompanyId) {
+      query.andWhere('contract.deliveryCompanyId = :deliveryCompanyId', {
+        deliveryCompanyId: input.deliveryCompanyId,
       });
     }
     if (input.status) {
@@ -137,24 +214,7 @@ export class ReportService {
         { search: `%${input.search.trim()}%` },
       );
     }
-    const payments = await query.orderBy('payment.createdAt', 'DESC').getMany();
-    const rows = payments
-      .filter((payment) => payment.contract)
-      .map((payment) => this.toContractRow(payment));
-    const page = input.page ?? 1;
-    const limit = input.limit ?? 10;
-    const items = rows.slice((page - 1) * limit, page * limit);
-    return {
-      items,
-      meta: { total: rows.length, page, limit },
-      completedCount: rows.filter((row) => row.status === 'COMPLETED').length,
-      totalProviderNet: this.sum(rows, 'providerNet'),
-      totalVat: this.sum(rows, 'vat'),
-      totalCommission: this.sum(rows, 'commission'),
-      totalPaid: this.sum(rows, 'totalPaid'),
-      totalCustomerRefunds: this.sum(rows, 'customerRefund'),
-      totalProviderReleases: this.sum(rows, 'providerRelease'),
-    };
+    return query;
   }
 
   async premiumAds(input: FeeReportInput): Promise<PremiumAdFeeReport> {
@@ -241,60 +301,65 @@ export class ReportService {
       page: 1,
       limit: 100000,
     });
-    const headers =
-      language === 'ar'
-        ? [
-            'التعاقد',
-            'العميل',
-            'مقدم الخدمة',
-            'الحالة',
-            'صافي مقدم الخدمة',
-            'الضريبة',
-            'العمولة',
-            'المدفوع',
-            'المسترد',
-            'المحول لمقدم الخدمة',
-            'التاريخ',
-          ]
-        : [
-            'Contract',
-            'Customer',
-            'Provider',
-            'Status',
-            'Provider net',
-            'VAT',
-            'Commission',
-            'Paid',
-            'Refund',
-            'Provider release',
-            'Date',
-          ];
-    const rows = report.items.map((item) => [
-      item.contractNumber ?? item.contractId,
-      item.customerName ?? '',
-      item.providerName ?? '',
-      item.status,
-      item.providerNet,
-      item.vat,
-      item.commission,
-      item.totalPaid,
-      item.customerRefund,
-      item.providerRelease,
-      item.createdAt.toISOString(),
+    const ar = language === 'ar';
+    const headers = ar
+      ? [
+          '#',
+          'رقم التعاقد',
+          'تاريخ التعاقد',
+          'العميل',
+          'الاسم التجاري',
+          'شركة التوصيل',
+          'ربح مقدم الخدمة',
+          'الضريبة',
+          'ربح الإدارة',
+          'إجمالي التعاقد',
+        ]
+      : [
+          '#',
+          'Contract no.',
+          'Contract date',
+          'Customer',
+          'Trade name',
+          'Delivery company',
+          'Provider profit',
+          'VAT',
+          'Admin profit',
+          'Contract total',
+        ];
+    const rows: Array<Array<string | number>> = report.items.map(
+      (item, index) => [
+        index + 1,
+        String(item.contractNumber ?? item.contractId),
+        item.createdAt.toISOString().slice(0, 10),
+        item.customerName ?? '',
+        item.providerName ?? '',
+        (ar
+          ? (item.deliveryCompanyNameAr ?? item.deliveryCompanyNameEn)
+          : (item.deliveryCompanyNameEn ?? item.deliveryCompanyNameAr)) ?? '',
+        item.providerNet,
+        item.vat,
+        item.adminProfit,
+        item.contractTotal,
+      ],
+    );
+    // BRD 4.3.22 footer: contract count, the three totals, completed count.
+    rows.push([
+      ar ? 'الإجمالي' : 'Total',
+      report.meta.total,
+      '',
+      ar ? 'المكتملة' : 'Completed',
+      report.completedCount,
+      '',
+      report.totalProviderNet,
+      report.totalVat,
+      report.totalAdminProfit,
+      report.totalContractValue,
     ]);
+    const title = ar ? 'التقرير المالي للتعاقدات' : 'Contract financial report';
     return format === 'xlsx'
-      ? this.xlsx(
-          language === 'ar' ? 'ماليات التعاقدات' : 'Contract financials',
-          headers,
-          rows,
-          language,
-        )
-      : this.pdf(
-          language === 'ar' ? 'ماليات التعاقدات' : 'Contract financials',
-          headers,
-          rows,
-          language,
-        );
+      ? this.xlsx(title, headers, rows, language)
+      : this.pdf(title, headers, rows, language, 1);
   }
 
   async exportPremiumAds(
@@ -446,13 +511,13 @@ export class ReportService {
     };
   }
 
-  private toContractRow(payment: Payment): ContractFinancialReportRow {
-    const contract = payment.contract!;
+  private toContractRow(contract: Contract): ContractFinancialReportRow {
     const settlements = contract.settlements ?? [];
     const amountFor = (type: ContractSettlementType) =>
       settlements
         .filter((entry) => entry.type === type)
         .reduce((sum, entry) => sum + Number(entry.amount), 0);
+    const commission = Number(contract.commissionAmount);
     return {
       contractId: contract.id,
       contractNumber: contract.publicId,
@@ -462,27 +527,20 @@ export class ReportService {
         contract.provider?.commercialName ?? contract.provider?.name ?? null,
       deliveryCompanyName:
         contract.deliveryCompanyNameAr ?? contract.deliveryCompanyNameEn,
+      deliveryCompanyNameAr: contract.deliveryCompanyNameAr,
+      deliveryCompanyNameEn: contract.deliveryCompanyNameEn,
       providerNet: Number(contract.providerNetAmount),
       vat: Number(contract.vatAmount),
-      commission: Number(contract.commissionAmount),
-      totalPaid: Number(payment.amount),
+      commission,
+      // The commission on charity contracts is donated, not kept (S4-32).
+      adminProfit: contract.isCharity ? 0 : commission,
+      isCharity: contract.isCharity,
+      contractTotal: Number(contract.totalPayable),
+      totalPaid: contract.paidAt ? Number(contract.totalPayable) : 0,
       customerRefund: amountFor(ContractSettlementType.CUSTOMER_REFUND),
       providerRelease: amountFor(ContractSettlementType.PROVIDER_RELEASE),
-      createdAt: payment.createdAt,
+      createdAt: contract.createdAt,
     };
-  }
-
-  private sum(
-    rows: ContractFinancialReportRow[],
-    key:
-      | 'providerNet'
-      | 'vat'
-      | 'commission'
-      | 'totalPaid'
-      | 'customerRefund'
-      | 'providerRelease',
-  ): number {
-    return rows.reduce((total, row) => total + Number(row[key]), 0);
   }
 
   private async xlsx(
@@ -508,6 +566,7 @@ export class ReportService {
     headers: string[],
     rows: Array<Array<string | number>>,
     language: 'ar' | 'en' = 'en',
+    totalRows = 0,
   ): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const document = new PDFDocument({
@@ -531,39 +590,51 @@ export class ReportService {
         stripe: '#F9FAFB',
         white: '#FFFFFF',
       };
-      if (language === 'ar') {
-        document.registerFont(
-          'NotoArabic',
-          path.join(
-            process.cwd(),
-            'node_modules/@fontsource/noto-sans-arabic/files/noto-sans-arabic-arabic-400-normal.woff',
-          ),
-        );
-        document.font('NotoArabic');
-      }
+      // Cairo covers Arabic and Latin, so mixed names render in both
+      // languages (the Noto Arabic subset has no Latin letters or space).
+      document.registerFont('Cairo', path.join(__dirname, 'fonts/Cairo.ttf'));
+      document.font('Cairo');
 
       const rtl = language === 'ar';
+      // pdfkit breaks text at spaces and shapes each Arabic word on its own,
+      // which drops the gaps; non-breaking spaces keep a phrase in one run.
+      // That run is laid out right-to-left, digits included, so digit runs
+      // are pre-reversed to read correctly.
+      const shaped = (text: string) =>
+        /[\u0600-\u06FF]/.test(text)
+          ? text
+              .replace(/[\u200E\u200F\u061C]/g, '')
+              .replace(/ /g, '\u00A0')
+              .replace(/\d[\d.,:/-]*\d|\d/g, (digits) =>
+                [...digits].reverse().join(''),
+              )
+          : text;
       const align: PDFKit.Mixins.TextOptions['align'] = rtl ? 'right' : 'left';
       const margin = 32;
       const pageWidth = document.page.width;
       const pageHeight = document.page.height;
       const contentWidth = pageWidth - margin * 2;
       const tableBottom = pageHeight - 75;
-      const displayHeaders = rtl ? [...headers].reverse() : headers;
+      const displayHeaders = (rtl ? [...headers].reverse() : headers).map(
+        shaped,
+      );
       const displayRows = rows.map((row) => (rtl ? [...row].reverse() : row));
       const formattedRows = displayRows.map((row) =>
-        row.map((value) => this.formatPdfCell(value, language)),
+        row.map((value) => shaped(this.formatPdfCell(value, language))),
       );
       const columnWidths = this.pdfColumnWidths(
         displayHeaders,
         formattedRows,
         contentWidth,
       );
-      const generatedAt = new Intl.DateTimeFormat(rtl ? 'ar-SA' : 'en-GB', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-        timeZone: 'Asia/Riyadh',
-      }).format(new Date());
+      const generatedAt = new Intl.DateTimeFormat(
+        rtl ? 'ar-SA-u-nu-latn' : 'en-GB',
+        {
+          dateStyle: 'medium',
+          timeStyle: 'short',
+          timeZone: 'Asia/Riyadh',
+        },
+      ).format(new Date());
       const labels = rtl
         ? {
             generated: 'تاريخ الإنشاء',
@@ -589,16 +660,21 @@ export class ReportService {
             characterSpacing: 1.2,
             width: contentWidth,
           });
-        document.fillColor(colors.ink).fontSize(22).text(title, margin, 45, {
-          align,
-          lineBreak: false,
-          width: contentWidth,
-        });
+        document
+          .fillColor(colors.ink)
+          .fontSize(22)
+          .text(shaped(title), margin, 45, {
+            align,
+            lineBreak: false,
+            width: contentWidth,
+          });
         document
           .fillColor(colors.muted)
           .fontSize(8)
           .text(
-            `${labels.records}: ${rows.length.toLocaleString(rtl ? 'ar-SA' : 'en-US')}   |   ${labels.generated}: ${generatedAt}`,
+            shaped(
+              `${labels.records}: ${(rows.length - totalRows).toLocaleString('en-US')}   |   ${labels.generated}: ${generatedAt}`,
+            ),
             margin,
             76,
             { align, width: contentWidth },
@@ -655,7 +731,7 @@ export class ReportService {
         document
           .fillColor(colors.muted)
           .fontSize(10)
-          .text(labels.empty, margin + 18, y + 40, {
+          .text(shaped(labels.empty), margin + 18, y + 40, {
             align: 'center',
             width: contentWidth - 36,
           });
@@ -723,7 +799,7 @@ export class ReportService {
           .fillColor(colors.muted)
           .fontSize(7)
           .text(
-            `${labels.page} ${index + 1} / ${pageRange.count}`,
+            shaped(`${labels.page} ${index + 1} / ${pageRange.count}`),
             margin,
             pageHeight - 56,
             { align: 'center', lineBreak: false, width: contentWidth },
@@ -735,16 +811,17 @@ export class ReportService {
 
   private formatPdfCell(value: string | number, language: 'ar' | 'en'): string {
     if (typeof value === 'number') {
-      return new Intl.NumberFormat(language === 'ar' ? 'ar-SA' : 'en-US', {
+      // Latin digits: pdfkit lays Arabic-Indic digits out right-to-left.
+      return new Intl.NumberFormat('en-US', {
         maximumFractionDigits: 2,
       }).format(value);
     }
     const date = new Date(value);
     if (/^\d{4}-\d{2}-\d{2}T/.test(value) && !Number.isNaN(date.getTime())) {
-      return new Intl.DateTimeFormat(language === 'ar' ? 'ar-SA' : 'en-GB', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }).format(date);
+      return new Intl.DateTimeFormat(
+        language === 'ar' ? 'ar-SA-u-nu-latn' : 'en-GB',
+        { dateStyle: 'medium', timeStyle: 'short' },
+      ).format(date);
     }
     return value.replaceAll('_', ' ');
   }

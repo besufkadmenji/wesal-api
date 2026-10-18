@@ -48,6 +48,9 @@ import { RatingStatus } from '../src/rating/enums/rating-status.enum';
 import { AdminPermissionType } from '../src/admin/enums/admin-permission-type.enum';
 import { Admin } from '../src/admin/entities/admin.entity';
 import { AdminStatus } from '../src/admin/enums/admin-status.enum';
+import { AdminPermission } from '../src/admin-permission/entities/admin-permission.entity';
+import { Permission } from '../src/permission/entities/permission.entity';
+import { PermissionPlatform } from '../src/permission/enums/permission-platform.enum';
 
 jest.setTimeout(120_000);
 
@@ -1555,6 +1558,132 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     );
     expect(free.errors).toBeUndefined();
     expect(free.data!.deactivateCategory.status).toBe('INACTIVE');
+  });
+  it('reports every non-draft contract with BRD columns, filters and all-page totals', async () => {
+    const dataSource = app.get(DataSource);
+    const contracts = dataSource.getRepository(Contract);
+    const paid = await contracts.findOneByOrFail({ id: transactionContractId });
+    const {
+      id: _id,
+      publicId: _publicId,
+      createdAt: _createdAt,
+      updatedAt: _updatedAt,
+      version: _version,
+      ...fields
+    } = paid as Contract & { version?: number };
+    void [_id, _publicId, _createdAt, _updatedAt, _version];
+    const admin = await dataSource.getRepository(Admin).save({
+      email: 'report-viewer@example.com',
+      fullName: 'Report Viewer',
+      organizationName: 'Wesal',
+      roleName: 'Viewer',
+      permissionType: AdminPermissionType.VIEWER,
+      status: AdminStatus.ACTIVE,
+    });
+    const readPermission = await dataSource.getRepository(Permission).save({
+      name: 'Read Report',
+      nameAr: 'عرض التقارير',
+      description: 'Read Report',
+      module: 'report',
+      action: 'read',
+      resource: 'report',
+      permissionPlatform: PermissionPlatform.ADMIN,
+    });
+    await dataSource
+      .getRepository(AdminPermission)
+      .save({ adminId: admin.id, permissionId: readPermission.id });
+    const viewerToken = jwt.sign(
+      {
+        sub: admin.id,
+        email: admin.email,
+        permissionType: AdminPermissionType.VIEWER,
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    const report = async (input: object) => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set({ Authorization: `Bearer ${viewerToken}` })
+        .send({
+          query: `query Report($input: FeeReportInput) {
+            contractFinancialReport(input: $input) {
+              items { contractId status providerNet vat adminProfit contractTotal isCharity deliveryCompanyNameEn }
+              meta { total }
+              completedCount totalProviderNet totalVat totalAdminProfit totalCharity totalContractValue
+            }
+          }`,
+          variables: { input },
+        });
+      return response.body as {
+        data: {
+          contractFinancialReport: {
+            items: Array<Record<string, unknown>>;
+            meta: { total: number };
+            completedCount: number;
+            totalProviderNet: number;
+            totalVat: number;
+            totalAdminProfit: number;
+            totalCharity: number;
+            totalContractValue: number;
+          };
+        } | null;
+        errors?: Array<{ message: string }>;
+      };
+    };
+
+    const before = (await report({})).data!.contractFinancialReport;
+    const unpaid = await contracts.save({
+      ...fields,
+      // (conversationId, version) is unique.
+      version: Number(_version ?? 1) + 100,
+      status: ContractStatus.PENDING,
+      paidAt: null,
+      isCharity: true,
+      charityAmount: Number(paid.commissionAmount),
+      deliveryCompanyId: '00000000-0000-4000-8000-00000000dc01',
+      deliveryCompanyNameEn: 'Fast Delivery',
+      deliveryCompanyNameAr: 'توصيل سريع',
+    });
+
+    // One row per page, but totals cover every filtered contract.
+    const all = await report({ limit: 1 });
+    expect(all.errors).toBeUndefined();
+    const result = all.data!.contractFinancialReport;
+    expect(result.items).toHaveLength(1);
+    expect(result.meta.total).toBe(before.meta.total + 1);
+    expect(result.completedCount).toBe(before.completedCount);
+    const commission = Number(paid.commissionAmount);
+    // The charity contract adds to the charity total, not to admin profit.
+    expect(result.totalAdminProfit).toBe(before.totalAdminProfit);
+    expect(result.totalCharity).toBe(before.totalCharity + commission);
+    expect(result.totalProviderNet).toBe(
+      before.totalProviderNet + Number(paid.providerNetAmount),
+    );
+    expect(result.totalContractValue).toBe(
+      before.totalContractValue + Number(paid.totalPayable),
+    );
+
+    const delivered = await report({
+      deliveryCompanyId: '00000000-0000-4000-8000-00000000dc01',
+    });
+    expect(delivered.data!.contractFinancialReport.items).toEqual([
+      expect.objectContaining({
+        contractId: unpaid.id,
+        status: ContractStatus.PENDING,
+        isCharity: true,
+        adminProfit: 0,
+        deliveryCompanyNameEn: 'Fast Delivery',
+      }),
+    ]);
+
+    // report:read alone may view but not export (BRD export permission).
+    await request(app.getHttpServer())
+      .get('/reports/contracts/export?format=xlsx')
+      .set({ Authorization: `Bearer ${viewerToken}` })
+      .expect(403);
+
+    await contracts.delete(unpaid.id);
   });
 });
 
