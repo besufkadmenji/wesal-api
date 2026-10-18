@@ -634,11 +634,190 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     );
     expect(hiddenReviews.data.listingReviews.meta.total).toBe(0);
   });
+
+  it('serves live statistics: public to visitors, dashboard to admins only, pushed on change', async () => {
+    const dataSource = app.get(DataSource);
+    const url = `${appUrl.replace(/^http/, 'ws')}/graphql`;
+    type Platform = {
+      completedContracts: number;
+      providers: number;
+      customers: number;
+    };
+    type Dashboard = Platform & {
+      messagesToday: number;
+      featuredListings: number;
+      freeListings: number;
+    };
+    const graphql = async <T>(query: string, token?: string) => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set(token ? { Authorization: `Bearer ${token}` } : {})
+        .send({ query });
+      return response.body as {
+        data: T | null;
+        errors?: Array<{ message: string }>;
+      };
+    };
+    const platformQuery = `{ platformStats { completedContracts providers customers } }`;
+    const dashboardFields = `customers providers completedContracts messagesToday featuredListings freeListings`;
+    const adminToken = jwt.sign(
+      {
+        sub: '00000000-0000-4000-8000-0000000000ad',
+        email: 'stats-admin@example.com',
+        permissionType: AdminPermissionType.SUPER_ADMIN,
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    const customerToken = jwt.sign(
+      transactionCustomer,
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+
+    // Public query works for visitors and reflects the earlier completed contract.
+    const before = await graphql<{ platformStats: Platform }>(platformQuery);
+    expect(before.errors).toBeUndefined();
+    const baseline = before.data!.platformStats;
+    expect(baseline.completedContracts).toBeGreaterThanOrEqual(1);
+    expect(baseline.customers).toBeGreaterThanOrEqual(1);
+
+    // The admin dashboard is refused without a token and for customers.
+    const dashboardQuery = `{ adminDashboardStats { ${dashboardFields} } }`;
+    expect((await graphql(dashboardQuery)).errors).toBeDefined();
+    expect((await graphql(dashboardQuery, customerToken)).errors).toBeDefined();
+    const dashboard = await graphql<{ adminDashboardStats: Dashboard }>(
+      dashboardQuery,
+      adminToken,
+    );
+    expect(dashboard.errors).toBeUndefined();
+    const dashboardBaseline = dashboard.data!.adminDashboardStats;
+    expect(dashboardBaseline).toMatchObject(baseline);
+
+    // Only active accounts count.
+    const existing = await dataSource
+      .getRepository(User)
+      .findOneByOrFail({ id: transactionCustomer.sub });
+    await dataSource.getRepository(User).save({
+      name: 'Inactive Stats Customer',
+      phone: '+966500000901',
+      email: 'stats-inactive@example.com',
+      password: '',
+      status: UserStatus.INACTIVE,
+      cityId: existing.cityId,
+      countryId: existing.countryId,
+      address: 'Stats address',
+    });
+    const afterInactive = await graphql<{ platformStats: Platform }>(
+      platformQuery,
+    );
+    expect(afterInactive.data!.platformStats.customers).toBe(
+      baseline.customers,
+    );
+
+    // A visitor's anonymous connection receives the public push.
+    let visitorConnected: () => void;
+    const visitorReady = new Promise<void>((resolve) => {
+      visitorConnected = resolve;
+    });
+    const visitor = createClient({
+      url,
+      webSocketImpl: WebSocket,
+      retryAttempts: 0,
+      on: { connected: () => visitorConnected() },
+    });
+    const publicPush = subscriptionUntil<{ platformStatsUpdated: Platform }>(
+      visitor,
+      {
+        query: `subscription { platformStatsUpdated { completedContracts providers customers } }`,
+      },
+      (value) =>
+        value.platformStatsUpdated.customers === baseline.customers + 1,
+    );
+    await visitorReady;
+    await waitForSubscriptionRegistration();
+    await dataSource.getRepository(User).save({
+      name: 'Active Stats Customer',
+      phone: '+966500000902',
+      email: 'stats-active@example.com',
+      password: '',
+      status: UserStatus.ACTIVE,
+      cityId: existing.cityId,
+      countryId: existing.countryId,
+      address: 'Stats address',
+    });
+    await expect(publicPush).resolves.toMatchObject({
+      platformStatsUpdated: { customers: baseline.customers + 1 },
+    });
+    await visitor.dispose();
+
+    // The admin push is refused on anonymous and customer connections...
+    const adminSubscription = {
+      query: `subscription { adminDashboardStatsUpdated { ${dashboardFields} } }`,
+    };
+    const expectedWsError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    for (const connectionParams of [
+      undefined,
+      { Authorization: `Bearer ${customerToken}` },
+    ]) {
+      const refused = createClient({
+        url,
+        webSocketImpl: WebSocket,
+        retryAttempts: 0,
+        connectionParams,
+      });
+      await expect(
+        subscriptionError(refused, adminSubscription),
+      ).resolves.toBeDefined();
+      await refused.dispose();
+    }
+    expectedWsError.mockRestore();
+
+    // ...and delivered to an admin when someone sends a chat message.
+    let adminConnected: () => void;
+    const adminReady = new Promise<void>((resolve) => {
+      adminConnected = resolve;
+    });
+    const admin = createClient({
+      url,
+      webSocketImpl: WebSocket,
+      retryAttempts: 0,
+      connectionParams: { Authorization: `Bearer ${adminToken}` },
+      on: { connected: () => adminConnected() },
+    });
+    const adminPush = subscriptionUntil<{
+      adminDashboardStatsUpdated: Dashboard;
+    }>(
+      admin,
+      adminSubscription,
+      (value) =>
+        value.adminDashboardStatsUpdated.messagesToday ===
+        dashboardBaseline.messagesToday + 1,
+    );
+    await adminReady;
+    await waitForSubscriptionRegistration();
+    await app.get(MessageService).create(
+      {
+        conversationId: transactionConversationId,
+        content: 'Counts toward today',
+      },
+      transactionCustomer,
+    );
+    await expect(adminPush).resolves.toMatchObject({
+      adminDashboardStatsUpdated: {
+        messagesToday: dashboardBaseline.messagesToday + 1,
+        customers: baseline.customers + 1,
+      },
+    });
+    await admin.dispose();
+  });
 });
 
 function subscriptionError(
   client: GraphqlWsClient,
-  payload: { query: string; variables: { conversationId: string } },
+  payload: { query: string; variables?: Record<string, unknown> },
 ): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(
@@ -676,6 +855,43 @@ function subscriptionNext(
         clearTimeout(timeout);
         unsubscribe();
         resolve(value);
+      },
+      error: (error) => {
+        clearTimeout(timeout);
+        reject(
+          error instanceof Error
+            ? error
+            : new Error(`Subscription failed: ${JSON.stringify(error)}`),
+        );
+      },
+      complete: () => undefined,
+    });
+  });
+}
+
+/** Lets the server register a subscription after the connection is acknowledged. */
+function waitForSubscriptionRegistration(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 200));
+}
+
+/** Resolves with the first pushed value that satisfies `matches`. */
+function subscriptionUntil<T>(
+  client: GraphqlWsClient,
+  payload: { query: string; variables?: Record<string, unknown> },
+  matches: (value: T) => boolean,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(
+      () => reject(new Error('Subscription timeout')),
+      10_000,
+    );
+    let unsubscribe = (): void => undefined;
+    unsubscribe = client.subscribe<T>(payload, {
+      next: (value) => {
+        if (!value.data || !matches(value.data)) return;
+        clearTimeout(timeout);
+        unsubscribe();
+        resolve(value.data);
       },
       error: (error) => {
         clearTimeout(timeout);

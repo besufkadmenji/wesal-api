@@ -17,6 +17,7 @@ import { ContractModule } from './contract/contract.module';
 import { PaymentModule } from './payment/payment.module';
 import { FavoriteModule } from './favorite/favorite.module';
 import { RatingModule } from './rating/rating.module';
+import { StatisticsModule } from './statistics/statistics.module';
 import { ComplaintModule } from './complaint/complaint.module';
 import { NotificationModule } from './notification/notification.module';
 import { AuthModule } from './auth/auth.module';
@@ -107,6 +108,7 @@ function getDatabaseConfig() {
     PaymentModule,
     FavoriteModule,
     RatingModule,
+    StatisticsModule,
     ComplaintModule,
     NotificationModule,
     FileUploadModule,

@@ -5,18 +5,31 @@ import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import GraphQLJSON from 'graphql-type-json';
 import * as jwt from 'jsonwebtoken';
+import type { AdminJwtPayload } from '../../src/admin/types/admin-jwt-payload.type';
 import type { JwtPayload } from '../../src/auth/strategies/jwt.strategy';
 
-export function verifySubscriptionPrincipal(
+export interface SubscriptionAuth {
+  principal?: JwtPayload;
+  admin?: AdminJwtPayload;
+}
+
+/**
+ * Authenticates a graphql-ws connection. A connection without a token is
+ * anonymous and can only use public subscriptions (guarded subscriptions
+ * reject it). A token, when sent, must be a valid customer, provider or
+ * admin access token.
+ */
+export function verifySubscriptionConnection(
   connectionParams?: Record<string, unknown>,
-): JwtPayload {
+): SubscriptionAuth {
   const authorization =
     connectionParams?.Authorization ?? connectionParams?.authorization;
+  if (authorization === undefined || authorization === '') return {};
   if (
     typeof authorization !== 'string' ||
     !authorization.startsWith('Bearer ')
   ) {
-    throw new Error('Unauthorized: missing token');
+    throw new Error('Unauthorized: invalid token');
   }
 
   try {
@@ -24,14 +37,20 @@ export function verifySubscriptionPrincipal(
       authorization.slice('Bearer '.length),
       process.env.JWT_SECRET || 'your-secret-key',
     );
-    if (
-      typeof decoded === 'string' ||
-      typeof decoded.sub !== 'string' ||
-      (decoded.type !== 'user' && decoded.type !== 'provider')
-    ) {
+    if (typeof decoded === 'string' || typeof decoded.sub !== 'string') {
       throw new Error('Invalid principal');
     }
-    return decoded as JwtPayload;
+    if (decoded.type === 'user' || decoded.type === 'provider') {
+      return { principal: decoded as JwtPayload };
+    }
+    // Admin access tokens carry a permission type and no principal type.
+    if (
+      decoded.type === undefined &&
+      typeof decoded.permissionType === 'string'
+    ) {
+      return { admin: decoded as AdminJwtPayload };
+    }
+    throw new Error('Invalid principal');
   } catch {
     throw new Error('Unauthorized: invalid token');
   }
@@ -52,7 +71,7 @@ export function verifySubscriptionPrincipal(
         'graphql-ws': {
           onConnect: (ctx: any) => {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            ctx.extra.principal = verifySubscriptionPrincipal(
+            ctx.extra.auth = verifySubscriptionConnection(
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
               ctx.connectionParams as Record<string, unknown> | undefined,
             );
@@ -65,7 +84,8 @@ export function verifySubscriptionPrincipal(
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         if (ctx.extra) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          return { principal: ctx.extra.principal };
+          const auth = (ctx.extra.auth ?? {}) as SubscriptionAuth;
+          return { principal: auth.principal, admin: auth.admin };
         }
         // HTTP request context
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
