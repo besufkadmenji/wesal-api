@@ -1940,4 +1940,25 @@ export const seedData = [
     createdAt: '2026-10-18T00:00:00.000Z',
     updatedAt: '2026-10-18T00:00:00.000Z',
   })),
+  // Sprint 4: Wesal Al-Khair (charity list) management.
+  ...[
+    ['charity', 'read', 'Read Charity List', 'عرض قائمة الصدقات'],
+    [
+      'charity',
+      'full_access',
+      'Full Access Charity List',
+      'وصول كامل لقائمة الصدقات',
+    ],
+  ].map(([module, action, name, nameAr], index) => ({
+    id: 346 + index,
+    name,
+    nameAr,
+    description: `Can ${action} ${module}`,
+    module,
+    action,
+    resource: module,
+    permissionPlatform: 'ADMIN',
+    createdAt: '2026-10-18T00:00:00.000Z',
+    updatedAt: '2026-10-18T00:00:00.000Z',
+  })),
 ];

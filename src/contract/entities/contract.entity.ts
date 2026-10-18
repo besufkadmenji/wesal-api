@@ -109,6 +109,17 @@ export class Contract {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   commissionAmount: number;
 
+  /** Wesal Al-Khair (BRD 4.3.17.5, PO 2026-10-18): commission waived. */
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  isCharity: boolean;
+
+  @Field(() => Float, {
+    description: 'The waived commission on a charity contract (0 otherwise)',
+  })
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  charityAmount: number;
+
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   vatRate: number;

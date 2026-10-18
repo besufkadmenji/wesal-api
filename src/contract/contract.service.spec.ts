@@ -333,28 +333,83 @@ describe('ContractService', () => {
     expect(contract.audits).toBeUndefined();
   });
 
+  const customer = {
+    sub: conversation.userId,
+    email: 'customer@example.com',
+    type: 'user' as const,
+  };
+
   it('calculates contract terms on the server', async () => {
+    // 2% of 10,000 = 200 SAR, above the 100 SAR minimum: commission applies.
     const quote = await service.quote(
-      { conversationId: conversation.id, agreedPrice: 500 },
-      {
-        sub: conversation.userId,
-        email: 'customer@example.com',
-        type: 'user',
-      },
+      { conversationId: conversation.id, agreedPrice: 10000 },
+      customer,
     );
 
     expect(quote).toMatchObject({
-      agreedPrice: 500,
+      agreedPrice: 10000,
       depositPercent: 10,
-      downPayment: 50,
+      downPayment: 1000,
       commissionPercent: 2,
-      commissionAmount: 10,
+      commissionAmount: 200,
+      isCharity: false,
+      charityAmount: 0,
       vatRate: 15,
-      vatAmount: 75,
-      totalPayable: 575,
-      providerNetAmount: 490,
+      vatAmount: 1500,
+      totalPayable: 11500,
+      providerNetAmount: 9800,
       contractDocumentText: 'Binding terms',
     });
+  });
+
+  it('makes a contract charity when the commission is at or below the minimum', async () => {
+    // 2% of 500 = 10 SAR ≤ 100 SAR minimum: waived, kept as the charity amount.
+    await expect(
+      service.quote(
+        { conversationId: conversation.id, agreedPrice: 500 },
+        customer,
+      ),
+    ).resolves.toMatchObject({
+      commissionAmount: 0,
+      isCharity: true,
+      charityAmount: 10,
+      providerNetAmount: 500,
+    });
+    // Boundary: 2% of 5,000 = 100 SAR equals the minimum, so still charity.
+    await expect(
+      service.quote(
+        { conversationId: conversation.id, agreedPrice: 5000 },
+        customer,
+      ),
+    ).resolves.toMatchObject({ isCharity: true, charityAmount: 100 });
+  });
+
+  it('never makes a contract charity without a minimum or a commission', async () => {
+    const category = (await categoryRepository.findOne()) as Record<
+      string,
+      unknown
+    >;
+    categoryRepository.findOne.mockResolvedValue({
+      ...category,
+      minCommissionEnabled: false,
+    });
+    await expect(
+      service.quote(
+        { conversationId: conversation.id, agreedPrice: 500 },
+        customer,
+      ),
+    ).resolves.toMatchObject({ isCharity: false, commissionAmount: 10 });
+
+    categoryRepository.findOne.mockResolvedValue({
+      ...category,
+      commissionEnabled: false,
+    });
+    await expect(
+      service.quote(
+        { conversationId: conversation.id, agreedPrice: 500 },
+        customer,
+      ),
+    ).resolves.toMatchObject({ isCharity: false, commissionAmount: 0 });
   });
 
   it('rejects provider delivery time above the snapshot limit', async () => {

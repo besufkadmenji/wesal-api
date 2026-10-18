@@ -15,6 +15,7 @@ import { InitializeContractInput } from './dto/initialize-contract.input';
 import { ContractPaginationInput } from './dto/contract-pagination.input';
 import { ContractQuoteInput } from './dto/contract-quote.input';
 import { ContractQuote } from './dto/contract-quote.response';
+import { CharitySummary } from './dto/charity-summary.response';
 import { AcceptContractInput } from './dto/accept-contract.input';
 import { CompleteContractInput } from './dto/complete-contract.input';
 import { RejectContractInput } from './dto/reject-contract.input';
@@ -991,6 +992,7 @@ export class ContractService {
       conversationId,
       status,
       categoryId,
+      isCharity,
       search,
       from,
       to,
@@ -1033,6 +1035,9 @@ export class ContractService {
     if (categoryId) {
       query.andWhere('contract.categoryId = :categoryId', { categoryId });
     }
+    if (isCharity !== undefined) {
+      query.andWhere('contract.isCharity = :isCharity', { isCharity });
+    }
     if (search?.trim()) {
       query.andWhere(
         `(contract."publicId"::text ILIKE :search
@@ -1069,6 +1074,35 @@ export class ContractService {
         hasNext: page < totalPages,
         hasPrevious: page > 1,
       },
+    };
+  }
+
+  /** Wesal Al-Khair totals for the admin; amounts count completed contracts only. */
+  async charitySummary(from?: Date, to?: Date): Promise<CharitySummary> {
+    const query = this.contractRepository
+      .createQueryBuilder('contract')
+      .select('COUNT(*)::int', 'contracts')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE contract.status = :completed)::int',
+        'completedContracts',
+      )
+      .addSelect(
+        'COALESCE(SUM(contract.charityAmount) FILTER (WHERE contract.status = :completed), 0)',
+        'totalAmount',
+      )
+      .where('contract.isCharity = true')
+      .setParameter('completed', ContractStatus.COMPLETED);
+    if (from) query.andWhere('contract.createdAt >= :from', { from });
+    if (to) query.andWhere('contract.createdAt <= :to', { to });
+    const row = await query.getRawOne<{
+      contracts: number;
+      completedContracts: number;
+      totalAmount: string;
+    }>();
+    return {
+      contracts: Number(row?.contracts ?? 0),
+      completedContracts: Number(row?.completedContracts ?? 0),
+      totalAmount: Number(row?.totalAmount ?? 0),
     };
   }
 
@@ -1452,10 +1486,16 @@ export class ContractService {
     const threshold = category.minCommissionEnabled
       ? Number(category.minCommissionAmount ?? 0)
       : 0;
-    const commissionApplies = threshold <= 0 || price >= threshold;
-    const commissionAmount = commissionApplies
-      ? this.round(price * (commissionPercent / 100))
-      : 0;
+    // PO 2026-10-18: a contract whose calculated commission is at or below
+    // the category minimum is charity (Wesal Al-Khair); the commission is
+    // waived, and the waived amount is kept for the admin donation total.
+    const calculatedCommission = this.round(price * (commissionPercent / 100));
+    const isCharity =
+      commissionPercent > 0 &&
+      threshold > 0 &&
+      calculatedCommission <= threshold;
+    const commissionAmount = isCharity ? 0 : calculatedCommission;
+    const charityAmount = isCharity ? calculatedCommission : 0;
     const vatRate = setting.vatEnabled ? Number(setting.vatRate ?? 0) : 0;
     const vatAmount = this.round(price * (vatRate / 100));
     return {
@@ -1484,6 +1524,8 @@ export class ContractService {
       downPayment: this.round(price * (depositPercent / 100)),
       commissionPercent,
       commissionAmount,
+      isCharity,
+      charityAmount,
       vatRate,
       vatAmount,
       totalPayable: this.round(price + vatAmount),
@@ -1516,6 +1558,8 @@ export class ContractService {
       downPayment: snapshot.downPayment,
       commissionPercent: snapshot.commissionPercent,
       commissionAmount: snapshot.commissionAmount,
+      isCharity: snapshot.isCharity,
+      charityAmount: snapshot.charityAmount,
       vatRate: snapshot.vatRate,
       vatAmount: snapshot.vatAmount,
       totalPayable: snapshot.totalPayable,
@@ -1552,6 +1596,8 @@ export class ContractService {
       downPayment: snapshot.downPayment,
       commissionPercent: snapshot.commissionPercent,
       commissionAmount: snapshot.commissionAmount,
+      isCharity: snapshot.isCharity,
+      charityAmount: snapshot.charityAmount,
       vatRate: snapshot.vatRate,
       vatAmount: snapshot.vatAmount,
       totalPayable: snapshot.totalPayable,

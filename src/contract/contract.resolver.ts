@@ -21,6 +21,7 @@ import { CurrentPrincipal } from '../auth/decorators/current-principal.decorator
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { ContractQuoteInput } from './dto/contract-quote.input';
 import { ContractQuote } from './dto/contract-quote.response';
+import { CharitySummary } from './dto/charity-summary.response';
 import { AcceptContractInput } from './dto/accept-contract.input';
 import { CompleteContractInput } from './dto/complete-contract.input';
 import { RejectContractInput } from './dto/reject-contract.input';
@@ -107,6 +108,28 @@ export class ContractResolver {
     @Args('input', { nullable: true }) input?: ContractPaginationInput,
   ): Promise<IPaginatedType<Contract>> {
     return this.contractService.findAll(input ?? {});
+  }
+
+  @Query(() => PaginatedContractResponse, {
+    name: 'adminCharityContracts',
+    description: 'Wesal Al-Khair list (BRD 4.3.11): charity contracts only',
+  })
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('charity', 'read')
+  adminCharityContracts(
+    @Args('input', { nullable: true }) input?: ContractPaginationInput,
+  ): Promise<IPaginatedType<Contract>> {
+    return this.contractService.findAll({ ...(input ?? {}), isCharity: true });
+  }
+
+  @Query(() => CharitySummary, { name: 'adminCharitySummary' })
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('charity', 'read')
+  adminCharitySummary(
+    @Args('from', { type: () => Date, nullable: true }) from?: Date,
+    @Args('to', { type: () => Date, nullable: true }) to?: Date,
+  ): Promise<CharitySummary> {
+    return this.contractService.charitySummary(from, to);
   }
 
   @Query(() => Contract, { name: 'adminContract' })

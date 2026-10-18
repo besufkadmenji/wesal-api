@@ -156,7 +156,7 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       commissionEnabled: true,
       commissionPercent: 2,
       minCommissionEnabled: true,
-      minCommissionAmount: 100,
+      minCommissionAmount: 5,
       depositEnabled: true,
       depositPercent: 10,
       maxCompletionDaysEnabled: true,
@@ -1349,6 +1349,120 @@ describe('Sprint 3 API boundaries (e2e)', () => {
         )
       ).errors,
     ).toBeDefined();
+  });
+
+  it('flags Wesal Al-Khair contracts and totals them for admins only', async () => {
+    const dataSource = app.get(DataSource);
+    const graphql = async <T>(
+      query: string,
+      variables: object = {},
+      token?: string,
+    ) => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set(token ? { Authorization: `Bearer ${token}` } : {})
+        .send({ query, variables });
+      return response.body as {
+        data: T | null;
+        errors?: Array<{ message: string }>;
+      };
+    };
+    const customerToken = jwt.sign(
+      transactionCustomer,
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    const adminToken = jwt.sign(
+      {
+        sub: '00000000-0000-4000-8000-0000000000ad',
+        email: 'charity-admin@example.com',
+        permissionType: AdminPermissionType.SUPER_ADMIN,
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    const quote = `query Quote($input: ContractQuoteInput!) {
+      contractQuote(input: $input) { commissionAmount isCharity charityAmount providerNetAmount }
+    }`;
+
+    // Category: 2% commission, 5 SAR minimum.
+    const small = await graphql<{
+      contractQuote: { isCharity: boolean; charityAmount: number };
+    }>(
+      quote,
+      {
+        input: { conversationId: transactionConversationId, agreedPrice: 200 },
+      },
+      customerToken,
+    );
+    expect(small.errors).toBeUndefined();
+    expect(small.data!.contractQuote).toEqual({
+      commissionAmount: 0,
+      isCharity: true,
+      charityAmount: 4,
+      providerNetAmount: 200,
+    });
+    const large = await graphql<{ contractQuote: { isCharity: boolean } }>(
+      quote,
+      {
+        input: { conversationId: transactionConversationId, agreedPrice: 500 },
+      },
+      customerToken,
+    );
+    expect(large.data!.contractQuote).toMatchObject({
+      isCharity: false,
+      commissionAmount: 10,
+    });
+
+    // Mark the completed transaction contract as charity to exercise the lists.
+    await dataSource
+      .getRepository(Contract)
+      .update(transactionContractId, { isCharity: true, charityAmount: 10 });
+
+    const mine = await graphql<{
+      contracts: { items: Array<{ id: string; isCharity: boolean }> };
+    }>(
+      `
+        {
+          contracts(input: { isCharity: true }) {
+            items {
+              id
+              isCharity
+            }
+          }
+        }
+      `,
+      {},
+      customerToken,
+    );
+    expect(mine.data!.contracts.items).toEqual([
+      { id: transactionContractId, isCharity: true },
+    ]);
+
+    const adminQuery = `{
+      adminCharitySummary { contracts completedContracts totalAmount }
+      adminCharityContracts { items { id } meta { total } }
+    }`;
+    expect((await graphql(adminQuery, {}, customerToken)).errors).toBeDefined();
+    const admin = await graphql<{
+      adminCharitySummary: {
+        contracts: number;
+        completedContracts: number;
+        totalAmount: number;
+      };
+      adminCharityContracts: { meta: { total: number } };
+    }>(adminQuery, {}, adminToken);
+    expect(admin.errors).toBeUndefined();
+    expect(admin.data!.adminCharitySummary).toEqual({
+      contracts: 1,
+      completedContracts: 1,
+      totalAmount: 10,
+    });
+    expect(admin.data!.adminCharityContracts.meta.total).toBe(1);
+
+    await dataSource
+      .getRepository(Contract)
+      .update(transactionContractId, { isCharity: false, charityAmount: 0 });
   });
 });
 

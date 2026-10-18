@@ -6,6 +6,7 @@ import {
   IsIn,
   IsString,
   IsDate,
+  IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
@@ -62,6 +63,14 @@ export class ContractPaginationInput extends PaginationInput {
   @IsOptional()
   @IsUUID()
   categoryId?: string;
+
+  @Field({
+    nullable: true,
+    description: 'Only Wesal Al-Khair (charity) contracts, or only non-charity',
+  })
+  @IsOptional()
+  @IsBoolean()
+  isCharity?: boolean;
 
   @Field({ nullable: true })
   @IsOptional()
