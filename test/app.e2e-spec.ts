@@ -1023,6 +1023,31 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       ids.indexOf(lowly.listing.id),
     );
 
+    // Home carousel: one ad per Trust provider, and its featured ad wins.
+    const trustedQuery = `{ trustedListings { id provider { id } } }`;
+    const trustedBefore = await graphql<{
+      trustedListings: Array<{ id: string; provider: { id: string } }>;
+    }>(trustedQuery);
+    expect(trustedBefore.errors).toBeUndefined();
+    expect(trustedBefore.data!.trustedListings).toEqual([
+      { id: trusted.listing.id, provider: { id: trusted.provider.id } },
+    ]);
+    const featured = await dataSource.getRepository(Listing).save({
+      ...trusted.listing,
+      id: undefined,
+      name: 'Trusty featured listing',
+      type: ListingType.FEATURED,
+      promotionStatus: PromotionStatus.ACTIVE,
+      featuredStartsAt: new Date(),
+      featuredEndsAt: new Date(Date.now() + 86_400_000),
+    });
+    const trustedAfter = await graphql<{
+      trustedListings: Array<{ id: string }>;
+    }>(trustedQuery);
+    expect(trustedAfter.data!.trustedListings.map((l) => l.id)).toEqual([
+      featured.id,
+    ]);
+
     // A month later: skipped while a contract is unfinished...
     const badgeService = app.get(BadgeService);
     const contracts = dataSource.getRepository(Contract);

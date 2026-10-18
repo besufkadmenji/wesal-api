@@ -23,6 +23,7 @@ describe('ListingService provider finalization', () => {
         Promise.resolve({ id: 'listing-id', ...value }),
       ),
     createQueryBuilder: jest.fn(),
+    query: jest.fn(),
   };
   const providerRepository = { findOne: jest.fn() };
   const categoryRepository = { findOne: jest.fn() };
@@ -248,6 +249,41 @@ describe('ListingService provider finalization', () => {
     );
     expect(result.items[0].type).toBe(ListingType.FEATURED);
     expect(result.items[1].type).toBe(ListingType.FREE);
+  });
+
+  it('returns one trusted ad per Trust-badge provider in query order', async () => {
+    listingRepository.query.mockResolvedValue([{ id: 'b' }, { id: 'a' }]);
+    listingRepository.find.mockResolvedValue([{ id: 'a' }, { id: 'b' }]);
+
+    const result = await service.findTrusted(50);
+
+    const [sql, params] = listingRepository.query.mock.calls[0] as [
+      string,
+      unknown[],
+    ];
+    expect(sql).toContain('DISTINCT ON (l."providerId")');
+    expect(sql).toContain('p.badge = $3');
+    expect(params).toEqual([
+      'ACTIVE',
+      'ACTIVE',
+      'TRUST',
+      ListingType.FEATURED,
+      'COMPLETED',
+      20,
+    ]);
+    expect(result.map((listing) => listing.id)).toEqual(['b', 'a']);
+  });
+
+  it('skips the listing lookup when no provider holds the Trust badge', async () => {
+    listingRepository.query.mockResolvedValue([]);
+
+    await expect(service.findTrusted()).resolves.toEqual([]);
+    const [, params] = listingRepository.query.mock.calls[0] as [
+      string,
+      unknown[],
+    ];
+    expect(params).toContain(10);
+    expect(listingRepository.find).not.toHaveBeenCalled();
   });
 
   it('schedules and idempotently expires featured promotions', async () => {

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import { In, LessThanOrEqual, Repository } from 'typeorm';
 import { Interval } from '@nestjs/schedule';
 import {
   I18nBadRequestException,
@@ -27,6 +27,7 @@ import { PaginatedListingResponse } from './dto/paginated-listings.response';
 import { UpdateListingInput } from './dto/update-listing.input';
 import { CreateListingMediaInput } from './dto/create-listing-media.input';
 import { BadgeTier } from '../badge/enums/badge-tier.enum';
+import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { Listing } from './entities/listing.entity';
 import { MediaType } from './enums/media.enum';
 import {
@@ -38,6 +39,9 @@ import { LISTING_ERROR_CODES } from './errors/listing.error-codes';
 import { LISTING_ERROR_MESSAGES } from './errors/listing.error-messages';
 import { SettingService } from '../setting/setting.service';
 import { PaymentService } from '../payment/payment.service';
+
+export const TRUSTED_LISTINGS_DEFAULT = 10;
+export const TRUSTED_LISTINGS_MAX = 20;
 
 @Injectable()
 export class ListingService {
@@ -349,6 +353,62 @@ export class ListingService {
     }
 
     return listing;
+  }
+
+  /**
+   * Home "trusted advertisers" carousel (BRD 4.1.2 / 4.2.2): one active ad
+   * per Trust-badge provider, best-selling providers first. Each provider's
+   * ad is their featured one, else their best-selling, else their newest.
+   */
+  async findTrusted(limit = TRUSTED_LISTINGS_DEFAULT): Promise<Listing[]> {
+    const take = Math.min(Math.max(limit, 1), TRUSTED_LISTINGS_MAX);
+    const rows: Array<{ id: string }> = await this.listingRepository.query(
+      `
+      SELECT picked.id
+      FROM (
+        SELECT DISTINCT ON (l."providerId") l.id, l."providerId", l."createdAt"
+        FROM listings l
+        JOIN providers p ON p.id = l."providerId"
+        WHERE l.status = $1
+          AND p.status = $2
+          AND p."isActive" = true
+          AND p."deletedAt" IS NULL
+          AND p.badge = $3
+        ORDER BY
+          l."providerId",
+          (l.type = $4) DESC,
+          (SELECT COUNT(*) FROM contracts c
+            WHERE c."listingId" = l.id AND c.status = $5) DESC,
+          l."createdAt" DESC
+      ) picked
+      JOIN providers p ON p.id = picked."providerId"
+      ORDER BY
+        (SELECT COUNT(*) FROM contracts c
+          WHERE c."providerId" = p.id AND c.status = $5) DESC,
+        p."ratingAverage" DESC,
+        picked."createdAt" DESC
+      LIMIT $6
+      `,
+      [
+        ListingStatus.ACTIVE,
+        ProviderStatus.ACTIVE,
+        BadgeTier.TRUST,
+        ListingType.FEATURED,
+        ContractStatus.COMPLETED,
+        take,
+      ],
+    );
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((row) => row.id);
+    const listings = await this.listingRepository.find({
+      where: { id: In(ids) },
+      relations: ['provider', 'category', 'city'],
+    });
+    const byId = new Map(listings.map((listing) => [listing.id, listing]));
+    return ids
+      .map((id) => byId.get(id))
+      .filter((listing): listing is Listing => Boolean(listing));
   }
 
   @Interval(60_000)
