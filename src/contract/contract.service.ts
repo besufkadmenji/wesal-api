@@ -71,6 +71,10 @@ import { RatingStatus } from '../rating/enums/rating-status.enum';
 import { RatingService } from '../rating/rating.service';
 import { earlyCancellationSplit } from './cancellation-outcome';
 import {
+  claimContractNumber,
+  releaseContractNumbers,
+} from './contract-number-pool';
+import {
   CUSTOMER_OVERDUE_SQL,
   isCustomerOverdue,
   isProviderOverdue,
@@ -155,6 +159,13 @@ interface ContractDetailsInput {
 
 /** Money moved by a settlement, for the payout/refund notifications. */
 type SettlementMoney = { payout: number; refund: number };
+
+/** Never paid: cancelling one deletes it (BRD 4.1.18, D-13). */
+const PRE_PAYMENT_STATUSES = [
+  ContractStatus.DRAFT,
+  ContractStatus.PENDING,
+  ContractStatus.ACCEPTED,
+];
 
 /** Stored on contracts the deal window cancelled (both languages, one field). */
 export const EXPIRED_CANCELLATION_REASON =
@@ -295,6 +306,7 @@ export class ContractService {
           ...this.contractValues(snapshot, conversation, {
             customerAddress: '',
           }),
+          ...(await this.reusedNumber(manager)),
           version: 1,
           pricingVersion: 2,
           supersedesContractId: null,
@@ -362,6 +374,7 @@ export class ContractService {
           )
         : repository.create({
             ...this.contractValues(snapshot, conversation, input),
+            ...(await this.reusedNumber(manager)),
             version: 1,
             pricingVersion: 2,
             supersedesContractId: null,
@@ -451,6 +464,7 @@ export class ContractService {
       );
       const contract = manager.getRepository(Contract).create({
         ...this.contractValues(snapshot, conversation, input),
+        ...(await this.reusedNumber(manager)),
         version: rejected.version + 1,
         pricingVersion: 2,
         supersedesContractId: rejected.id,
@@ -843,6 +857,25 @@ export class ContractService {
         throw this.error('INVALID_STATUS_TRANSITION', language);
       }
       const reason = input.reason.trim();
+      // BRD 4.1.18: before payment the contract disappears entirely and its
+      // number returns to the cycle (D-13, decision 2026-10-19).
+      if (PRE_PAYMENT_STATUSES.includes(previousStatus)) {
+        const removed = {
+          ...contract,
+          status: ContractStatus.CANCELLED,
+          cancellationReason: reason,
+          cancelledAt: new Date(),
+        } as Contract;
+        const event = await this.deleteUnpaidChain(contract, manager, reason);
+        return {
+          contract: removed,
+          event,
+          money: null,
+          removed: true,
+          // The provider never saw a draft, so it isn't notified.
+          notify: previousStatus !== ContractStatus.DRAFT,
+        };
+      }
       contract.cancellationReason = reason;
       contract.cancellationRequestedAt = new Date();
       const early = [
@@ -905,9 +938,17 @@ export class ContractService {
         { contractId: contract.id, reason },
         manager,
       );
-      return { contract: saved, event, money };
+      return { contract: saved, event, money, removed: false };
     });
     await this.publishSafely(result.event);
+    if ('removed' in result && result.removed) {
+      // The record is gone: tell the provider without linking to it, and
+      // answer with the final snapshot (the mutation's type is non-null).
+      if ('notify' in result && result.notify) {
+        await this.notifyRemoved(result.contract);
+      }
+      return result.contract;
+    }
     await this.notifyContract(
       result.contract.providerId,
       NotificationRecipientType.PROVIDER,
@@ -1431,6 +1472,14 @@ export class ContractService {
     if (!signed) throw this.error('CUSTOMER_SIGNATURE_REQUIRED', language);
   }
 
+  /** A number released by a pre-payment deletion, if any (BRD 4.1.18). */
+  private async reusedNumber(
+    manager: EntityManager,
+  ): Promise<{ publicId?: number }> {
+    const number = await claimContractNumber(manager);
+    return number ? { publicId: number } : {};
+  }
+
   /** BRD 4.1.18: a provider-overdue cancellation counts as a 0★ rating. */
   private async recordOverduePenalty(
     contract: Contract,
@@ -1571,40 +1620,20 @@ export class ContractService {
     unpaid: ContractStatus[],
   ): Promise<void> {
     const reason = EXPIRED_CANCELLATION_REASON;
-    const result = await this.dataSource.transaction(async (manager) => {
-      const now = new Date();
-      const update = await manager.getRepository(Contract).update(
-        { id: contract.id, status: In(unpaid) },
-        {
-          status: ContractStatus.CANCELLED,
-          cancelledAt: now,
-          cancellationReason: reason,
-        },
-      );
-      if (update.affected !== 1) return null;
-      await this.recordAudit(
-        manager,
-        contract,
-        contract.clientId,
-        ContractActorType.SYSTEM,
-        ContractAuditAction.TIMEOUT_CANCELLED,
-        contract.status,
-        ContractStatus.CANCELLED,
-        reason,
-        { chatExpired: true },
-      );
-      return this.messageService.persistSystemEvent(
-        contract.conversationId,
-        MessageKind.CONTRACT_CANCELLED,
-        { contractId: contract.id, reason, expired: true },
-        manager,
-      );
+    const event = await this.dataSource.transaction(async (manager) => {
+      // Re-read under lock: an earlier chain deletion may have removed it.
+      const current = await manager.getRepository(Contract).findOne({
+        where: { id: contract.id, status: In(unpaid) },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!current) return null;
+      return this.deleteUnpaidChain(current, manager, reason, {
+        expired: true,
+      });
     });
-    if (!result) return;
-    await this.publishSafely(result);
+    if (!event) return;
+    await this.publishSafely(event);
     if (contract.status === ContractStatus.DRAFT) return;
-    const cancelled = { ...contract, status: ContractStatus.CANCELLED };
-    await this.notifyAdminsOfContract(cancelled, 'status');
     if (!this.notificationService) return;
     const text = notificationTexts.contractExpired(
       contract.publicId ?? contract.id,
@@ -1618,10 +1647,92 @@ export class ContractService {
         recipientType,
         type: NotificationType.CONTRACT_UPDATE,
         text,
-        relatedEntityId: contract.id,
-        relatedEntityType: 'contract',
       });
     }
+  }
+
+  /**
+   * BRD 4.1.16 / 4.1.18 (D-13): a contract that was never paid is removed
+   * with its whole version chain; its numbers return to the pool. The chat
+   * keeps one event with the number and reason (no link), and complaints and
+   * notifications that pointed at it are unlinked. Runs in the caller's
+   * transaction.
+   */
+  private async deleteUnpaidChain(
+    contract: Contract,
+    manager: EntityManager,
+    reason: string,
+    metadata: Record<string, unknown> = {},
+  ): Promise<MessageAddedPayload> {
+    const repository = manager.getRepository(Contract);
+    const chain = [contract];
+    let previousId = contract.supersedesContractId;
+    while (previousId) {
+      const previous = await repository.findOne({ where: { id: previousId } });
+      if (!previous || previous.paidAt) break;
+      chain.push(previous);
+      previousId = previous.supersedesContractId;
+    }
+    if (chain.some((entry) => entry.paidAt)) {
+      throw new Error(`Contract ${contract.id} was paid; it cannot be removed`);
+    }
+    const ids = chain.map((entry) => entry.id);
+    const [payments, ratings] = await Promise.all([
+      manager.getRepository(Payment).count({ where: { contractId: In(ids) } }),
+      manager.getRepository(Rating).count({ where: { contractId: In(ids) } }),
+    ]);
+    if (payments || ratings) {
+      throw new Error(`Contract ${contract.id} has payments or ratings`);
+    }
+    await manager.query(
+      'UPDATE "complaints" SET "contractId" = NULL WHERE "contractId" = ANY($1::uuid[])',
+      [ids],
+    );
+    await manager.query(
+      `UPDATE "notifications" SET "relatedEntityId" = NULL
+       WHERE "relatedEntityType" = 'contract' AND "relatedEntityId" = ANY($1::uuid[])`,
+      [ids],
+    );
+    const event = await this.messageService.persistSystemEvent(
+      contract.conversationId,
+      MessageKind.CONTRACT_CANCELLED,
+      {
+        contractNumber: contract.publicId,
+        reason,
+        removed: true,
+        ...metadata,
+      },
+      manager,
+    );
+    await repository.delete({ id: In(ids) });
+    await releaseContractNumbers(
+      manager,
+      chain.map((entry) => entry.publicId),
+    );
+    return event;
+  }
+
+  /** The provider learns of a pre-payment cancellation; no link to follow. */
+  private async notifyRemoved(contract: Contract): Promise<void> {
+    if (!this.notificationService) return;
+    const reference = contract.publicId ?? contract.id;
+    await this.notificationService.notifyLocalized({
+      recipientId: contract.providerId,
+      recipientType: NotificationRecipientType.PROVIDER,
+      type: NotificationType.CONTRACT_UPDATE,
+      text: notificationTexts.contractStatus(reference, {
+        ar: localizeEnum(
+          CONTRACT_STATUS_LABELS,
+          ContractStatus.CANCELLED,
+          'ar',
+        ),
+        en: localizeEnum(
+          CONTRACT_STATUS_LABELS,
+          ContractStatus.CANCELLED,
+          'en',
+        ),
+      }),
+    });
   }
 
   private async recordAudit(

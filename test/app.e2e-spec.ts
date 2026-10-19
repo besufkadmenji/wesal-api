@@ -22,6 +22,7 @@ import { Conversation } from '../src/conversation/entities/conversation.entity';
 import { Notification } from '../src/notification/entities/notification.entity';
 import { ContractStatus } from '../src/contract/enums/contract-status.enum';
 import { ContractResolution } from '../src/contract/dto/admin-resolve-contract.input';
+import { claimContractNumber } from '../src/contract/contract-number-pool';
 import { ConversationService } from '../src/conversation/conversation.service';
 import { Message } from '../src/conversation/entities/message.entity';
 import { MessageKind } from '../src/conversation/enums/message-kind.enum';
@@ -1994,20 +1995,34 @@ describe('Sprint 3 API boundaries (e2e)', () => {
         transactionContractId,
       );
 
-      // Unpaid deal whose chat window ran out: cancelled once, kept.
+      // Unpaid deal whose chat window ran out: removed once (BRD 4.1.16,
+      // D-13), its number pooled. A clone, so the shared contract stays.
       await contracts.update(transactionContractId, {
-        status: ContractStatus.ACCEPTED,
+        status: original.status,
+        paidAt: original.paidAt,
       });
+      const { id: _cloneId, publicId: _cloneNumber, ...fields } = original;
+      void _cloneId;
+      void _cloneNumber;
+      const unpaid = await contracts.save(
+        contracts.create({
+          ...fields,
+          status: ContractStatus.ACCEPTED,
+          paidAt: null,
+          version: original.version + 20,
+          supersedesContractId: null,
+        }),
+      );
       await conversations.update(conversation.id, {
         expiresAt: new Date(Date.now() - 60_000),
       });
       await service.cancelExpiredUnpaidContracts();
       await service.cancelExpiredUnpaidContracts();
-      const expired = await contracts.findOneByOrFail({
-        id: transactionContractId,
-      });
-      expect(expired.status).toBe(ContractStatus.CANCELLED);
-      expect(expired.cancellationReason).toMatch(/chat ended/);
+      expect(await contracts.findOneBy({ id: unpaid.id })).toBeNull();
+      // The paid contract in the same chat is untouched.
+      expect(
+        (await contracts.findOneByOrFail({ id: transactionContractId })).status,
+      ).toBe(original.status);
     } finally {
       await contracts.update(transactionContractId, {
         status: original.status,
@@ -2071,6 +2086,54 @@ describe('Sprint 3 API boundaries (e2e)', () => {
         resolvedAt: original.resolvedAt,
       });
     }
+  });
+
+  it('removes a contract cancelled before payment and reuses its number (D-13)', async () => {
+    const dataSource = app.get(DataSource);
+    const contracts = dataSource.getRepository(Contract);
+    const template = await contracts.findOneByOrFail({
+      id: transactionContractId,
+    });
+    const { id: _id, publicId: _number, ...fields } = template;
+    void _id;
+    void _number;
+    const pending = await contracts.save(
+      contracts.create({
+        ...fields,
+        status: ContractStatus.PENDING,
+        paidAt: null,
+        acceptedAt: null,
+        completedAt: null,
+        resolvedAt: null,
+        supersedesContractId: null,
+        // Newer than every version in the chat, so it may be changed.
+        version: template.version + 10,
+      }),
+    );
+    const number = Number(pending.publicId);
+
+    const result = await app
+      .get(ContractService)
+      .requestCancellation(
+        { contractId: pending.id, reason: 'Changed my mind' },
+        transactionCustomer,
+      );
+
+    expect(result.status).toBe(ContractStatus.CANCELLED);
+    expect(await contracts.findOneBy({ id: pending.id })).toBeNull();
+    await expect(
+      app.get(ContractService).findOne(pending.id, transactionCustomer),
+    ).rejects.toThrow();
+    // Released to the pool; the smallest pooled number is claimed first.
+    const pool = await dataSource.query<Array<{ number: string }>>(
+      'SELECT "number" FROM "contract_number_pool" ORDER BY "number"',
+    );
+    const numbers = pool.map((row) => Number(row.number));
+    expect(numbers).toContain(number);
+    const reused = await dataSource.transaction((manager) =>
+      claimContractNumber(manager),
+    );
+    expect(reused).toBe(numbers[0]);
   });
 
   // Last: it runs a badge assignment, which may change other providers.

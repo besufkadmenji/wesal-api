@@ -32,6 +32,7 @@ describe('ContractService', () => {
       Object.assign(target, ...sources),
     ),
     save: jest.fn(async (value) => value),
+    delete: jest.fn(async () => ({ affected: 1 })),
   };
   const conversationRepository = { findOne: jest.fn(), update: jest.fn() };
   const listingRepository = { findOne: jest.fn() };
@@ -58,13 +59,30 @@ describe('ContractService', () => {
   };
   const paymentRepository = {
     findOne: jest.fn(),
+    count: jest.fn(async () => 0),
   };
   const ratingRepository = {
     findOne: jest.fn(),
+    count: jest.fn(async () => 0),
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => value),
   };
+  // Raw SQL: the contract number pool (empty unless a test fills it) and the
+  // unlinking updates of a pre-payment deletion.
+  const pooled: number[] = [];
+  const query = jest.fn(async (sql: string, params?: unknown[]) => {
+    if (sql.includes('DELETE FROM "contract_number_pool"')) {
+      pooled.sort((a, b) => a - b);
+      const number = pooled.shift();
+      return [number === undefined ? [] : [{ number: String(number) }], 0];
+    }
+    if (sql.includes('INSERT INTO "contract_number_pool"')) {
+      pooled.push(...(params?.[0] as number[]));
+    }
+    return [];
+  });
   const manager = {
+    query,
     getRepository: jest.fn((entity) => {
       if (entity === Contract) return contractRepository;
       if (entity === Conversation) return conversationRepository;
@@ -845,6 +863,116 @@ describe('ContractService', () => {
           'en',
         ),
       ).toThrow();
+    });
+  });
+
+  describe('pre-payment cancellation removes the contract (BRD 4.1.18, D-13)', () => {
+    const customer = {
+      sub: conversation.userId,
+      email: 'customer@example.com',
+      type: 'user' as const,
+    };
+
+    beforeEach(() => {
+      pooled.length = 0;
+    });
+
+    it('deletes the whole unpaid chain, unlinks it and pools its numbers', async () => {
+      const older = {
+        id: 'contract-v1',
+        publicId: 1300,
+        status: ContractStatus.REJECTED,
+        supersedesContractId: null,
+        paidAt: null,
+      };
+      const pending = {
+        id: 'contract-v2',
+        publicId: 1301,
+        conversationId: conversation.id,
+        providerId: conversation.providerId,
+        clientId: conversation.userId,
+        status: ContractStatus.PENDING,
+        version: 2,
+        supersedesContractId: 'contract-v1',
+        paidAt: null,
+      };
+      contractRepository.findOne
+        .mockResolvedValueOnce(pending) // lock
+        .mockResolvedValueOnce(pending) // latest version
+        .mockResolvedValueOnce(older); // chain walk
+
+      const result = await service.requestCancellation(
+        { contractId: pending.id, reason: 'Changed my mind' },
+        customer,
+      );
+
+      expect(result.status).toBe(ContractStatus.CANCELLED);
+      const [deleted] = contractRepository.delete.mock.calls[0] as unknown as [
+        { id: { _value: string[] } },
+      ];
+      expect(deleted.id._value).toEqual(['contract-v2', 'contract-v1']);
+      expect(pooled.sort()).toEqual([1300, 1301]);
+      expect(query).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE "complaints" SET "contractId" = NULL'),
+        [['contract-v2', 'contract-v1']],
+      );
+      expect(messageService.persistSystemEvent).toHaveBeenCalledWith(
+        conversation.id,
+        'CONTRACT_CANCELLED',
+        { contractNumber: 1301, reason: 'Changed my mind', removed: true },
+        manager,
+      );
+      expect(contractRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('gives the next new contract the smallest released number', async () => {
+      pooled.push(1301, 1256);
+      const number = await (
+        service as unknown as {
+          reusedNumber: (m: unknown) => Promise<{ publicId?: number }>;
+        }
+      ).reusedNumber(manager);
+      expect(number).toEqual({ publicId: 1256 });
+      expect(pooled).toEqual([1301]);
+
+      pooled.length = 0;
+      await expect(
+        (
+          service as unknown as {
+            reusedNumber: (m: unknown) => Promise<{ publicId?: number }>;
+          }
+        ).reusedNumber(manager),
+      ).resolves.toEqual({});
+    });
+
+    it('never deletes a paid contract', async () => {
+      const paid = {
+        id: 'contract-paid',
+        publicId: 1302,
+        conversationId: conversation.id,
+        providerId: conversation.providerId,
+        clientId: conversation.userId,
+        status: ContractStatus.IN_PROGRESS,
+        version: 1,
+        downPayment: 50,
+        commissionAmount: 10,
+        paidAt: new Date(),
+        executionHours: 72,
+      };
+      contractRepository.findOne
+        .mockResolvedValueOnce(paid)
+        .mockResolvedValueOnce(paid)
+        .mockResolvedValueOnce({ ...paid, status: ContractStatus.CANCELLED });
+
+      await service.requestCancellation(
+        { contractId: paid.id, reason: 'No longer needed' },
+        customer,
+      );
+
+      expect(contractRepository.delete).not.toHaveBeenCalled();
+      expect(contractRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: ContractStatus.CANCELLED }),
+      );
     });
   });
 
