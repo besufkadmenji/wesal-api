@@ -127,4 +127,16 @@ describe('ContractDocumentService', () => {
     await service.forAdmin('contract-id');
     expect(files.getFile).not.toHaveBeenCalled();
   });
+
+  it('still serves the PDF when the cache storage fails', async () => {
+    const { service, files } = setup(
+      contract({
+        document: { version: 2, path: 'contracts/gone.pdf' },
+      } as Partial<Contract>),
+    );
+    files.getFile.mockRejectedValueOnce(new Error('gone'));
+    files.saveFile.mockRejectedValueOnce(new Error('no storage'));
+    const pdf = await service.forAdmin('contract-id');
+    expect(pdf.subarray(0, 4).toString()).toBe('%PDF');
+  });
 });

@@ -1,3 +1,4 @@
+import { ForbiddenException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { Category } from '../category/entities/category.entity';
 import { SettingService } from '../setting/setting.service';
@@ -64,5 +65,32 @@ describe('ContractInvoiceService', () => {
       expect(number).toBe('INV-1184');
       expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
     }
+  });
+
+  it('serves the invoice to the paying customer only', async () => {
+    const paid = contract({ clientId: 'client-id' });
+    const customer = { sub: 'client-id', email: 'c@x.test', type: 'user' };
+    const { buffer } = await service(paid).forCustomer(
+      'contract-id',
+      customer,
+      'en',
+    );
+    expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+
+    for (const other of [
+      { sub: 'client-id', email: 'p@x.test', type: 'provider' },
+      { sub: 'someone-else', email: 'o@x.test', type: 'user' },
+    ]) {
+      await expect(
+        service(paid).forCustomer('contract-id', other, 'en'),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    }
+    await expect(
+      service(contract({ clientId: 'client-id', paidAt: null })).forCustomer(
+        'contract-id',
+        customer,
+        'ar',
+      ),
+    ).rejects.toThrow('تتوفر الفاتورة بعد سداد قيمة التعاقد');
   });
 });

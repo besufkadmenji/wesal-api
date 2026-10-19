@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -31,6 +32,8 @@ const SIGNATURE_LABELS: Partial<Record<ContractSignatureType, string>> = {
 
 @Injectable()
 export class ContractDocumentService {
+  private readonly logger = new Logger(ContractDocumentService.name);
+
   constructor(
     @InjectRepository(Contract)
     private readonly contractRepository: Repository<Contract>,
@@ -89,28 +92,43 @@ export class ContractDocumentService {
           where: { contractId: contract.id },
         }));
       if (existing && existing.version === contract.version) {
-        return this.fileUploadService.getFile(existing.path);
+        try {
+          return await this.fileUploadService.getFile(existing.path);
+        } catch (error) {
+          this.logger.warn(
+            `Cached PDF for contract ${contract.id} is unreadable; rendering again: ${String(error)}`,
+          );
+        }
       }
     }
 
     const buffer = await this.render(contract);
-    if (!isFinal) return buffer;
-    const hash = createHash('sha256').update(buffer).digest('hex');
-    const uploaded = await this.fileUploadService.saveFile(
-      buffer,
-      `contract-${contract.publicId ?? contract.id}-v${contract.version}.pdf`,
-      `contracts/${contract.id}`,
-    );
-    await this.documentRepository.upsert(
-      {
-        contractId: contract.id,
-        version: contract.version,
-        path: uploaded.path,
-        sha256: hash,
-      },
-      ['contractId'],
-    );
+    if (isFinal) await this.cache(contract, buffer);
     return buffer;
+  }
+
+  /** The cache only saves work, so a storage failure never fails a download. */
+  private async cache(contract: Contract, buffer: Buffer): Promise<void> {
+    try {
+      const uploaded = await this.fileUploadService.saveFile(
+        buffer,
+        `contract-${contract.publicId ?? contract.id}-v${contract.version}.pdf`,
+        `contracts/${contract.id}`,
+      );
+      await this.documentRepository.upsert(
+        {
+          contractId: contract.id,
+          version: contract.version,
+          path: uploaded.path,
+          sha256: createHash('sha256').update(buffer).digest('hex'),
+        },
+        ['contractId'],
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Could not cache the PDF for contract ${contract.id}: ${String(error)}`,
+      );
+    }
   }
 
   /**

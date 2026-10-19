@@ -1720,6 +1720,30 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       .get(`/contracts/${transactionContractId}/invoice`)
       .set({ Authorization: `Bearer ${customerToken}` });
     expect([401, 403]).toContain(forbidden.status);
+
+    // S4-57: the paying customer downloads it from the participant route.
+    const own = await request(app.getHttpServer())
+      .get(`/contract-documents/${transactionContractId}/invoice?language=en`)
+      .set({ Authorization: `Bearer ${customerToken}` })
+      .buffer(true)
+      .parse((res, callback) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (chunk: Buffer) => chunks.push(chunk));
+        res.on('end', () => callback(null, Buffer.concat(chunks)));
+      })
+      .expect(200);
+    expect(own.headers['content-disposition']).toMatch(/invoice-INV-/);
+    expect((own.body as Buffer).subarray(0, 4).toString()).toBe('%PDF');
+
+    const providerToken = jwt.sign(
+      transactionProvider,
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    await request(app.getHttpServer())
+      .get(`/contract-documents/${transactionContractId}/invoice`)
+      .set({ Authorization: `Bearer ${providerToken}` })
+      .expect(403);
   });
   it("notifies payment and payout in each reader's language", async () => {
     const providerToken = jwt.sign(

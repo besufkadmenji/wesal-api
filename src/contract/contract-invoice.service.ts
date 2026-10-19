@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import PDFDocument from 'pdfkit';
 import { Repository } from 'typeorm';
 import { I18nConflictException, I18nNotFoundException } from '../../lib/errors';
 import { I18nService } from '../../lib/i18n/i18n.service';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { Category } from '../category/entities/category.entity';
 import {
   formatPdfDate,
@@ -93,6 +94,23 @@ export class ContractInvoiceService {
 
   static invoiceNumber(contract: Pick<Contract, 'publicId' | 'id'>): string {
     return `INV-${contract.publicId ?? contract.id}`;
+  }
+
+  /** S4-57: the paying customer downloads their own invoice on the web. */
+  async forCustomer(
+    contractId: string,
+    principal: JwtPayload,
+    language: Language,
+  ): Promise<{ buffer: Buffer; number: string }> {
+    const owner = await this.contractRepository.findOne({
+      where: { id: contractId },
+      select: { id: true, clientId: true },
+    });
+    if (!owner) throw this.error('CONTRACT_NOT_FOUND', language, true);
+    if (principal.type !== 'user' || principal.sub !== owner.clientId) {
+      throw new ForbiddenException();
+    }
+    return this.render(contractId, language);
   }
 
   async render(
