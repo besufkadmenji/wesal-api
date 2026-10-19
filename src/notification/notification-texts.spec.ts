@@ -19,6 +19,15 @@ describe('notificationTexts', () => {
     });
   });
 
+  it('writes the BRD overdue pop-up title in both languages', () => {
+    const text = notificationTexts.contractOverdue(1184);
+    expect(text.ar.title).toBe('لديك تعاقد يحتاج إلى توقيع وإنهاء');
+    expect(text.en.title).toBe(
+      'You have a contract that needs to be signed and finalized',
+    );
+    expect(text.en.message).toContain('1184');
+  });
+
   it('names the listing in chat notifications', () => {
     const text = notificationTexts.chatStarted('Emergency plumbing');
     expect(text.ar.message).toContain('"Emergency plumbing"');

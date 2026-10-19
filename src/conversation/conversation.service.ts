@@ -129,10 +129,7 @@ export class ConversationService {
       return this.findHydratedConversation(existingConversation.id, language);
     }
 
-    const setting = await this.settingService.getSetting();
-    const expiresAt = setting.contractAcceptanceWindowEnabled
-      ? new Date(Date.now() + setting.contractAcceptanceWindowDays * 86_400_000)
-      : null;
+    const expiresAt = await this.dealWindowEnd(listing.categoryId);
     const conversation = this.conversationRepository.create({
       listingId: createConversationInput.listingId,
       userId: principal.sub,
@@ -376,7 +373,6 @@ export class ConversationService {
         language,
       );
     }
-    const setting = await this.settingService.getSetting();
     conversation.status = ConversationStatus.ACTIVE;
     conversation.closedAt = null;
     conversation.closeReason = null;
@@ -386,12 +382,33 @@ export class ConversationService {
     conversation.customerLastReadAt = null;
     conversation.providerLastReadAt = null;
     conversation.lastActivityAt = new Date();
-    conversation.expiresAt = setting.contractAcceptanceWindowEnabled
-      ? new Date(Date.now() + setting.contractAcceptanceWindowDays * 86_400_000)
-      : null;
+    conversation.expiresAt = await this.dealWindowEnd(
+      conversation.listing?.categoryId,
+    );
     const restarted = await this.conversationRepository.save(conversation);
     await this.notifyStarted(restarted, conversation.listing?.name);
     return restarted;
+  }
+
+  /**
+   * S4-2: the window both parties have to accept and pay a contract after the
+   * chat fee (BRD "maximum time limit for contract termination"): the
+   * category's hours when enabled, else the Settings acceptance window.
+   * Paying a contract clears it (ContractService.transitionAfterPayment).
+   */
+  private async dealWindowEnd(
+    categoryId: string | null | undefined,
+  ): Promise<Date | null> {
+    const category = categoryId
+      ? await this.categoryRepository.findOne({ where: { id: categoryId } })
+      : null;
+    if (category?.maxTerminationHoursEnabled && category.maxTerminationHours) {
+      return new Date(Date.now() + category.maxTerminationHours * 3_600_000);
+    }
+    const setting = await this.settingService.getSetting();
+    return setting.contractAcceptanceWindowEnabled
+      ? new Date(Date.now() + setting.contractAcceptanceWindowDays * 86_400_000)
+      : null;
   }
 
   private async enforceExpiry(

@@ -64,6 +64,27 @@ export const notificationTexts = {
       message: `SAR ${sar(amount)} from contract #${reference} has been refunded to you.`,
     },
   }),
+  /** S4-2: BRD 4.1.16 / 4.2.18 overdue pop-up text. */
+  contractOverdue: (reference: string | number): BilingualText => ({
+    ar: {
+      title: 'لديك تعاقد يحتاج إلى توقيع وإنهاء',
+      message: `التعاقد رقم ${reference} تجاوز المدة المحددة، يرجى التوقيع وإنهاء التعاقد.`,
+    },
+    en: {
+      title: 'You have a contract that needs to be signed and finalized',
+      message: `Contract ${reference} is past its deadline. Please sign and complete it.`,
+    },
+  }),
+  contractExpired: (reference: string | number): BilingualText => ({
+    ar: {
+      title: 'انتهت مهلة التعاقد',
+      message: `تم إلغاء التعاقد رقم ${reference} لانتهاء مدة المحادثة قبل سداده.`,
+    },
+    en: {
+      title: 'Contract expired',
+      message: `Contract ${reference} was cancelled because the chat ended before it was paid.`,
+    },
+  }),
   chatFeePaid: (listingName: string): BilingualText => ({
     ar: {
       title: 'تم دفع رسوم المحادثة',

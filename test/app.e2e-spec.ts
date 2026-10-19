@@ -18,6 +18,8 @@ import { City } from '../src/city/entities/city.entity';
 import { BadgeService } from '../src/badge/badge.service';
 import { ContractService } from '../src/contract/contract.service';
 import { Contract } from '../src/contract/entities/contract.entity';
+import { Conversation } from '../src/conversation/entities/conversation.entity';
+import { Notification } from '../src/notification/entities/notification.entity';
 import { ContractStatus } from '../src/contract/enums/contract-status.enum';
 import { ConversationService } from '../src/conversation/conversation.service';
 import { Message } from '../src/conversation/entities/message.entity';
@@ -1892,6 +1894,108 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     } finally {
       await contracts.update(transactionContractId, {
         paidAt: original.paidAt,
+      });
+    }
+  });
+
+  it('lists overdue contracts per party, flags them once and expires unpaid deals', async () => {
+    const dataSource = app.get(DataSource);
+    const contracts = dataSource.getRepository(Contract);
+    const conversations = dataSource.getRepository(Conversation);
+    const notifications = dataSource.getRepository(Notification);
+    const service = app.get(ContractService);
+    const original = await contracts.findOneByOrFail({
+      id: transactionContractId,
+    });
+    const conversation = await conversations.findOneByOrFail({
+      id: original.conversationId,
+    });
+    const sign = (payload: object) =>
+      jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '5m' });
+    const overdue = async (payload: object) => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set({ Authorization: `Bearer ${sign(payload)}` })
+        .send({
+          query: '{ myOverdueContracts { id provider { id } client { id } } }',
+        });
+      const body = response.body as {
+        data: { myOverdueContracts: Array<{ id: string }> } | null;
+        errors?: Array<{ message: string }>;
+      };
+      expect(body.errors).toBeUndefined();
+      return body.data!.myOverdueContracts.map((item) => item.id);
+    };
+    const overdueNotices = () =>
+      notifications.count({
+        where: {
+          relatedEntityId: transactionContractId,
+          type: 'CONTRACT_OVERDUE' as never,
+        },
+      });
+
+    try {
+      // Provider: 10 h of execution, paid 35 h ago (past 10 h + 24 h).
+      await contracts.update(transactionContractId, {
+        status: ContractStatus.IN_PROGRESS,
+        executionHours: 10,
+        paidAt: new Date(Date.now() - 35 * 3_600_000),
+        providerOverdueAt: null,
+        customerOverdueAt: null,
+      });
+      expect(await overdue(transactionProvider)).toContain(
+        transactionContractId,
+      );
+      expect(await overdue(transactionCustomer)).not.toContain(
+        transactionContractId,
+      );
+      await service.flagOverdueContracts();
+      await service.flagOverdueContracts();
+      expect(await overdueNotices()).toBe(1);
+      expect(
+        (await contracts.findOneByOrFail({ id: transactionContractId }))
+          .providerOverdueAt,
+      ).toBeInstanceOf(Date);
+
+      // Customer: the confirmation deadline has passed.
+      await contracts.update(transactionContractId, {
+        status: ContractStatus.AWAITING_CUSTOMER_CONFIRMATION,
+        confirmationDeadlineAt: new Date(Date.now() - 60_000),
+      });
+      expect(await overdue(transactionCustomer)).toContain(
+        transactionContractId,
+      );
+      expect(await overdue(transactionProvider)).not.toContain(
+        transactionContractId,
+      );
+
+      // Unpaid deal whose chat window ran out: cancelled once, kept.
+      await contracts.update(transactionContractId, {
+        status: ContractStatus.ACCEPTED,
+      });
+      await conversations.update(conversation.id, {
+        expiresAt: new Date(Date.now() - 60_000),
+      });
+      await service.cancelExpiredUnpaidContracts();
+      await service.cancelExpiredUnpaidContracts();
+      const expired = await contracts.findOneByOrFail({
+        id: transactionContractId,
+      });
+      expect(expired.status).toBe(ContractStatus.CANCELLED);
+      expect(expired.cancellationReason).toMatch(/chat ended/);
+    } finally {
+      await contracts.update(transactionContractId, {
+        status: original.status,
+        executionHours: original.executionHours,
+        paidAt: original.paidAt,
+        confirmationDeadlineAt: original.confirmationDeadlineAt,
+        cancelledAt: original.cancelledAt,
+        cancellationReason: original.cancellationReason,
+        providerOverdueAt: null,
+        customerOverdueAt: null,
+      });
+      await conversations.update(conversation.id, {
+        expiresAt: conversation.expiresAt,
       });
     }
   });

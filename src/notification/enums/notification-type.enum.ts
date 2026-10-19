@@ -33,6 +33,8 @@ export enum NotificationType {
   LISTING_FEATURED_EXPIRED = 'LISTING_FEATURED_EXPIRED',
   PAYOUT_TRANSFERRED = 'PAYOUT_TRANSFERRED',
   REFUND_ISSUED = 'REFUND_ISSUED',
+  // S4-2: appended by 2026101900100-ContractOverdueFlags.
+  CONTRACT_OVERDUE = 'CONTRACT_OVERDUE',
 }
 
 registerEnumType(NotificationType, {

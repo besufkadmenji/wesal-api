@@ -287,6 +287,20 @@ export class Contract {
   @Column({ type: 'timestamptz', nullable: true })
   cancelledAt: Date | null;
 
+  @Field(() => Date, {
+    nullable: true,
+    description: 'When the provider was flagged overdue (S4-2)',
+  })
+  @Column({ type: 'timestamptz', nullable: true })
+  providerOverdueAt: Date | null;
+
+  @Field(() => Date, {
+    nullable: true,
+    description: 'When the customer was flagged overdue (S4-2)',
+  })
+  @Column({ type: 'timestamptz', nullable: true })
+  customerOverdueAt: Date | null;
+
   @Field(() => [ContractSignature])
   @OneToMany(() => ContractSignature, (signature) => signature.contract, {
     cascade: true,

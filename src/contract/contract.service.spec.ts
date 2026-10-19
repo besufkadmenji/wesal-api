@@ -13,6 +13,7 @@ import { ContractSettlement } from './entities/contract-settlement.entity';
 import { ContractAudit } from './entities/contract-audit.entity';
 import { Payment } from '../payment/entities/payment.entity';
 import { ContractResolver } from './contract.resolver';
+import { Rating } from '../rating/entities/rating.entity';
 
 describe('ContractService', () => {
   const contractQueryBuilder = {
@@ -32,7 +33,7 @@ describe('ContractService', () => {
     ),
     save: jest.fn(async (value) => value),
   };
-  const conversationRepository = { findOne: jest.fn() };
+  const conversationRepository = { findOne: jest.fn(), update: jest.fn() };
   const listingRepository = { findOne: jest.fn() };
   const categoryRepository = { findOne: jest.fn() };
   const providerRepository = { findOne: jest.fn() };
@@ -58,6 +59,11 @@ describe('ContractService', () => {
   const paymentRepository = {
     findOne: jest.fn(),
   };
+  const ratingRepository = {
+    findOne: jest.fn(),
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+  };
   const manager = {
     getRepository: jest.fn((entity) => {
       if (entity === Contract) return contractRepository;
@@ -71,6 +77,7 @@ describe('ContractService', () => {
       if (entity === ContractSettlement) return settlementRepository;
       if (entity === ContractAudit) return auditRepository;
       if (entity === Payment) return paymentRepository;
+      if (entity === Rating) return ratingRepository;
       return {};
     }),
   };
@@ -646,6 +653,100 @@ describe('ContractService', () => {
     );
     expect(settlementRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'PLATFORM_COMMISSION', amount: 10 }),
+    );
+  });
+
+  it('refunds everything and records 0 stars when the provider is overdue', async () => {
+    const contract = {
+      id: 'contract-id',
+      conversationId: conversation.id,
+      listingId: conversation.listingId,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      status: ContractStatus.IN_PROGRESS,
+      version: 1,
+      downPayment: 50,
+      commissionAmount: 10,
+      executionHours: 24,
+      // Paid 49 h ago: past 24 h of execution plus the 24 h grace.
+      paidAt: new Date(Date.now() - 49 * 3_600_000),
+    };
+    contractRepository.findOne
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce({ ...contract, status: ContractStatus.CANCELLED });
+    ratingRepository.findOne.mockResolvedValue(null);
+
+    await service.requestCancellation(
+      { contractId: contract.id, reason: 'The provider never delivered' },
+      { sub: conversation.userId, email: 'customer@example.com', type: 'user' },
+    );
+
+    expect(settlementRepository.save).toHaveBeenCalledTimes(1);
+    expect(settlementRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'CUSTOMER_REFUND',
+        amount: 575,
+        idempotencyKey: 'CONTRACT:contract-id:PROVIDER_OVERDUE:CUSTOMER_REFUND',
+      }),
+    );
+    expect(ratingRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractId: 'contract-id',
+        rating: 0,
+        isSystemGenerated: true,
+      }),
+    );
+    expect(auditRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: { providerOverdue: true } }),
+    );
+  });
+
+  it('keeps the deposit split while the provider is within time', async () => {
+    const contract = {
+      id: 'contract-id',
+      conversationId: conversation.id,
+      listingId: conversation.listingId,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      status: ContractStatus.IN_PROGRESS,
+      version: 1,
+      downPayment: 50,
+      commissionAmount: 10,
+      executionHours: 24,
+      paidAt: new Date(Date.now() - 47 * 3_600_000),
+    };
+    contractRepository.findOne
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce({ ...contract, status: ContractStatus.CANCELLED });
+
+    await service.requestCancellation(
+      { contractId: contract.id, reason: 'Scope is no longer required' },
+      { sub: conversation.userId, email: 'customer@example.com', type: 'user' },
+    );
+
+    expect(settlementRepository.save).toHaveBeenCalledTimes(3);
+    expect(ratingRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('stops the chat timer once a contract is paid', async () => {
+    const contract = {
+      id: 'contract-id',
+      conversationId: conversation.id,
+      clientId: conversation.userId,
+      status: ContractStatus.ACCEPTED,
+      version: 1,
+    };
+    contractRepository.findOne
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract);
+
+    await service.transitionAfterPayment(contract.id, manager as never);
+
+    expect(conversationRepository.update).toHaveBeenCalledWith(
+      conversation.id,
+      { expiresAt: null },
     );
   });
 

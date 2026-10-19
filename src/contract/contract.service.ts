@@ -1,6 +1,7 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { Interval } from '@nestjs/schedule';
+import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
 import {
   I18nNotFoundException,
   I18nBadRequestException,
@@ -65,6 +66,16 @@ import { NotificationService } from '../notification/notification.service';
 import { AdminNotificationService } from '../notification/admin-notification.service';
 import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
 import { NotificationType } from '../notification/enums/notification-type.enum';
+import { Rating } from '../rating/entities/rating.entity';
+import { RatingStatus } from '../rating/enums/rating-status.enum';
+import { RatingService } from '../rating/rating.service';
+import {
+  CUSTOMER_OVERDUE_SQL,
+  isCustomerOverdue,
+  isProviderOverdue,
+  overdueSince,
+  PROVIDER_OVERDUE_SQL,
+} from './contract-overdue';
 
 const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
   [ContractStatus.DRAFT]: [ContractStatus.PENDING],
@@ -137,6 +148,10 @@ interface ContractDetailsInput {
 /** Money moved by a settlement, for the payout/refund notifications. */
 type SettlementMoney = { payout: number; refund: number };
 
+/** Stored on contracts the deal window cancelled (both languages, one field). */
+export const EXPIRED_CANCELLATION_REASON =
+  'انتهت مدة المحادثة قبل سداد التعاقد / The chat ended before the contract was paid';
+
 @Injectable()
 export class ContractService {
   private readonly logger = new Logger(ContractService.name);
@@ -157,6 +172,8 @@ export class ContractService {
     private readonly notificationService?: NotificationService,
     @Optional()
     private readonly adminNotifications?: AdminNotificationService,
+    @Optional()
+    private readonly ratingService?: RatingService,
   ) {}
 
   private error(
@@ -829,9 +846,24 @@ export class ContractService {
         ? ContractStatus.CANCELLED
         : ContractStatus.DISPUTED;
       let money: SettlementMoney | null = null;
+      // BRD 4.1.18: past the provider's execution time, the customer gets
+      // everything back, the provider nothing, and the contract counts 0★.
+      const providerOverdue = isProviderOverdue(
+        { ...contract, status: previousStatus },
+        new Date(),
+      );
       if (early) {
         contract.cancelledAt = new Date();
-        if (previousStatus === ContractStatus.IN_PROGRESS) {
+        if (providerOverdue) {
+          money = await this.settleFullRefund(
+            contract,
+            manager,
+            principal.sub,
+            reason,
+            'PROVIDER_OVERDUE',
+          );
+          await this.recordOverduePenalty(contract, manager);
+        } else if (previousStatus === ContractStatus.IN_PROGRESS) {
           money = await this.settleEarlyCancellation(
             contract,
             manager,
@@ -856,6 +888,7 @@ export class ContractService {
         previousStatus,
         contract.status,
         reason,
+        providerOverdue ? { providerOverdue: true } : null,
       );
       const event = await this.messageService.persistSystemEvent(
         contract.conversationId,
@@ -909,10 +942,7 @@ export class ContractService {
       const isConfirmationPending =
         previousStatus === ContractStatus.AWAITING_CUSTOMER_CONFIRMATION ||
         previousStatus === ContractStatus.DELIVERY_IN_PROGRESS;
-      const isOverdue =
-        isConfirmationPending &&
-        contract.confirmationDeadlineAt != null &&
-        contract.confirmationDeadlineAt.getTime() <= Date.now();
+      const isOverdue = isConfirmationPending && isCustomerOverdue(contract);
       if (!isDisputed && !isOverdue) {
         throw this.error('INVALID_STATUS_TRANSITION', language);
       }
@@ -1179,6 +1209,10 @@ export class ContractService {
     contract.status = ContractStatus.IN_PROGRESS;
     contract.paidAt = contract.paidAt ?? new Date();
     const saved = await manager.getRepository(Contract).save(contract);
+    // BRD: once a deal is paid the chat stays open, so its timer stops.
+    await manager
+      .getRepository(Conversation)
+      .update(contract.conversationId, { expiresAt: null });
     await this.recordAudit(
       manager,
       saved,
@@ -1346,6 +1380,7 @@ export class ContractService {
     manager: EntityManager,
     actorId: string,
     reason: string,
+    keySuffix = 'ADMIN_REFUND',
   ): Promise<SettlementMoney> {
     const payment = await this.paymentForContract(contract.id, manager);
     await this.addSettlement(
@@ -1354,11 +1389,204 @@ export class ContractService {
       payment,
       ContractSettlementType.CUSTOMER_REFUND,
       Number(payment.amount),
-      'ADMIN_REFUND',
+      keySuffix,
       actorId,
       reason,
     );
     return { payout: 0, refund: Number(payment.amount) };
+  }
+
+  /** BRD 4.1.18: a provider-overdue cancellation counts as a 0★ rating. */
+  private async recordOverduePenalty(
+    contract: Contract,
+    manager: EntityManager,
+  ): Promise<void> {
+    const ratings = manager.getRepository(Rating);
+    const existing = await ratings.findOne({
+      where: { contractId: contract.id },
+    });
+    if (existing) return;
+    await ratings.save(
+      ratings.create({
+        userId: contract.clientId,
+        listingId: contract.listingId,
+        providerId: contract.providerId,
+        contractId: contract.id,
+        rating: 0,
+        comment: null,
+        status: RatingStatus.PUBLISHED,
+        isSystemGenerated: true,
+      }),
+    );
+    await this.ratingService?.recalculate(
+      manager,
+      contract.listingId,
+      contract.providerId,
+    );
+  }
+
+  /** S4-4: the principal's overdue contracts, oldest deadline first. */
+  async myOverdueContracts(principal: JwtPayload): Promise<Contract[]> {
+    if (principal.type !== 'user' && principal.type !== 'provider') return [];
+    const customer = principal.type === 'user';
+    const matches = await this.contractRepository
+      .createQueryBuilder('contract')
+      .select('contract.id', 'id')
+      .where(
+        customer ? 'contract.clientId = :id' : 'contract.providerId = :id',
+        { id: principal.sub },
+      )
+      .andWhere(customer ? CUSTOMER_OVERDUE_SQL : PROVIDER_OVERDUE_SQL, {
+        now: new Date(),
+      })
+      .getRawMany<{ id: string }>();
+    if (matches.length === 0) return [];
+    // Hydrated like contract details, so the web can reuse ContractFields.
+    const contracts = await this.contractRepository.find({
+      where: { id: In(matches.map((match) => match.id)) },
+      relations: CONTRACT_DETAIL_RELATIONS,
+    });
+    return contracts.sort(
+      (a, b) =>
+        (overdueSince(a)?.getTime() ?? 0) - (overdueSince(b)?.getTime() ?? 0),
+    );
+  }
+
+  /**
+   * S4-2: flag newly overdue contracts once and tell the party; the web
+   * pop-up itself reads `myOverdueContracts`.
+   */
+  @Interval(60_000)
+  async flagOverdueContracts(): Promise<void> {
+    const now = new Date();
+    const sides = [
+      {
+        sql: PROVIDER_OVERDUE_SQL,
+        stamp: 'providerOverdueAt' as const,
+        recipient: (contract: Contract) => contract.providerId,
+        recipientType: NotificationRecipientType.PROVIDER,
+      },
+      {
+        sql: CUSTOMER_OVERDUE_SQL,
+        stamp: 'customerOverdueAt' as const,
+        recipient: (contract: Contract) => contract.clientId,
+        recipientType: NotificationRecipientType.USER,
+      },
+    ];
+    for (const side of sides) {
+      const due = await this.contractRepository
+        .createQueryBuilder('contract')
+        .where(side.sql, { now })
+        .andWhere(`contract.${side.stamp} IS NULL`)
+        .getMany();
+      for (const contract of due) {
+        const result = await this.contractRepository.update(
+          { id: contract.id, [side.stamp]: IsNull() },
+          { [side.stamp]: now },
+        );
+        if (result.affected !== 1 || !this.notificationService) continue;
+        await this.notificationService.notifyLocalized({
+          recipientId: side.recipient(contract),
+          recipientType: side.recipientType,
+          type: NotificationType.CONTRACT_OVERDUE,
+          text: notificationTexts.contractOverdue(
+            contract.publicId ?? contract.id,
+          ),
+          relatedEntityId: contract.id,
+          relatedEntityType: 'contract',
+        });
+      }
+    }
+  }
+
+  /**
+   * S4-2: when a chat's deal window runs out, its unpaid contracts are
+   * cancelled (kept for audit, D-13 default); the chat itself is closed by
+   * ConversationService and its fee becomes payable again on restart.
+   */
+  @Interval(60_000)
+  async cancelExpiredUnpaidContracts(): Promise<void> {
+    const unpaid = [
+      ContractStatus.DRAFT,
+      ContractStatus.PENDING,
+      ContractStatus.ACCEPTED,
+      ContractStatus.REJECTED,
+    ];
+    const expired = await this.contractRepository
+      .createQueryBuilder('contract')
+      .innerJoin('contract.conversation', 'conversation')
+      .where('contract.status IN (:...unpaid)', { unpaid })
+      .andWhere('conversation.expiresAt IS NOT NULL')
+      .andWhere('conversation.expiresAt <= :now', { now: new Date() })
+      .getMany();
+    for (const contract of expired) {
+      try {
+        await this.expireUnpaidContract(contract, unpaid);
+      } catch (error) {
+        this.logger.error(
+          `Could not expire contract ${contract.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+  }
+
+  private async expireUnpaidContract(
+    contract: Contract,
+    unpaid: ContractStatus[],
+  ): Promise<void> {
+    const reason = EXPIRED_CANCELLATION_REASON;
+    const result = await this.dataSource.transaction(async (manager) => {
+      const now = new Date();
+      const update = await manager.getRepository(Contract).update(
+        { id: contract.id, status: In(unpaid) },
+        {
+          status: ContractStatus.CANCELLED,
+          cancelledAt: now,
+          cancellationReason: reason,
+        },
+      );
+      if (update.affected !== 1) return null;
+      await this.recordAudit(
+        manager,
+        contract,
+        contract.clientId,
+        ContractActorType.SYSTEM,
+        ContractAuditAction.TIMEOUT_CANCELLED,
+        contract.status,
+        ContractStatus.CANCELLED,
+        reason,
+        { chatExpired: true },
+      );
+      return this.messageService.persistSystemEvent(
+        contract.conversationId,
+        MessageKind.CONTRACT_CANCELLED,
+        { contractId: contract.id, reason, expired: true },
+        manager,
+      );
+    });
+    if (!result) return;
+    await this.publishSafely(result);
+    if (contract.status === ContractStatus.DRAFT) return;
+    const cancelled = { ...contract, status: ContractStatus.CANCELLED };
+    await this.notifyAdminsOfContract(cancelled, 'status');
+    if (!this.notificationService) return;
+    const text = notificationTexts.contractExpired(
+      contract.publicId ?? contract.id,
+    );
+    for (const [recipientId, recipientType] of [
+      [contract.clientId, NotificationRecipientType.USER],
+      [contract.providerId, NotificationRecipientType.PROVIDER],
+    ] as const) {
+      await this.notificationService.notifyLocalized({
+        recipientId,
+        recipientType,
+        type: NotificationType.CONTRACT_UPDATE,
+        text,
+        relatedEntityId: contract.id,
+        relatedEntityType: 'contract',
+      });
+    }
   }
 
   private async recordAudit(

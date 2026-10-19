@@ -113,6 +113,17 @@ export class ContractResolver {
     return this.contractService.findAll(input ?? {}, principal);
   }
 
+  @Query(() => [Contract], {
+    name: 'myOverdueContracts',
+    description:
+      'S4-4: the signed-in customer or provider overdue contracts, oldest first',
+  })
+  async myOverdueContracts(
+    @CurrentPrincipal() principal: JwtPayload,
+  ): Promise<Contract[]> {
+    return this.contractService.myOverdueContracts(principal);
+  }
+
   @Query(() => Contract, { name: 'contract' })
   async findOne(
     @Args('id') id: string,

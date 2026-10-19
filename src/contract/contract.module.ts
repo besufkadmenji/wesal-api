@@ -24,6 +24,7 @@ import { ParticipantContractDocumentController } from './participant-contract-do
 import { FileUploadModule } from '../../lib/file-upload';
 import { NotificationModule } from '../notification/notification.module';
 
+import { RatingModule } from '../rating/rating.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -45,6 +46,7 @@ import { NotificationModule } from '../notification/notification.module';
     AdminPermissionGuardModule,
     FileUploadModule,
     NotificationModule,
+    RatingModule,
   ],
   providers: [
     ContractResolver,
