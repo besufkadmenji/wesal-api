@@ -38,6 +38,7 @@ import { CONTRACT_ERROR_MESSAGES } from './errors/contract.error-messages';
 import { CONTRACT_ERROR_CODES } from './errors/contract.error-codes';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { SettingService } from '../setting/setting.service';
+import { notificationTexts } from '../notification/notification-texts';
 import {
   MessageAddedPayload,
   MessageService,
@@ -131,6 +132,9 @@ interface ContractDetailsInput {
   customerLatitude?: number;
   customerLongitude?: number;
 }
+
+/** Money moved by a settlement, for the payout/refund notifications. */
+type SettlementMoney = { payout: number; refund: number };
 
 @Injectable()
 export class ContractService {
@@ -620,7 +624,7 @@ export class ContractService {
       }
       await this.assertLatest(contract, manager, language);
       if (contract.status === ContractStatus.COMPLETED) {
-        return { contract, event: null };
+        return { contract, event: null, money: null };
       }
       if (
         contract.status !== ContractStatus.AWAITING_CUSTOMER_CONFIRMATION &&
@@ -648,7 +652,11 @@ export class ContractService {
       contract.completedAt = new Date();
       const saved = await manager.getRepository(Contract).save(contract);
       saved.signatures = [...(saved.signatures ?? []), signature];
-      await this.settleCompleted(contract, manager, principal.sub);
+      const money = await this.settleCompleted(
+        contract,
+        manager,
+        principal.sub,
+      );
       await this.recordAudit(
         manager,
         contract,
@@ -664,7 +672,7 @@ export class ContractService {
         { contractId: contract.id, version: contract.version },
         manager,
       );
-      return { contract: saved, event };
+      return { contract: saved, event, money };
     });
     await this.publishSafely(result.event);
     await this.notifyContract(
@@ -673,6 +681,7 @@ export class ContractService {
       result.contract,
       language,
     );
+    await this.notifyMoney(result.contract, result.money);
     return this.findOne(input.contractId, principal, language);
   }
 
@@ -818,10 +827,11 @@ export class ContractService {
       contract.status = early
         ? ContractStatus.CANCELLED
         : ContractStatus.DISPUTED;
+      let money: SettlementMoney | null = null;
       if (early) {
         contract.cancelledAt = new Date();
         if (previousStatus === ContractStatus.IN_PROGRESS) {
-          await this.settleEarlyCancellation(
+          money = await this.settleEarlyCancellation(
             contract,
             manager,
             principal.sub,
@@ -852,7 +862,7 @@ export class ContractService {
         { contractId: contract.id, reason },
         manager,
       );
-      return { contract: saved, event };
+      return { contract: saved, event, money };
     });
     await this.publishSafely(result.event);
     await this.notifyContract(
@@ -861,6 +871,7 @@ export class ContractService {
       result.contract,
       language,
     );
+    await this.notifyMoney(result.contract, result.money);
     return this.findOne(input.contractId, principal, language);
   }
 
@@ -920,12 +931,18 @@ export class ContractService {
       contract.status = complete
         ? ContractStatus.COMPLETED
         : ContractStatus.CANCELLED;
+      let money: SettlementMoney;
       if (complete) {
         contract.completedAt = new Date();
-        await this.settleCompleted(contract, manager, admin.sub);
+        money = await this.settleCompleted(contract, manager, admin.sub);
       } else {
         contract.cancelledAt = new Date();
-        await this.settleFullRefund(contract, manager, admin.sub, input.reason);
+        money = await this.settleFullRefund(
+          contract,
+          manager,
+          admin.sub,
+          input.reason,
+        );
       }
       const saved = await manager.getRepository(Contract).save(contract);
       await this.recordAudit(
@@ -956,7 +973,7 @@ export class ContractService {
         },
         manager,
       );
-      return { contract: saved, event };
+      return { contract: saved, event, money };
     });
     await this.publishSafely(result.event);
     await Promise.all([
@@ -975,6 +992,7 @@ export class ContractService {
         null,
       ),
     ]);
+    await this.notifyMoney(result.contract, result.money);
     return this.findOneAdmin(input.contractId, language);
   }
 
@@ -1220,7 +1238,7 @@ export class ContractService {
     contract: Contract,
     manager: EntityManager,
     actorId: string,
-  ): Promise<void> {
+  ): Promise<SettlementMoney> {
     const payment = await this.paymentForContract(contract.id, manager);
     await this.addSettlement(
       manager,
@@ -1249,6 +1267,7 @@ export class ContractService {
       'COMPLETED',
       actorId,
     );
+    return { payout: Number(contract.providerNetAmount), refund: 0 };
   }
 
   private async settleEarlyCancellation(
@@ -1256,7 +1275,7 @@ export class ContractService {
     manager: EntityManager,
     actorId: string,
     reason: string,
-  ): Promise<void> {
+  ): Promise<SettlementMoney> {
     const payment = await this.paymentForContract(contract.id, manager);
     const paid = Number(payment.amount);
     const deposit = Math.min(Number(contract.downPayment), paid);
@@ -1291,6 +1310,7 @@ export class ContractService {
       actorId,
       reason,
     );
+    return { payout: deposit - commission, refund: paid - deposit };
   }
 
   private async holdDispute(
@@ -1317,7 +1337,7 @@ export class ContractService {
     manager: EntityManager,
     actorId: string,
     reason: string,
-  ): Promise<void> {
+  ): Promise<SettlementMoney> {
     const payment = await this.paymentForContract(contract.id, manager);
     await this.addSettlement(
       manager,
@@ -1329,6 +1349,7 @@ export class ContractService {
       actorId,
       reason,
     );
+    return { payout: 0, refund: Number(payment.amount) };
   }
 
   private async recordAudit(
@@ -1745,28 +1766,48 @@ export class ContractService {
     if (adminEvent) await this.notifyAdminsOfContract(contract, adminEvent);
     if (!this.notificationService) return;
     const reference = contract.publicId ?? contract.id;
-    const statusLabel = localizeEnum(
-      CONTRACT_STATUS_LABELS,
-      contract.status,
-      language,
-    );
-    try {
-      await this.notificationService.createForRecipient({
-        recipientId,
-        recipientType,
-        type: NotificationType.CONTRACT_UPDATE,
-        title: language === 'ar' ? 'تحديث التعاقد' : 'Contract update',
-        message:
-          language === 'ar'
-            ? `تم تحديث حالة التعاقد رقم ${reference} إلى ${statusLabel}`
-            : `Contract ${reference} is now ${statusLabel}`,
+    const status = {
+      ar: localizeEnum(CONTRACT_STATUS_LABELS, contract.status, 'ar'),
+      en: localizeEnum(CONTRACT_STATUS_LABELS, contract.status, 'en'),
+    };
+    // Both languages, so the recipient reads their own (D-11), whatever
+    // language the actor used.
+    await this.notificationService.notifyLocalized({
+      recipientId,
+      recipientType,
+      type: NotificationType.CONTRACT_UPDATE,
+      text: notificationTexts.contractStatus(reference, status),
+      relatedEntityId: contract.id,
+      relatedEntityType: 'contract',
+    });
+  }
+
+  /** S4-38: payout to the provider and refund to the customer, after commit. */
+  private async notifyMoney(
+    contract: Contract,
+    money: SettlementMoney | null | undefined,
+  ): Promise<void> {
+    if (!money || !this.notificationService) return;
+    const reference = contract.publicId ?? contract.id;
+    if (money.payout > 0) {
+      await this.notificationService.notifyLocalized({
+        recipientId: contract.providerId,
+        recipientType: NotificationRecipientType.PROVIDER,
+        type: NotificationType.PAYOUT_TRANSFERRED,
+        text: notificationTexts.payout(reference, money.payout),
         relatedEntityId: contract.id,
         relatedEntityType: 'contract',
       });
-    } catch (error) {
-      this.logger.warn(
-        `Contract transition persisted but notification failed: ${String(error)}`,
-      );
+    }
+    if (money.refund > 0) {
+      await this.notificationService.notifyLocalized({
+        recipientId: contract.clientId,
+        recipientType: NotificationRecipientType.USER,
+        type: NotificationType.REFUND_ISSUED,
+        text: notificationTexts.refund(reference, money.refund),
+        relatedEntityId: contract.id,
+        relatedEntityType: 'contract',
+      });
     }
   }
 

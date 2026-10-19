@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import { In, LessThanOrEqual, Repository } from 'typeorm';
 import { Interval } from '@nestjs/schedule';
 import {
   I18nNotFoundException,
@@ -25,9 +25,15 @@ import { ConversationAccess } from './dto/conversation-access.response';
 import { ConversationSenderType } from './enums/sender-type.enum';
 import { ConversationStatus } from './enums/conversation-status.enum';
 import { SettingService } from '../setting/setting.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/enums/notification-type.enum';
+import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
+import { notificationTexts } from '../notification/notification-texts';
 
 @Injectable()
 export class ConversationService {
+  private readonly logger = new Logger(ConversationService.name);
+
   constructor(
     @InjectRepository(Conversation)
     private readonly conversationRepository: Repository<Conversation>,
@@ -40,6 +46,8 @@ export class ConversationService {
     @InjectRepository(Message)
     private readonly messageRepository: Repository<Message>,
     private readonly settingService: SettingService,
+    @Optional()
+    private readonly notifications?: NotificationService,
   ) {}
 
   /**
@@ -137,6 +145,7 @@ export class ConversationService {
     });
     const savedConversation =
       await this.conversationRepository.save(conversation);
+    await this.notifyStarted(savedConversation, listing.name);
     return this.findHydratedConversation(savedConversation.id, language);
   }
 
@@ -380,7 +389,9 @@ export class ConversationService {
     conversation.expiresAt = setting.contractAcceptanceWindowEnabled
       ? new Date(Date.now() + setting.contractAcceptanceWindowDays * 86_400_000)
       : null;
-    return this.conversationRepository.save(conversation);
+    const restarted = await this.conversationRepository.save(conversation);
+    await this.notifyStarted(restarted, conversation.listing?.name);
+    return restarted;
   }
 
   private async enforceExpiry(
@@ -394,24 +405,94 @@ export class ConversationService {
       conversation.status = ConversationStatus.CLOSED;
       conversation.closedAt = new Date();
       conversation.closeReason = 'EXPIRED';
-      return this.conversationRepository.save(conversation);
+      const closed = await this.conversationRepository.save(conversation);
+      await this.notifyEnded([closed]);
+      return closed;
     }
     return conversation;
   }
 
   @Interval(60_000)
   async closeExpiredConversations(): Promise<void> {
-    await this.conversationRepository.update(
-      {
+    // Select first so each closed conversation can notify its participants.
+    const expiring = await this.conversationRepository.find({
+      where: {
         status: ConversationStatus.ACTIVE,
         expiresAt: LessThanOrEqual(new Date()),
       },
+      select: { id: true, userId: true, providerId: true, listingId: true },
+    });
+    if (expiring.length === 0) return;
+    await this.conversationRepository.update(
+      { id: In(expiring.map((conversation) => conversation.id)) },
       {
         status: ConversationStatus.CLOSED,
         closedAt: new Date(),
         closeReason: 'EXPIRED',
       },
     );
+    await this.notifyEnded(expiring);
+  }
+
+  /** S4-38: the provider learns a customer opened (or reopened) a chat. */
+  private async notifyStarted(
+    conversation: Pick<Conversation, 'id' | 'providerId' | 'listingId'>,
+    listingName?: string,
+  ): Promise<void> {
+    if (!this.notifications) return;
+    const name =
+      listingName ??
+      (
+        await this.listingRepository.findOne({
+          where: { id: conversation.listingId },
+          select: { id: true, name: true },
+        })
+      )?.name ??
+      '';
+    await this.notifications.notifyLocalized({
+      recipientId: conversation.providerId,
+      recipientType: NotificationRecipientType.PROVIDER,
+      type: NotificationType.CHAT_STARTED,
+      text: notificationTexts.chatStarted(name),
+      relatedEntityId: conversation.id,
+      relatedEntityType: 'conversation',
+    });
+  }
+
+  /** S4-38: both participants learn an expired chat has ended. */
+  private async notifyEnded(
+    conversations: Array<
+      Pick<Conversation, 'id' | 'userId' | 'providerId' | 'listingId'>
+    >,
+  ): Promise<void> {
+    if (!this.notifications) return;
+    try {
+      const listings = await this.listingRepository.find({
+        where: { id: In(conversations.map((c) => c.listingId)) },
+        select: { id: true, name: true },
+      });
+      const names = new Map(listings.map((l) => [l.id, l.name]));
+      for (const conversation of conversations) {
+        const text = notificationTexts.chatEnded(
+          names.get(conversation.listingId) ?? '',
+        );
+        for (const [recipientId, recipientType] of [
+          [conversation.userId, NotificationRecipientType.USER],
+          [conversation.providerId, NotificationRecipientType.PROVIDER],
+        ] as const) {
+          await this.notifications.notifyLocalized({
+            recipientId,
+            recipientType,
+            type: NotificationType.CHAT_ENDED,
+            text,
+            relatedEntityId: conversation.id,
+            relatedEntityType: 'conversation',
+          });
+        }
+      }
+    } catch (error) {
+      this.logger.warn(`Chat-ended notifications failed: ${String(error)}`);
+    }
   }
 
   async markRead(

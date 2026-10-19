@@ -60,4 +60,36 @@ describe('NotificationService realtime publishing', () => {
       }),
     ).resolves.toBe(saved);
   });
+
+  it('stores Arabic with an English copy and never throws (D-11)', async () => {
+    pubSub.publish.mockResolvedValue(undefined);
+    const text = {
+      ar: { title: 'عنوان', message: 'رسالة' },
+      en: { title: 'Title', message: 'Message' },
+    };
+
+    await service.notifyLocalized({
+      recipientId: saved.recipientId,
+      recipientType: saved.recipientType,
+      type: saved.type,
+      text,
+    });
+    expect(repository.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'عنوان',
+        message: 'رسالة',
+        translations: { en: text.en },
+      }),
+    );
+
+    repository.save.mockRejectedValueOnce(new Error('db down'));
+    await expect(
+      service.notifyLocalized({
+        recipientId: saved.recipientId,
+        recipientType: saved.recipientType,
+        type: saved.type,
+        text,
+      }),
+    ).resolves.toBeNull();
+  });
 });

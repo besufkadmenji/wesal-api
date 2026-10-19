@@ -1719,6 +1719,73 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       .set({ Authorization: `Bearer ${customerToken}` });
     expect([401, 403]).toContain(forbidden.status);
   });
+  it("notifies payment and payout in each reader's language", async () => {
+    const providerToken = jwt.sign(
+      transactionProvider,
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    const customerToken = jwt.sign(
+      transactionCustomer,
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    const list = async (token: string, language: string) => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set({ Authorization: `Bearer ${token}`, 'Accept-Language': language })
+        .send({
+          query: `{
+            notifications(input: { limit: 50, sortOrder: DESC }) {
+              items { type title message relatedEntityId }
+            }
+          }`,
+        });
+      const body = response.body as {
+        data: {
+          notifications: {
+            items: Array<{
+              type: string;
+              title: string;
+              message: string;
+              relatedEntityId: string | null;
+            }>;
+          };
+        } | null;
+        errors?: Array<{ message: string }>;
+      };
+      expect(body.errors).toBeUndefined();
+      return body.data!.notifications.items.filter(
+        (item) => item.relatedEntityId === transactionContractId,
+      );
+    };
+
+    const providerAr = await list(providerToken, 'ar');
+    expect(providerAr).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'PAYMENT_RECEIVED',
+          title: 'تم سداد قيمة التعاقد',
+        }),
+        expect.objectContaining({
+          type: 'PAYOUT_TRANSFERRED',
+          message: expect.stringContaining(
+            'تم تحويل قيمة التعاقد رقم',
+          ) as string,
+        }),
+      ]),
+    );
+    const customerEn = await list(customerToken, 'en');
+    expect(customerEn).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'PAYMENT_RECEIVED',
+          title: 'Order status updated',
+        }),
+      ]),
+    );
+  });
+
   // Last: it runs a badge assignment, which may change other providers.
   it('labels providers no badge run has evaluated as newly added', async () => {
     const dataSource = app.get(DataSource);

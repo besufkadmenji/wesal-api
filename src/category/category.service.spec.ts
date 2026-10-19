@@ -86,7 +86,7 @@ describe('CategoryService contract controls', () => {
           }),
         ),
       } as unknown as SettingService,
-      { createForRecipient: notify } as unknown as NotificationService,
+      { notifyLocalized: notify } as unknown as NotificationService,
     );
   });
 
@@ -168,18 +168,22 @@ describe('CategoryService contract controls', () => {
 
     await service.activate('category-id', 'en');
 
-    expect(notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        recipientId: 'p-en',
-        message: 'The category "Plumbing" has been activated.',
-      }),
-    );
-    expect(notify).toHaveBeenCalledWith(
-      expect.objectContaining({
-        recipientId: 'p-ar',
-        message: 'تم تفعيل القسم "سباكة".',
-      }),
-    );
+    // Both languages are stored; each reader gets their own (D-11).
+    for (const recipientId of ['p-en', 'p-ar']) {
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recipientId,
+          text: {
+            ar: expect.objectContaining({
+              message: 'تم تفعيل القسم "سباكة".',
+            }) as object,
+            en: expect.objectContaining({
+              message: 'The category "Plumbing" has been activated.',
+            }) as object,
+          },
+        }),
+      );
+    }
   });
 
   it('fills the undertaking placeholders with the contract terms', () => {

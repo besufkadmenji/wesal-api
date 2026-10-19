@@ -14,6 +14,7 @@ import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { Contract } from '../contract/entities/contract.entity';
 import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
+import { notificationTexts } from '../notification/notification-texts';
 import { NotificationType } from '../notification/enums/notification-type.enum';
 import { NotificationService } from '../notification/notification.service';
 import { ListingReviewsInput } from './dto/listing-reviews.input';
@@ -95,7 +96,7 @@ export class RatingService {
       return { rating, contract };
     });
 
-    await this.notifyProvider(saved.rating, saved.contract, language);
+    await this.notifyProvider(saved.rating, saved.contract);
     return this.load(saved.rating.id, language);
   }
 
@@ -306,28 +307,17 @@ export class RatingService {
   private async notifyProvider(
     rating: Rating,
     contract: Contract,
-    language: LanguageCode,
   ): Promise<void> {
     if (!this.notificationService) return;
     const reference = contract.publicId ?? contract.id;
-    try {
-      await this.notificationService.createForRecipient({
-        recipientId: rating.providerId,
-        recipientType: NotificationRecipientType.PROVIDER,
-        type: NotificationType.NEW_RATING,
-        title: language === 'ar' ? 'تقييم جديد' : 'New rating',
-        message:
-          language === 'ar'
-            ? `تم تقييم التعاقد رقم ${reference} بـ ${rating.rating} من 5`
-            : `Contract ${reference} was rated ${rating.rating} out of 5`,
-        relatedEntityId: contract.id,
-        relatedEntityType: 'contract',
-      });
-    } catch (error) {
-      this.logger.warn(
-        `Rating persisted but notification failed: ${String(error)}`,
-      );
-    }
+    await this.notificationService.notifyLocalized({
+      recipientId: rating.providerId,
+      recipientType: NotificationRecipientType.PROVIDER,
+      type: NotificationType.NEW_RATING,
+      text: notificationTexts.newRating(reference, rating.rating),
+      relatedEntityId: contract.id,
+      relatedEntityType: 'contract',
+    });
   }
 
   private async load(id: string, language: LanguageCode): Promise<Rating> {

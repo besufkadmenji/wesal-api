@@ -19,7 +19,7 @@ describe('ComplaintService', () => {
   const conversationRepository = { findOne: jest.fn() };
   const contractRepository = { findOne: jest.fn() };
   const fileUploadService = { saveFile: jest.fn() };
-  const notificationService = { createForRecipient: jest.fn() };
+  const notificationService = { notifyLocalized: jest.fn() };
   const service = new ComplaintService(
     complaintRepository as never,
     messageRepository as never,
@@ -167,7 +167,7 @@ describe('ComplaintService', () => {
       reviewedAt: null,
     };
     complaintRepository.findOne.mockResolvedValue(complaint);
-    notificationService.createForRecipient.mockResolvedValue({});
+    notificationService.notifyLocalized.mockResolvedValue({});
 
     await service.setStatus(
       complaint.id,
@@ -180,10 +180,14 @@ describe('ComplaintService', () => {
       'en',
     );
 
-    expect(notificationService.createForRecipient).toHaveBeenCalledWith(
+    expect(notificationService.notifyLocalized).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'Complaint status updated',
-        message: 'Your complaint status is now Rejected.',
+        text: expect.objectContaining({
+          en: {
+            title: 'Complaint status updated',
+            message: 'Your complaint status is now Rejected.',
+          },
+        }) as object,
       }),
     );
   });
@@ -198,7 +202,7 @@ describe('ComplaintService', () => {
       reviewedAt: null,
     };
     complaintRepository.findOne.mockResolvedValue(complaint);
-    notificationService.createForRecipient.mockResolvedValue({});
+    notificationService.notifyLocalized.mockResolvedValue({});
 
     await service.setStatus(
       complaint.id,
@@ -211,10 +215,14 @@ describe('ComplaintService', () => {
       'ar',
     );
 
-    expect(notificationService.createForRecipient).toHaveBeenCalledWith(
+    expect(notificationService.notifyLocalized).toHaveBeenCalledWith(
       expect.objectContaining({
-        title: 'تم تحديث حالة الشكوى',
-        message: 'أصبحت حالة شكواك الآن تم الحل.',
+        text: expect.objectContaining({
+          ar: {
+            title: 'تم تحديث حالة الشكوى',
+            message: 'أصبحت حالة شكواك الآن تم الحل.',
+          },
+        }) as object,
       }),
     );
   });

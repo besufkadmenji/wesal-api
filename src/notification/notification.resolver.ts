@@ -1,5 +1,13 @@
 import { Inject, UseGuards } from '@nestjs/common';
-import { Resolver, Query, Mutation, Args, Subscription } from '@nestjs/graphql';
+import {
+  Resolver,
+  Query,
+  Mutation,
+  Args,
+  Subscription,
+  ResolveField,
+  Parent,
+} from '@nestjs/graphql';
 import {
   NOTIFICATION_ADDED_EVENT,
   NotificationAddedPayload,
@@ -23,6 +31,7 @@ import { WsJwtAuthGuard } from '../auth/guards/ws-jwt-auth.guard';
 import { PubSub } from 'graphql-subscriptions';
 import { PUB_SUB } from '../../lib/pubsub/pubsub.module';
 import { NotificationRecipientType } from './enums/notification-recipient-type.enum';
+import { localizedNotificationField } from './notification-texts';
 
 export const isNotificationPayloadRecipient = (
   payload: NotificationAddedPayload,
@@ -164,5 +173,22 @@ export class NotificationResolver {
   @UseGuards(WsJwtAuthGuard)
   notificationAdded() {
     return this.pubSub.asyncIterableIterator(NOTIFICATION_ADDED_EVENT);
+  }
+
+  /** D-11: the reader's language when an English copy is stored. */
+  @ResolveField(() => String)
+  title(
+    @Parent() notification: Notification,
+    @GetLanguage() language: LanguageCode,
+  ): string {
+    return localizedNotificationField(notification, 'title', language);
+  }
+
+  @ResolveField(() => String)
+  message(
+    @Parent() notification: Notification,
+    @GetLanguage() language: LanguageCode,
+  ): string {
+    return localizedNotificationField(notification, 'message', language);
   }
 }

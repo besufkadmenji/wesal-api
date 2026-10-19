@@ -44,7 +44,7 @@ describe('RatingService', () => {
       Promise.resolve({ id: options.where.id }),
     ),
   };
-  const notificationService = { createForRecipient: jest.fn() };
+  const notificationService = { notifyLocalized: jest.fn() };
   const service = new RatingService(
     ratingRepository as never,
     dataSource as never,
@@ -97,7 +97,7 @@ describe('RatingService', () => {
     expect((manager.query.mock.calls as unknown[][])[1][1]).toEqual([
       'provider-id',
     ]);
-    expect(notificationService.createForRecipient).toHaveBeenCalledWith(
+    expect(notificationService.notifyLocalized).toHaveBeenCalledWith(
       expect.objectContaining({
         recipientId: 'provider-id',
         type: NotificationType.NEW_RATING,

@@ -39,6 +39,9 @@ import { SettingService } from '../setting/setting.service';
 export type PaymentPayer = User | Provider;
 
 import { AdminNotificationService } from '../notification/admin-notification.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
+import { notificationTexts } from '../notification/notification-texts';
 import { NotificationType } from '../notification/enums/notification-type.enum';
 @Injectable()
 export class PaymentService {
@@ -57,6 +60,8 @@ export class PaymentService {
     private readonly settingService: SettingService,
     @Optional()
     private readonly adminNotifications?: AdminNotificationService,
+    @Optional()
+    private readonly notifications?: NotificationService,
   ) {}
 
   async settleContractPayment(
@@ -179,6 +184,7 @@ export class PaymentService {
     if (result.event) {
       await this.publishSafely(result.event);
       await this.notifyAdminsOfPayment(result.payment);
+      await this.notifyContractPaid(result.contract);
     }
     // Contract rows are locked without joins inside the transaction. Re-read
     // the committed contract with its GraphQL detail relations before returning
@@ -350,6 +356,7 @@ export class PaymentService {
     if (result.event) {
       await this.publishSafely(result.event);
       await this.notifyAdminsOfPayment(result.payment);
+      await this.notifyChatFeePaid(result.conversation, principal);
     }
     return {
       payment: result.payment,
@@ -405,7 +412,61 @@ export class PaymentService {
       }),
     );
     await this.notifyAdminsOfPayment(saved);
+    await this.notifications?.notifyLocalized({
+      recipientId: listing.providerId,
+      recipientType: NotificationRecipientType.PROVIDER,
+      type: NotificationType.LISTING_FEATURED,
+      text: notificationTexts.listingFeatured(listing.name),
+      relatedEntityId: listing.id,
+      relatedEntityType: 'listing',
+    });
     return saved;
+  }
+
+  /** S4-38: both parties learn the contract is paid and in progress. */
+  private async notifyContractPaid(
+    contract: Pick<Contract, 'id' | 'publicId' | 'clientId' | 'providerId'>,
+  ): Promise<void> {
+    if (!this.notifications) return;
+    const reference = contract.publicId ?? contract.id;
+    await this.notifications.notifyLocalized({
+      recipientId: contract.clientId,
+      recipientType: NotificationRecipientType.USER,
+      type: NotificationType.PAYMENT_RECEIVED,
+      text: notificationTexts.contractPaidCustomer(reference),
+      relatedEntityId: contract.id,
+      relatedEntityType: 'contract',
+    });
+    await this.notifications.notifyLocalized({
+      recipientId: contract.providerId,
+      recipientType: NotificationRecipientType.PROVIDER,
+      type: NotificationType.PAYMENT_RECEIVED,
+      text: notificationTexts.contractPaidProvider(reference),
+      relatedEntityId: contract.id,
+      relatedEntityType: 'contract',
+    });
+  }
+
+  private async notifyChatFeePaid(
+    conversation: Pick<Conversation, 'id' | 'listingId'>,
+    payer: JwtPayload,
+  ): Promise<void> {
+    if (!this.notifications) return;
+    const listing = await this.dataSource.getRepository(Listing).findOne({
+      where: { id: conversation.listingId },
+      select: { id: true, name: true },
+    });
+    await this.notifications.notifyLocalized({
+      recipientId: payer.sub,
+      recipientType:
+        payer.type === 'provider'
+          ? NotificationRecipientType.PROVIDER
+          : NotificationRecipientType.USER,
+      type: NotificationType.CHAT_FEE_PAID,
+      text: notificationTexts.chatFeePaid(listing?.name ?? ''),
+      relatedEntityId: conversation.id,
+      relatedEntityType: 'conversation',
+    });
   }
 
   /** BRD 4.3.25: admins see every successful fee or contract payment. */

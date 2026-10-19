@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThanOrEqual, Repository } from 'typeorm';
 import { Interval } from '@nestjs/schedule';
@@ -18,6 +18,10 @@ import { SignedContractStatus } from '../provider/enums/contract.enum';
 import { ProviderStatus } from '../provider/enums/provider-status.enum';
 import { Rating } from '../rating/entities/rating.entity';
 import { SearchService } from '../search/search.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/enums/notification-type.enum';
+import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
+import { notificationTexts } from '../notification/notification-texts';
 import { ActionType } from '../tracking/enums/action-type.enum';
 import { TargetType } from '../tracking/enums/target-type.enum';
 import { TrackingService } from '../tracking/tracking.service';
@@ -66,6 +70,8 @@ export class ListingService {
     private readonly searchService: SearchService,
     private readonly settingService: SettingService,
     private readonly paymentService: PaymentService,
+    @Optional()
+    private readonly notifications?: NotificationService,
   ) {}
 
   async create(
@@ -433,6 +439,14 @@ export class ListingService {
         listing.status = ListingStatus.ACTIVE;
         listing.promotionStatus = PromotionStatus.EXPIRED;
         void this.searchService.indexListing(listing).catch(() => undefined);
+        await this.notifications?.notifyLocalized({
+          recipientId: listing.providerId,
+          recipientType: NotificationRecipientType.PROVIDER,
+          type: NotificationType.LISTING_FEATURED_EXPIRED,
+          text: notificationTexts.listingFeaturedExpired(listing.name),
+          relatedEntityId: listing.id,
+          relatedEntityType: 'listing',
+        });
       }
     }
   }

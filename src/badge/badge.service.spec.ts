@@ -96,7 +96,7 @@ describe('BadgeService', () => {
           Promise.resolve(unfinished[options.where.providerId] ?? 0),
         ),
       } as unknown as Repository<Contract>,
-      { createForRecipient: notify } as unknown as NotificationService,
+      { notifyLocalized: notify } as unknown as NotificationService,
       {
         autoDeleteForLowRating: autoDelete,
       } as unknown as ProviderService,
@@ -240,7 +240,11 @@ describe('BadgeService', () => {
       expect.objectContaining({
         recipientId: 'low',
         type: NotificationType.BADGE_WARNING,
-        message: expect.stringContaining('to 3 stars or more') as string,
+        text: expect.objectContaining({
+          en: expect.objectContaining({
+            message: expect.stringContaining('to 3 stars or more') as string,
+          }) as object,
+        }) as object,
       }),
     );
     expect(autoDelete).not.toHaveBeenCalled();

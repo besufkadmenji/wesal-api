@@ -85,7 +85,24 @@ export function verifySubscriptionConnection(
         if (ctx.extra) {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           const auth = (ctx.extra.auth ?? {}) as SubscriptionAuth;
-          return { principal: auth.principal, admin: auth.admin };
+          // The web sends its language as a connection param; expose it like
+          // an HTTP header so @GetLanguage() works for subscription payloads.
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          const params = (ctx.connectionParams ?? {}) as Record<
+            string,
+            unknown
+          >;
+          const language = params['accept-language'];
+          return {
+            principal: auth.principal,
+            admin: auth.admin,
+            req: {
+              headers: {
+                'accept-language':
+                  typeof language === 'string' ? language : undefined,
+              },
+            },
+          };
         }
         // HTTP request context
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access

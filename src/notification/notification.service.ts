@@ -18,6 +18,7 @@ import { Notification } from './entities/notification.entity';
 import { User } from '../user/entities/user.entity';
 import { NOTIFICATION_ERROR_MESSAGES } from './errors/notification.error-messages';
 import { NotificationRecipientType } from './enums/notification-recipient-type.enum';
+import type { BilingualText } from './notification-texts';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 export const NOTIFICATION_ADDED_EVENT = 'notificationAdded';
@@ -90,6 +91,7 @@ export class NotificationService {
     message: string;
     relatedEntityId?: string;
     relatedEntityType?: string;
+    translations?: Notification['translations'];
   }): Promise<Notification> {
     const saved = await this.notificationRepository.save(
       this.notificationRepository.create({
@@ -103,6 +105,35 @@ export class NotificationService {
     );
     await this.publishSafely(saved);
     return saved;
+  }
+
+  /**
+   * S4-38 / D-11: stores Arabic in title/message plus the English copy, so
+   * each reader gets their own language (see the resolver's title/message).
+   * Best-effort: a failure is logged, never thrown to the caller.
+   */
+  async notifyLocalized(input: {
+    recipientId: string;
+    recipientType: NotificationRecipientType;
+    type: import('./enums/notification-type.enum').NotificationType;
+    text: BilingualText;
+    relatedEntityId?: string;
+    relatedEntityType?: string;
+  }): Promise<Notification | null> {
+    const { text, ...rest } = input;
+    try {
+      return await this.createForRecipient({
+        ...rest,
+        title: text.ar.title,
+        message: text.ar.message,
+        translations: { en: text.en },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Notification ${input.type} for ${input.recipientId} failed: ${String(error)}`,
+      );
+      return null;
+    }
   }
 
   async findAll(

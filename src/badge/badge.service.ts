@@ -8,6 +8,7 @@ import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Contract } from '../contract/entities/contract.entity';
 import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
+import type { BilingualText } from '../notification/notification-texts';
 import { NotificationType } from '../notification/enums/notification-type.enum';
 import { NotificationService } from '../notification/notification.service';
 import { AdminNotificationService } from '../notification/admin-notification.service';
@@ -360,10 +361,8 @@ export class BadgeService {
     tier: BadgeTier,
     maxBound: BadgeBound | null = null,
   ): Promise<void> {
-    const ar = provider.languageCode !== 'en';
-    const name = TIER_NAMES[tier][ar ? 'ar' : 'en'];
-    let title: string;
-    let message: string;
+    const name = TIER_NAMES[tier];
+    let text: BilingualText;
     if (type === NotificationType.BADGE_WARNING) {
       // "=x" max: must rise above x; "<x" max: reaching x is enough.
       const end = maxBound ? upperEnd(maxBound) : { value: 0, inclusive: true };
@@ -373,29 +372,33 @@ export class BadgeService {
       const targetAr = end.inclusive
         ? `إلى أعلى من ${end.value} نجوم`
         : `إلى ${end.value} نجوم أو أكثر`;
-      title = ar ? 'تنبيه: لقب قيد التحسن' : 'Warning: "Under improvement"';
-      message = ar
-        ? `حصلت على ${name}. إذا لم يتحسن تقييمك ${targetAr} خلال شهر، سيتم حذف حسابك.`
-        : `You received the ${name}. If your rating does not improve ${targetEn} within one month, your account will be deleted.`;
+      text = {
+        ar: {
+          title: 'تنبيه: لقب قيد التحسن',
+          message: `حصلت على ${name.ar}. إذا لم يتحسن تقييمك ${targetAr} خلال شهر، سيتم حذف حسابك.`,
+        },
+        en: {
+          title: 'Warning: "Under improvement"',
+          message: `You received the ${name.en}. If your rating does not improve ${targetEn} within one month, your account will be deleted.`,
+        },
+      };
     } else {
-      title = ar ? 'وسام جديد' : 'New badge';
-      message = ar
-        ? `تهانينا! حصلت على ${name}.`
-        : `Congratulations! You earned the ${name}.`;
+      text = {
+        ar: { title: 'وسام جديد', message: `تهانينا! حصلت على ${name.ar}.` },
+        en: {
+          title: 'New badge',
+          message: `Congratulations! You earned the ${name.en}.`,
+        },
+      };
     }
-    try {
-      await this.notificationService.createForRecipient({
-        recipientId: provider.id,
-        recipientType: NotificationRecipientType.PROVIDER,
-        type,
-        title,
-        message,
-        relatedEntityId: provider.id,
-        relatedEntityType: 'provider',
-      });
-    } catch (error) {
-      this.logger.warn(`Badge notification failed for ${provider.id}`, error);
-    }
+    await this.notificationService.notifyLocalized({
+      recipientId: provider.id,
+      recipientType: NotificationRecipientType.PROVIDER,
+      type,
+      text,
+      relatedEntityId: provider.id,
+      relatedEntityType: 'provider',
+    });
   }
 
   private badRequest(

@@ -25,6 +25,7 @@ import { SearchService } from '../search/search.service';
 import { Contract } from '../contract/entities/contract.entity';
 import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
+import { notificationTexts } from '../notification/notification-texts';
 import { NotificationType } from '../notification/enums/notification-type.enum';
 import { NotificationService } from '../notification/notification.service';
 import { SettingService } from '../setting/setting.service';
@@ -489,22 +490,14 @@ export class CategoryService {
         .select(['provider.id', 'provider.languageCode'])
         .getMany();
       for (const provider of providers) {
-        const ar = provider.languageCode !== 'en';
-        const name = ar ? category.nameAr : category.nameEn;
-        await this.notificationService.createForRecipient({
+        await this.notificationService.notifyLocalized({
           recipientId: provider.id,
           recipientType: NotificationRecipientType.PROVIDER,
           type: NotificationType.SYSTEM_ANNOUNCEMENT,
-          title: ar
-            ? active
-              ? 'تفعيل قسم'
-              : 'تعطيل قسم'
-            : active
-              ? 'Category activated'
-              : 'Category deactivated',
-          message: ar
-            ? `تم ${active ? 'تفعيل' : 'تعطيل'} القسم "${name}".`
-            : `The category "${name}" has been ${active ? 'activated' : 'deactivated'}.`,
+          text: notificationTexts.categoryStatus(
+            { ar: category.nameAr, en: category.nameEn },
+            active,
+          ),
           relatedEntityId: category.id,
           relatedEntityType: 'category',
         });
