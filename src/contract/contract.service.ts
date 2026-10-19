@@ -39,6 +39,7 @@ import { CONTRACT_ERROR_CODES } from './errors/contract.error-codes';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { SettingService } from '../setting/setting.service';
 import { notificationTexts } from '../notification/notification-texts';
+import { statusesInGroup } from './contract-status-group';
 import {
   MessageAddedPayload,
   MessageService,
@@ -1005,6 +1006,7 @@ export class ContractService {
       limit = 10,
       conversationId,
       status,
+      statusGroup,
       categoryId,
       isCharity,
       search,
@@ -1032,7 +1034,9 @@ export class ContractService {
           : 'contract.clientId = :principalId',
         { principalId: principal.sub },
       );
-      if (principal.type === 'provider') {
+      // Drafts are never listed for providers; customers only see their own
+      // drafts when a conversation's contracts are read (to resume one).
+      if (principal.type === 'provider' || !conversationId) {
         query.andWhere('contract.status != :draftStatus', {
           draftStatus: ContractStatus.DRAFT,
         });
@@ -1045,6 +1049,11 @@ export class ContractService {
     }
     if (status) {
       query.andWhere('contract.status = :status', { status });
+    }
+    if (statusGroup) {
+      query.andWhere('contract.status IN (:...groupStatuses)', {
+        groupStatuses: statusesInGroup(statusGroup),
+      });
     }
     if (categoryId) {
       query.andWhere('contract.categoryId = :categoryId', { categoryId });

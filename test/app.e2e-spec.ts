@@ -1786,6 +1786,65 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     );
   });
 
+  it('filters My Contracts by BRD tab and hides drafts from the list', async () => {
+    const contracts = app.get(DataSource).getRepository(Contract);
+    const original = await contracts.findOneByOrFail({
+      id: transactionContractId,
+    });
+    const customerToken = jwt.sign(
+      transactionCustomer,
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+    const list = async (input: object) => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set({ Authorization: `Bearer ${customerToken}` })
+        .send({
+          query: `query List($input: ContractPaginationInput) {
+            contracts(input: $input) { items { id status statusGroup } }
+          }`,
+          variables: { input },
+        });
+      const body = response.body as {
+        data: {
+          contracts: {
+            items: Array<{ id: string; status: string; statusGroup: string }>;
+          };
+        } | null;
+        errors?: Array<{ message: string }>;
+      };
+      expect(body.errors).toBeUndefined();
+      return body.data!.contracts.items.map((item) => item.id);
+    };
+
+    try {
+      // Provider finished, waiting for the customer: Figma's "In progress".
+      await contracts.update(transactionContractId, {
+        status: ContractStatus.AWAITING_CUSTOMER_CONFIRMATION,
+      });
+      expect(await list({ statusGroup: 'IN_PROGRESS' })).toContain(
+        transactionContractId,
+      );
+      expect(await list({ statusGroup: 'COMPLETED' })).not.toContain(
+        transactionContractId,
+      );
+
+      await contracts.update(transactionContractId, {
+        status: ContractStatus.DRAFT,
+      });
+      expect(await list({})).not.toContain(transactionContractId);
+      // A conversation's own contracts still include its draft (resume).
+      expect(await list({ conversationId: original.conversationId })).toContain(
+        transactionContractId,
+      );
+    } finally {
+      await contracts.update(transactionContractId, {
+        status: original.status,
+      });
+    }
+  });
+
   // Last: it runs a badge assignment, which may change other providers.
   it('labels providers no badge run has evaluated as newly added', async () => {
     const dataSource = app.get(DataSource);

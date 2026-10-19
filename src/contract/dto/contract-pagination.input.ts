@@ -11,6 +11,7 @@ import {
 import { Type } from 'class-transformer';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 import { ContractStatus } from '../enums/contract-status.enum';
+import { ContractStatusGroup } from '../contract-status-group';
 
 const CONTRACT_SORTABLE_FIELDS = [
   'id',
@@ -58,6 +59,14 @@ export class ContractPaginationInput extends PaginationInput {
   @IsOptional()
   @IsEnum(ContractStatus)
   status?: ContractStatus;
+
+  @Field(() => ContractStatusGroup, {
+    nullable: true,
+    description: 'My Contracts tab (S4-1); combines with status if both set',
+  })
+  @IsOptional()
+  @IsEnum(ContractStatusGroup)
+  statusGroup?: ContractStatusGroup;
 
   @Field({ nullable: true })
   @IsOptional()

@@ -38,6 +38,10 @@ import type { AdminJwtPayload } from '../admin/types/admin-jwt-payload.type';
 import { ContractSignature } from './entities/contract-signature.entity';
 import { ContractSettlement } from './entities/contract-settlement.entity';
 import { ContractAudit } from './entities/contract-audit.entity';
+import {
+  CONTRACT_STATUS_GROUPS,
+  ContractStatusGroup,
+} from './contract-status-group';
 
 @Resolver(() => Contract)
 @UseGuards(JwtAuthGuard)
@@ -57,6 +61,12 @@ export class ContractResolver {
   @ResolveField(() => [ContractAudit])
   audits(@Parent() contract: Contract): ContractAudit[] {
     return contract.audits ?? [];
+  }
+
+  /** S4-1: the My Contracts tab this contract appears under (null for drafts). */
+  @ResolveField(() => ContractStatusGroup, { nullable: true })
+  statusGroup(@Parent() contract: Contract): ContractStatusGroup | null {
+    return CONTRACT_STATUS_GROUPS[contract.status] ?? null;
   }
 
   @Mutation(() => Contract, {
