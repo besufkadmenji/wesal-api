@@ -69,6 +69,7 @@ import { NotificationType } from '../notification/enums/notification-type.enum';
 import { Rating } from '../rating/entities/rating.entity';
 import { RatingStatus } from '../rating/enums/rating-status.enum';
 import { RatingService } from '../rating/rating.service';
+import { earlyCancellationSplit } from './cancellation-outcome';
 import {
   CUSTOMER_OVERDUE_SQL,
   isCustomerOverdue,
@@ -1335,14 +1336,17 @@ export class ContractService {
   ): Promise<SettlementMoney> {
     const payment = await this.paymentForContract(contract.id, manager);
     const paid = Number(payment.amount);
-    const deposit = Math.min(Number(contract.downPayment), paid);
-    const commission = Math.min(Number(contract.commissionAmount), deposit);
+    const split = earlyCancellationSplit(
+      paid,
+      Number(contract.downPayment),
+      Number(contract.commissionAmount),
+    );
     await this.addSettlement(
       manager,
       contract,
       payment,
       ContractSettlementType.CUSTOMER_REFUND,
-      paid - deposit,
+      split.refund,
       'EARLY_CANCEL',
       actorId,
       reason,
@@ -1352,7 +1356,7 @@ export class ContractService {
       contract,
       payment,
       ContractSettlementType.PROVIDER_RELEASE,
-      deposit - commission,
+      split.provider,
       'EARLY_CANCEL',
       actorId,
       reason,
@@ -1362,12 +1366,12 @@ export class ContractService {
       contract,
       payment,
       ContractSettlementType.PLATFORM_COMMISSION,
-      commission,
+      split.commission,
       'EARLY_CANCEL',
       actorId,
       reason,
     );
-    return { payout: deposit - commission, refund: paid - deposit };
+    return { payout: split.provider, refund: split.refund };
   }
 
   private async holdDispute(

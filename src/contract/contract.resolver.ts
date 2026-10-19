@@ -40,6 +40,8 @@ import { ContractSettlement } from './entities/contract-settlement.entity';
 import { ContractAudit } from './entities/contract-audit.entity';
 import { User } from '../user/entities/user.entity';
 import { visibleContractClient } from './contract-client-visibility';
+import { cancellationOutcome } from './cancellation-outcome';
+import { CancellationPreview } from './dto/cancellation-preview.response';
 import {
   CONTRACT_STATUS_GROUPS,
   ContractStatusGroup,
@@ -75,6 +77,18 @@ export class ContractResolver {
   }
 
   /** S4-1: the My Contracts tab this contract appears under (null for drafts). */
+  /** BRD 4.1.18 warning before cancelling; only the contract's customer sees it. */
+  @ResolveField(() => CancellationPreview, { nullable: true })
+  cancellationPreview(
+    @Parent() contract: Contract,
+    @CurrentPrincipal() principal?: JwtPayload,
+  ): CancellationPreview | null {
+    if (principal?.type !== 'user' || principal.sub !== contract.clientId) {
+      return null;
+    }
+    return cancellationOutcome(contract);
+  }
+
   @ResolveField(() => ContractStatusGroup, { nullable: true })
   statusGroup(@Parent() contract: Contract): ContractStatusGroup | null {
     return CONTRACT_STATUS_GROUPS[contract.status] ?? null;
