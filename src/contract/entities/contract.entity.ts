@@ -289,6 +289,14 @@ export class Contract {
 
   @Field(() => Date, {
     nullable: true,
+    description:
+      'When the administration closed the contract with a payout (ADMIN_RESOLVED)',
+  })
+  @Column({ type: 'timestamptz', nullable: true })
+  resolvedAt: Date | null;
+
+  @Field(() => Date, {
+    nullable: true,
     description: 'When the provider was flagged overdue (S4-2)',
   })
   @Column({ type: 'timestamptz', nullable: true })

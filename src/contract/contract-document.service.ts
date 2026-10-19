@@ -84,7 +84,9 @@ export class ContractDocumentService {
    * Earlier requests render fresh and never leave a stale document behind.
    */
   private async getOrCreate(contract: Contract): Promise<Buffer> {
-    const isFinal = contract.status === ContractStatus.COMPLETED;
+    const isFinal =
+      contract.status === ContractStatus.COMPLETED ||
+      contract.status === ContractStatus.ADMIN_RESOLVED;
     if (isFinal) {
       const existing =
         contract.document ??

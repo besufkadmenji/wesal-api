@@ -21,6 +21,7 @@ import { Contract } from '../src/contract/entities/contract.entity';
 import { Conversation } from '../src/conversation/entities/conversation.entity';
 import { Notification } from '../src/notification/entities/notification.entity';
 import { ContractStatus } from '../src/contract/enums/contract-status.enum';
+import { ContractResolution } from '../src/contract/dto/admin-resolve-contract.input';
 import { ConversationService } from '../src/conversation/conversation.service';
 import { Message } from '../src/conversation/entities/message.entity';
 import { MessageKind } from '../src/conversation/enums/message-kind.enum';
@@ -2020,6 +2021,54 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       });
       await conversations.update(conversation.id, {
         expiresAt: conversation.expiresAt,
+      });
+    }
+  });
+
+  it('closes an admin payout as ADMIN_RESOLVED, never Completed (Q-C3)', async () => {
+    const contracts = app.get(DataSource).getRepository(Contract);
+    const original = await contracts.findOneByOrFail({
+      id: transactionContractId,
+    });
+    const service = app.get(ContractService);
+    try {
+      await contracts.update(transactionContractId, {
+        status: ContractStatus.AWAITING_CUSTOMER_CONFIRMATION,
+        confirmationDeadlineAt: new Date(Date.now() - 60_000),
+        completedAt: null,
+        resolvedAt: null,
+      });
+      const resolved = await service.adminResolveContract(
+        {
+          contractId: transactionContractId,
+          resolution: ContractResolution.COMPLETE,
+          reason: 'Customer did not confirm in time',
+        },
+        {
+          sub: '00000000-0000-4000-8000-0000000000af',
+          email: 'resolve-admin@example.com',
+          permissionType: AdminPermissionType.SUPER_ADMIN,
+        },
+      );
+      expect(resolved.status).toBe(ContractStatus.ADMIN_RESOLVED);
+      expect(resolved.resolvedAt).toBeInstanceOf(Date);
+      expect(resolved.completedAt).toBeNull();
+
+      // Only a customer-signed (COMPLETED) contract can be rated.
+      await expect(
+        app
+          .get(RatingService)
+          .rateContract(
+            { contractId: transactionContractId, rating: 5 },
+            transactionCustomer,
+          ),
+      ).rejects.toThrow('Only completed contracts can be rated');
+    } finally {
+      await contracts.update(transactionContractId, {
+        status: original.status,
+        confirmationDeadlineAt: original.confirmationDeadlineAt,
+        completedAt: original.completedAt,
+        resolvedAt: original.resolvedAt,
       });
     }
   });

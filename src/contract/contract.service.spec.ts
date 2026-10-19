@@ -750,6 +750,104 @@ describe('ContractService', () => {
     );
   });
 
+  describe('admin resolution without the customer signature (Q-C3)', () => {
+    const admin = {
+      sub: 'admin-id',
+      email: 'admin@example.com',
+      permissionType: 'SUPER_ADMIN',
+    } as never;
+    const resolvable = (overrides: object) => ({
+      id: 'contract-id',
+      conversationId: conversation.id,
+      listingId: conversation.listingId,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      version: 1,
+      providerNetAmount: 490,
+      commissionAmount: 10,
+      vatAmount: 75,
+      signatures: [],
+      ...overrides,
+    });
+
+    it.each([
+      [
+        'an overdue confirmation completed by the admin',
+        {
+          status: ContractStatus.AWAITING_CUSTOMER_CONFIRMATION,
+          confirmationDeadlineAt: new Date(Date.now() - 60_000),
+        },
+        'COMPLETE',
+      ],
+      [
+        'a dispute released to the provider',
+        { status: ContractStatus.DISPUTED },
+        'RELEASE_PROVIDER',
+      ],
+    ])(
+      'closes %s as ADMIN_RESOLVED, never COMPLETED',
+      async (_, state, resolution) => {
+        const contract = resolvable(state);
+        contractRepository.findOne
+          .mockResolvedValueOnce(contract)
+          .mockResolvedValueOnce(contract);
+
+        await service.adminResolveContract(
+          {
+            contractId: contract.id,
+            resolution,
+            reason: 'Admin decision',
+          } as never,
+          admin,
+        );
+
+        expect(contractRepository.save).toHaveBeenCalledWith(
+          expect.objectContaining({ status: ContractStatus.ADMIN_RESOLVED }),
+        );
+        const saved = contractRepository.save.mock.calls.at(-1)?.[0] as {
+          completedAt?: Date;
+          resolvedAt?: Date;
+        };
+        expect(saved.resolvedAt).toBeInstanceOf(Date);
+        expect(saved.completedAt).toBeUndefined();
+        expect(settlementRepository.save).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'PROVIDER_RELEASE', amount: 490 }),
+        );
+        expect(messageService.persistSystemEvent).toHaveBeenCalledWith(
+          conversation.id,
+          'CONTRACT_ADMIN_RESOLVED',
+          expect.objectContaining({ reason: 'Admin decision' }),
+          manager,
+        );
+      },
+    );
+
+    it('refuses to complete a contract the customer has not signed', () => {
+      expect(() =>
+        (
+          service as unknown as {
+            assertCustomerSigned: (
+              contract: object,
+              added: object[],
+              language: string,
+            ) => void;
+          }
+        ).assertCustomerSigned(
+          resolvable({
+            signatures: [
+              {
+                contractId: 'contract-id',
+                signatureType: 'PROVIDER_COMPLETION',
+              },
+            ],
+          }),
+          [],
+          'en',
+        ),
+      ).toThrow();
+    });
+  });
+
   it('resends a rejected contract as an immutable new version', async () => {
     const rejected = {
       id: 'rejected-contract-id',

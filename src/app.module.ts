@@ -81,6 +81,7 @@ function getDatabaseConfig() {
         ...getDatabaseConfig(),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
         migrations: [__dirname + '/migrations/*{.ts,.js}'],
+        migrationsTransactionMode: 'each',
         synchronize:
           process.env.DB_SYNCHRONIZE !== undefined
             ? process.env.DB_SYNCHRONIZE === 'true'

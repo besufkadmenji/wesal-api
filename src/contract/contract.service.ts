@@ -92,22 +92,29 @@ const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
     ContractStatus.COMPLETED,
     ContractStatus.CANCELLATION_REQUESTED,
     ContractStatus.DISPUTED,
+    ContractStatus.ADMIN_RESOLVED,
+    ContractStatus.CANCELLED,
   ],
   [ContractStatus.DELIVERY_IN_PROGRESS]: [
     ContractStatus.COMPLETED,
     ContractStatus.CANCELLATION_REQUESTED,
     ContractStatus.DISPUTED,
+    ContractStatus.ADMIN_RESOLVED,
+    ContractStatus.CANCELLED,
   ],
   [ContractStatus.CANCELLATION_REQUESTED]: [
     ContractStatus.CANCELLED,
     ContractStatus.DISPUTED,
   ],
+  // Only the customer's signature completes a contract (decision 2026-10-19);
+  // the administration closes disputes as ADMIN_RESOLVED or CANCELLED.
   [ContractStatus.DISPUTED]: [
-    ContractStatus.COMPLETED,
+    ContractStatus.ADMIN_RESOLVED,
     ContractStatus.CANCELLED,
   ],
   [ContractStatus.COMPLETED]: [],
   [ContractStatus.CANCELLED]: [],
+  [ContractStatus.ADMIN_RESOLVED]: [],
 };
 
 const CONTRACT_DETAIL_RELATIONS = [
@@ -666,6 +673,7 @@ export class ContractService {
         manager,
         language,
       );
+      this.assertCustomerSigned(contract, [signature], language);
       contract.status = ContractStatus.COMPLETED;
       contract.completedAt = new Date();
       const saved = await manager.getRepository(Contract).save(contract);
@@ -928,11 +936,13 @@ export class ContractService {
         manager,
         language,
       );
+      // Paying the provider without the customer's signature closes the
+      // contract as ADMIN_RESOLVED, never COMPLETED (decision 2026-10-19).
       const complete =
         input.resolution === ContractResolution.RELEASE_PROVIDER ||
         input.resolution === ContractResolution.COMPLETE;
       if (
-        (complete && contract.status === ContractStatus.COMPLETED) ||
+        (complete && contract.status === ContractStatus.ADMIN_RESOLVED) ||
         (!complete && contract.status === ContractStatus.CANCELLED)
       ) {
         return { contract, event: null };
@@ -960,11 +970,11 @@ export class ContractService {
         throw this.error('INVALID_STATUS_TRANSITION', language);
       }
       contract.status = complete
-        ? ContractStatus.COMPLETED
+        ? ContractStatus.ADMIN_RESOLVED
         : ContractStatus.CANCELLED;
       let money: SettlementMoney;
       if (complete) {
-        contract.completedAt = new Date();
+        contract.resolvedAt = new Date();
         money = await this.settleCompleted(contract, manager, admin.sub);
       } else {
         contract.cancelledAt = new Date();
@@ -995,7 +1005,7 @@ export class ContractService {
       const event = await this.messageService.persistSystemEvent(
         contract.conversationId,
         complete
-          ? MessageKind.CONTRACT_COMPLETED
+          ? MessageKind.CONTRACT_ADMIN_RESOLVED
           : MessageKind.CONTRACT_CANCELLED,
         {
           contractId: contract.id,
@@ -1136,15 +1146,19 @@ export class ContractService {
       .createQueryBuilder('contract')
       .select('COUNT(*)::int', 'contracts')
       .addSelect(
-        'COUNT(*) FILTER (WHERE contract.status = :completed)::int',
+        'COUNT(*) FILTER (WHERE contract.status IN (:...settled))::int',
         'completedContracts',
       )
       .addSelect(
-        'COALESCE(SUM(contract.charityAmount) FILTER (WHERE contract.status = :completed), 0)',
+        'COALESCE(SUM(contract.charityAmount) FILTER (WHERE contract.status IN (:...settled)), 0)',
         'totalAmount',
       )
       .where('contract.isCharity = true')
-      .setParameter('completed', ContractStatus.COMPLETED);
+      .setParameter('settled', [
+        ContractStatus.COMPLETED,
+        // Paid out by the administration: the commission was collected too.
+        ContractStatus.ADMIN_RESOLVED,
+      ]);
     if (from) query.andWhere('contract.createdAt >= :from', { from });
     if (to) query.andWhere('contract.createdAt <= :to', { to });
     const row = await query.getRawOne<{
@@ -1394,6 +1408,23 @@ export class ContractService {
       reason,
     );
     return { payout: 0, refund: Number(payment.amount) };
+  }
+
+  /**
+   * Decision 2026-10-19: "Completed" always means the customer signed
+   * completion (they receive the work). Call before setting COMPLETED.
+   */
+  private assertCustomerSigned(
+    contract: Contract,
+    added: ContractSignature[],
+    language: LanguageCode,
+  ): void {
+    const signed = [...(contract.signatures ?? []), ...added].some(
+      (signature) =>
+        signature.contractId === contract.id &&
+        signature.signatureType === ContractSignatureType.CUSTOMER_COMPLETION,
+    );
+    if (!signed) throw this.error('CUSTOMER_SIGNATURE_REQUIRED', language);
   }
 
   /** BRD 4.1.18: a provider-overdue cancellation counts as a 0★ rating. */

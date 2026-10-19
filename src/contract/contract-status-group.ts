@@ -36,6 +36,8 @@ export const CONTRACT_STATUS_GROUPS: Record<
   [ContractStatus.DISPUTED]: ContractStatusGroup.IN_PROGRESS,
   [ContractStatus.DELIVERY_IN_PROGRESS]: ContractStatusGroup.IN_DELIVERY,
   [ContractStatus.COMPLETED]: ContractStatusGroup.COMPLETED,
+  // Finished, but without the customer's signature: its own pill (decision 2026-10-19).
+  [ContractStatus.ADMIN_RESOLVED]: ContractStatusGroup.COMPLETED,
   [ContractStatus.CANCELLED]: ContractStatusGroup.CANCELLED,
 };
 
