@@ -1845,6 +1845,57 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     }
   });
 
+  it("hides the customer's identity from the provider until payment", async () => {
+    const contracts = app.get(DataSource).getRepository(Contract);
+    const original = await contracts.findOneByOrFail({
+      id: transactionContractId,
+    });
+    const sign = (payload: object) =>
+      jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '5m' });
+    const client = async (token: string) => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set({ Authorization: `Bearer ${token}` })
+        .send({
+          query: `query One($id: String!) {
+            contract(id: $id) { client { id name phone email } }
+          }`,
+          variables: { id: transactionContractId },
+        });
+      const body = response.body as {
+        data: {
+          contract: {
+            client: {
+              id: string;
+              name: string | null;
+              phone: string;
+              email: string;
+            };
+          };
+        } | null;
+        errors?: Array<{ message: string }>;
+      };
+      expect(body.errors).toBeUndefined();
+      return body.data!.contract.client;
+    };
+
+    try {
+      await contracts.update(transactionContractId, { paidAt: null });
+      const masked = await client(sign(transactionProvider));
+      expect(masked.name).toBeNull();
+      expect(masked.phone).toBe('');
+      expect(masked.email).toBe('');
+      expect((await client(sign(transactionCustomer))).phone).not.toBe('');
+
+      await contracts.update(transactionContractId, { paidAt: new Date() });
+      expect((await client(sign(transactionProvider))).phone).not.toBe('');
+    } finally {
+      await contracts.update(transactionContractId, {
+        paidAt: original.paidAt,
+      });
+    }
+  });
+
   // Last: it runs a badge assignment, which may change other providers.
   it('labels providers no badge run has evaluated as newly added', async () => {
     const dataSource = app.get(DataSource);

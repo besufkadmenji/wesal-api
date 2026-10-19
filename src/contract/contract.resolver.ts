@@ -38,6 +38,8 @@ import type { AdminJwtPayload } from '../admin/types/admin-jwt-payload.type';
 import { ContractSignature } from './entities/contract-signature.entity';
 import { ContractSettlement } from './entities/contract-settlement.entity';
 import { ContractAudit } from './entities/contract-audit.entity';
+import { User } from '../user/entities/user.entity';
+import { visibleContractClient } from './contract-client-visibility';
 import {
   CONTRACT_STATUS_GROUPS,
   ContractStatusGroup,
@@ -61,6 +63,15 @@ export class ContractResolver {
   @ResolveField(() => [ContractAudit])
   audits(@Parent() contract: Contract): ContractAudit[] {
     return contract.audits ?? [];
+  }
+
+  /** BRD: providers see the customer's identity only after payment. */
+  @ResolveField(() => User)
+  client(
+    @Parent() contract: Contract,
+    @CurrentPrincipal() principal?: JwtPayload,
+  ): User {
+    return visibleContractClient(contract, principal) as User;
   }
 
   /** S4-1: the My Contracts tab this contract appears under (null for drafts). */
