@@ -32,6 +32,7 @@ import type { GatewayResult } from './gateway/payment-gateway';
 import { paymentGatewayConfig } from './gateway/payment-gateway.config';
 import { PaymentGatewayRegistry } from './gateway/payment-gateway.registry';
 import { allowedPaymentMethods } from './payment-methods';
+import { isCategoryActive } from '../category/category-active';
 import { PaymentService } from './payment.service';
 
 /** What a checkout charges, before the payment row is written. */
@@ -423,6 +424,10 @@ export class PaymentCheckoutService {
     }
     if (listing.promotionStatus !== PromotionStatus.PENDING_PAYMENT) {
       throw this.badRequest('NOT_PAYABLE', language);
+    }
+    // S4-56: no featuring an ad while its category is inactive.
+    if (!(await isCategoryActive(manager, listing.categoryId))) {
+      throw this.badRequest('CATEGORY_INACTIVE', language);
     }
     const setting = await this.settingService.getSetting();
     const fee = Number(setting.premiumAdFee);

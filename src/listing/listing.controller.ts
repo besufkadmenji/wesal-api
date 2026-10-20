@@ -43,10 +43,11 @@ export class ListingController {
     @Headers('accept-language') acceptLanguage: string,
     @Res() res: Response,
   ): Promise<void> {
-    const result = await this.listingService.findAll({
-      page: 1,
-      limit: 999999,
-    });
+    const result = await this.listingService.findAll(
+      { page: 1, limit: 999999 },
+      undefined,
+      { includeInactiveCategories: true },
+    );
     const listings = result.items;
 
     const selectedFields = fields

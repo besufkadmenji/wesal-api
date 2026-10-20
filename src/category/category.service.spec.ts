@@ -138,19 +138,27 @@ describe('CategoryService contract controls', () => {
     ).rejects.toThrow('يجب تعبئة جميع نصوص التعاقد المفعّلة');
   });
 
-  it('blocks deactivation while providers are linked or contracts are open', async () => {
+  it('blocks deactivation only while contracts are unfinished (S4-56)', async () => {
     categoryFindOne.mockResolvedValue({
       id: 'category-id',
+      nameEn: 'Plumbing',
+      nameAr: 'سباكة',
       status: CategoryStatus.ACTIVE,
     });
-    providerCount = 1;
-    await expect(service.deactivate('category-id', 'en')).rejects.toThrow(
-      'service providers are linked',
-    );
-    providerCount = 0;
     openContracts = 2;
     await expect(service.deactivate('category-id', 'en')).rejects.toThrow(
       'unfinished contracts',
+    );
+
+    // Linked providers no longer block it; they are told instead.
+    openContracts = 0;
+    providerCount = 1;
+    linkedProviders = [{ id: 'p-en', languageCode: 'en' }];
+    await expect(
+      service.deactivate('category-id', 'en'),
+    ).resolves.toMatchObject({ status: CategoryStatus.INACTIVE });
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientId: 'p-en' }),
     );
   });
 

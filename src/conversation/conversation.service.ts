@@ -29,6 +29,7 @@ import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/enums/notification-type.enum';
 import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
 import { notificationTexts } from '../notification/notification-texts';
+import { isCategoryActive } from '../category/category-active';
 
 @Injectable()
 export class ConversationService {
@@ -127,6 +128,17 @@ export class ConversationService {
 
     if (existingConversation) {
       return this.findHydratedConversation(existingConversation.id, language);
+    }
+
+    // S4-56: no new chats on an inactive category's ads.
+    if (
+      !(await isCategoryActive(this.categoryRepository, listing.categoryId))
+    ) {
+      const message = I18nService.translate(
+        CONVERSATION_ERROR_MESSAGES[CONVERSATION_ERROR_CODES.CATEGORY_INACTIVE],
+        language,
+      );
+      throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
     const expiresAt = await this.dealWindowEnd(listing.categoryId);

@@ -70,4 +70,8 @@ export const PAYMENT_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Instant payment is only available with the test gateway',
     ar: 'الدفع الفوري متاح فقط مع بوابة الاختبار',
   },
+  [PAYMENT_ERROR_CODES.CATEGORY_INACTIVE]: {
+    en: 'This section is currently unavailable',
+    ar: 'هذا القسم غير متاح حالياً',
+  },
 };

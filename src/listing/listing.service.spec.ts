@@ -9,6 +9,7 @@ import {
 } from './enums/listing.enum';
 import { MediaType } from './enums/media.enum';
 import { ListingService } from './listing.service';
+import { CategoryStatus } from '../category/enum/category.enum';
 
 describe('ListingService provider finalization', () => {
   const listingRepository = {
@@ -111,6 +112,29 @@ describe('ListingService provider finalization', () => {
       featuredStartsAt: null,
       featuredEndsAt: null,
     });
+  });
+
+  it('refuses new ads in an inactive category (S4-56)', async () => {
+    categoryRepository.findOne.mockResolvedValue({
+      id: 'category-id',
+      status: CategoryStatus.INACTIVE,
+    });
+    await expect(
+      service.create(
+        {
+          categoryId: 'category-id',
+          cityId: 'city-id',
+          name: 'Listing',
+          description: 'Listing description',
+          price: 100,
+          type: ListingType.FREE,
+          story: null,
+          photos: [],
+        },
+        'provider-id',
+      ),
+    ).rejects.toThrow('This section is currently unavailable');
+    expect(listingRepository.save).not.toHaveBeenCalled();
   });
 
   it('rejects a non-video story when creating a listing', async () => {

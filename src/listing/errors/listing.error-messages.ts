@@ -67,4 +67,8 @@ export const LISTING_ERROR_MESSAGES: Record<ListingErrorCode, TranslatedError> =
       en: 'Cannot delete listing that has ratings',
       ar: 'لا يمكن حذف إعلان لديه تقييمات',
     },
+    [LISTING_ERROR_CODES.CATEGORY_INACTIVE]: {
+      en: 'This section is currently unavailable',
+      ar: 'هذا القسم غير متاح حالياً',
+    },
   };

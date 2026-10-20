@@ -5,6 +5,7 @@ import { ElasticsearchService } from '../../lib/elasticsearch/elasticsearch.serv
 import { Category } from '../category/entities/category.entity';
 import { Listing } from '../listing/entities/listing.entity';
 import { ListingStatus, ListingType } from '../listing/enums/listing.enum';
+import { CategoryStatus } from '../category/enum/category.enum';
 
 const CATEGORIES_INDEX =
   process.env.ELASTIC_CATEGORIES_INDEX ?? 'categories_v1';
@@ -27,6 +28,8 @@ export interface ListingSearchFilters {
   cityId?: string;
   minPrice?: number;
   maxPrice?: number;
+  /** Admin views keep ads of inactive categories (S4-56). */
+  includeInactiveCategories?: boolean;
 }
 
 @Injectable()
@@ -374,6 +377,19 @@ export class SearchService {
     if (filters.cityId) {
       filter.push({ term: { cityId: filters.cityId } });
     }
+    // S4-56: inactive categories' ads are hidden from the public.
+    const mustNot: object[] = [];
+    if (!filters.includeInactiveCategories) {
+      const inactive = await this.categoryRepository.find({
+        where: { status: CategoryStatus.INACTIVE },
+        select: { id: true },
+      });
+      if (inactive.length > 0) {
+        mustNot.push({
+          terms: { categoryId: inactive.map((category) => category.id) },
+        });
+      }
+    }
     if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
       const range: Record<string, number> = {};
       if (filters.minPrice !== undefined) range['gte'] = filters.minPrice;
@@ -391,6 +407,7 @@ export class SearchService {
         bool: {
           ...(must.length > 0 ? { must } : {}),
           ...(filter.length > 0 ? { filter } : {}),
+          ...(mustNot.length > 0 ? { must_not: mustNot } : {}),
         },
       },
       sort: [

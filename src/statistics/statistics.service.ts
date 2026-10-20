@@ -28,6 +28,7 @@ import {
   STATISTICS_RECONCILE_MS,
   STATISTICS_TIME_ZONE,
 } from './statistics.constants';
+import { CategoryStatus } from '../category/enum/category.enum';
 
 /**
  * Keeps one in-memory snapshot of every statistic, recounts it after writes
@@ -170,11 +171,20 @@ export class StatisticsService implements OnApplicationShutdown {
           { zone: STATISTICS_TIME_ZONE },
         )
         .getCount(),
+      // S4-56: ads of inactive categories are hidden, so not counted.
       this.listingRepository.count({
-        where: { status: ListingStatus.ACTIVE, type: ListingType.FEATURED },
+        where: {
+          status: ListingStatus.ACTIVE,
+          type: ListingType.FEATURED,
+          category: { status: CategoryStatus.ACTIVE },
+        },
       }),
       this.listingRepository.count({
-        where: { status: ListingStatus.ACTIVE, type: ListingType.FREE },
+        where: {
+          status: ListingStatus.ACTIVE,
+          type: ListingType.FREE,
+          category: { status: CategoryStatus.ACTIVE },
+        },
       }),
     ]);
 

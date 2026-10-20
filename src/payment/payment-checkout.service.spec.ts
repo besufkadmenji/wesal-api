@@ -248,6 +248,31 @@ describe('PaymentCheckoutService', () => {
       });
     });
 
+    it('refuses to feature an ad while its category is inactive (S4-56)', async () => {
+      listingRepository.findOne.mockResolvedValue({
+        id: 'listing-id',
+        providerId: 'provider-id',
+        categoryId: 'category-id',
+        promotionStatus: PromotionStatus.PENDING_PAYMENT,
+        promotionCycle: 0,
+      });
+      categoryRepository.findOne.mockResolvedValueOnce({
+        id: 'category-id',
+        status: 'INACTIVE',
+      });
+      await expect(
+        service.startCheckout(
+          {
+            purpose: CheckoutPurpose.PREMIUM_AD,
+            targetId: 'listing-id',
+            method: PaymentMethod.ELECTRONIC,
+          },
+          provider,
+        ),
+      ).rejects.toThrow('This section is currently unavailable');
+      expect(paymentRepository.save).not.toHaveBeenCalled();
+    });
+
     it('charges the premium fee only for its owner while payment is pending', async () => {
       listingRepository.findOne.mockResolvedValue({
         id: 'listing-id',

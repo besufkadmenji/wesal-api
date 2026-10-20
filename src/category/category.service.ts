@@ -20,7 +20,6 @@ import { TrackingService } from '../tracking/tracking.service';
 import { TargetType } from '../tracking/enums/target-type.enum';
 import { ActionType } from '../tracking/enums/action-type.enum';
 import { CategoryStatus } from './enum/category.enum';
-import { ProviderStatus } from '../provider/enums/provider-status.enum';
 import { SearchService } from '../search/search.service';
 import { Contract } from '../contract/entities/contract.entity';
 import { ContractStatus } from '../contract/enums/contract-status.enum';
@@ -98,10 +97,8 @@ export class CategoryService {
     const { page = 1, limit = 10, search, status } = paginationInput;
     const skip = (page - 1) * limit;
 
-    // Non-admins can only see active categories unless an explicit status filter is provided by admin
-    const effectiveStatus = isAdmin
-      ? status
-      : (status ?? CategoryStatus.ACTIVE);
+    // Only admins may list inactive categories (S4-56).
+    const effectiveStatus = isAdmin ? status : CategoryStatus.ACTIVE;
 
     let items: Category[];
     let total: number;
@@ -358,16 +355,9 @@ export class CategoryService {
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
 
-    // BRD 4.3.8: blocked while any (non-deleted) provider is linked, or
-    // while a contract in this category is unfinished.
-    const providerCount = await this.linkedProviders(id).getCount();
-    if (providerCount > 0) {
-      const message = I18nService.translate(
-        CATEGORY_ERROR_MESSAGES['CATEGORY_HAS_PROVIDERS'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
+    // BRD 4.3.8: blocked while a contract in this category is unfinished.
+    // Linked providers no longer block it; they are notified below (S4-56,
+    // user decision 2026-10-20) and keep the category, shown as inactive.
     await this.assertNoOpenContracts(id, language);
 
     category.status = CategoryStatus.INACTIVE;
@@ -379,17 +369,6 @@ export class CategoryService {
       );
     await this.notifyProviders(saved, false);
     return saved;
-  }
-
-  private linkedProviders(categoryId: string) {
-    return this.providerRepository
-      .createQueryBuilder('provider')
-      .innerJoin('provider.categories', 'category')
-      .where('category.id = :categoryId', { categoryId })
-      .andWhere('provider.deletedAt IS NULL')
-      .andWhere('provider.status != :deleted', {
-        deleted: ProviderStatus.DELETED,
-      });
   }
 
   private async assertNoOpenContracts(

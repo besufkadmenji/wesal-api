@@ -42,6 +42,11 @@ import {
 import { LISTING_ERROR_CODES } from './errors/listing.error-codes';
 import { LISTING_ERROR_MESSAGES } from './errors/listing.error-messages';
 import { SettingService } from '../setting/setting.service';
+import { CategoryStatus } from '../category/enum/category.enum';
+import {
+  activeCategoryCondition,
+  isCategoryActive,
+} from '../category/category-active';
 
 export const TRUSTED_LISTINGS_DEFAULT = 10;
 export const TRUSTED_LISTINGS_MAX = 20;
@@ -87,6 +92,12 @@ export class ListingService {
     if (!category) {
       throw new I18nNotFoundException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.CATEGORY_NOT_FOUND],
+        language,
+      );
+    }
+    if (!(await isCategoryActive(this.categoryRepository, category.id))) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.CATEGORY_INACTIVE],
         language,
       );
     }
@@ -147,6 +158,7 @@ export class ListingService {
   async findAll(
     paginationInput: ListingPaginationInput,
     userId?: string,
+    { includeInactiveCategories = false } = {},
   ): Promise<PaginatedListingResponse> {
     const page = paginationInput.page ?? 1;
     const limit = paginationInput.limit ?? 10;
@@ -179,6 +191,7 @@ export class ListingService {
           cityId: cityId ?? undefined,
           minPrice: minPrice ?? undefined,
           maxPrice: maxPrice ?? undefined,
+          includeInactiveCategories,
         },
       );
 
@@ -229,6 +242,10 @@ export class ListingService {
         .leftJoinAndSelect('listing.provider', 'provider')
         .leftJoinAndSelect('listing.category', 'category')
         .leftJoinAndSelect('listing.city', 'city');
+      // S4-56: an inactive category's ads are hidden from the public.
+      if (!includeInactiveCategories) {
+        query.andWhere(activeCategoryCondition('category'));
+      }
 
       // BRD §4.1.12 / §4.2.10: featured first, then badge tier (Trust,
       // Diligence, no badge, Under-improvement), then rating, sales, then the
@@ -315,6 +332,7 @@ export class ListingService {
     id: string,
     language: LanguageCode = 'en',
     userId?: string,
+    viewerProviderId?: string,
   ): Promise<Listing> {
     const listing = await this.listingRepository.findOne({
       where: { id },
@@ -331,6 +349,16 @@ export class ListingService {
     if (listing.status !== ListingStatus.ACTIVE) {
       throw new I18nNotFoundException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_NOT_FOUND],
+        language,
+      );
+    }
+    // S4-56: hidden while its category is inactive, except from its owner.
+    if (
+      listing.category?.status === CategoryStatus.INACTIVE &&
+      listing.providerId !== viewerProviderId
+    ) {
+      throw new I18nNotFoundException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.CATEGORY_INACTIVE],
         language,
       );
     }
@@ -365,7 +393,9 @@ export class ListingService {
         SELECT DISTINCT ON (l."providerId") l.id, l."providerId", l."createdAt"
         FROM listings l
         JOIN providers p ON p.id = l."providerId"
+        JOIN categories cat ON cat.id = l."categoryId"
         WHERE l.status = $1
+          AND cat.status = '${CategoryStatus.ACTIVE}'
           AND p.status = $2
           AND p."isActive" = true
           AND p."deletedAt" IS NULL
@@ -544,6 +574,17 @@ export class ListingService {
       if (!category) {
         throw new I18nNotFoundException(
           LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.CATEGORY_NOT_FOUND],
+          language,
+        );
+      }
+      // S4-56: an ad can stay in its (now inactive) category, but can't
+      // move into an inactive one.
+      if (
+        category.id !== listing.categoryId &&
+        !(await isCategoryActive(this.categoryRepository, category.id))
+      ) {
+        throw new I18nBadRequestException(
+          LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.CATEGORY_INACTIVE],
           language,
         );
       }

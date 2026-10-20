@@ -14,6 +14,7 @@ import WebSocket from 'ws';
 import { FileUploadService } from '../lib/file-upload';
 import { AppModule } from '../src/app.module';
 import { Category } from '../src/category/entities/category.entity';
+import { CategoryService } from '../src/category/category.service';
 import { City } from '../src/city/entities/city.entity';
 import { BadgeService } from '../src/badge/badge.service';
 import { ContractService } from '../src/contract/contract.service';
@@ -2456,6 +2457,158 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       status: ContractStatus.REJECTED,
       provider: { id: transactionProvider.sub },
     });
+  });
+
+  it('hides an inactive category and blocks new activity in it (S4-56)', async () => {
+    const dataSource = app.get(DataSource);
+    const country = await dataSource.getRepository(Country).save({
+      nameEn: 'Inactive Country',
+      nameAr: 'دولة القسم',
+      code: 'IN-E2E',
+      dialCode: '+971',
+    });
+    const city = await dataSource.getRepository(City).save({
+      countryId: country.id,
+      nameEn: 'Inactive City',
+      nameAr: 'مدينة القسم',
+    });
+    const category = await dataSource.getRepository(Category).save({
+      image: 'inactive.png',
+      nameEn: 'Seasonal section',
+      nameAr: 'قسم موسمي',
+      descriptionEn: 'Seasonal section description',
+      descriptionAr: 'وصف القسم الموسمي',
+    });
+    const provider = await dataSource.getRepository(Provider).save({
+      name: 'Seasonal Provider',
+      commercialName: 'Seasonal Services',
+      phone: '+970500000404',
+      email: 'seasonal-provider@example.com',
+      password: '',
+      status: ProviderStatus.ACTIVE,
+      cityId: city.id,
+      countryId: country.id,
+      categories: [category],
+    });
+    await dataSource.getRepository(SignedContract).save({
+      providerId: provider.id,
+      status: SignedContractStatus.ACTIVE,
+      serviceProviderSignature: 'provider-signature',
+      platformManagerName: 'Platform Manager',
+      platformManagerSignature: 'manager-signature',
+      contractSignedAt: new Date(),
+      terminationReason: null,
+      deletedAt: null,
+    });
+    const providerPrincipal = {
+      sub: provider.id,
+      email: provider.email,
+      type: 'provider',
+    } as JwtPayload;
+    const listingInput = {
+      categoryId: category.id,
+      cityId: city.id,
+      name: 'Seasonal listing',
+      description: 'A listing in a section that will be switched off.',
+      price: 120,
+      type: ListingType.FEATURED,
+      story: {
+        id: 'seasonal-story',
+        filename: 'seasonal.mp4',
+        originalFilename: 'seasonal.mp4',
+        size: 1,
+        type: MediaType.VIDEO,
+        sortOrder: 0,
+      },
+      photos: [],
+    };
+    const listings = app.get(ListingService);
+    const listing = await listings.create(listingInput, provider.id);
+    const conversation = await app
+      .get(ConversationService)
+      .create({ listingId: listing.id }, transactionCustomer);
+    const publicIds = async () =>
+      (await listings.findAll({ categoryId: category.id })).items.map(
+        (item) => item.id,
+      );
+    expect(await publicIds()).toEqual([listing.id]);
+
+    // Linked providers no longer block deactivation; they are told.
+    const categories = app.get(CategoryService);
+    await categories.deactivate(category.id);
+    const notice = await dataSource.getRepository(Notification).findOne({
+      where: { recipientId: provider.id },
+      order: { createdAt: 'DESC' },
+    });
+    expect(notice?.message).toContain('قسم موسمي');
+
+    // Hidden from the public; the owner still sees it.
+    expect(await publicIds()).toEqual([]);
+    await expect(
+      listings.findOne(listing.id, 'en', transactionCustomer.sub),
+    ).rejects.toThrow('This section is currently unavailable');
+    await expect(
+      listings.findOne(listing.id, 'en', undefined, provider.id),
+    ).resolves.toMatchObject({ id: listing.id });
+    const anonymous = await request(app.getHttpServer()).post('/graphql').send({
+      query: `{ categories(input: { status: INACTIVE, limit: 50 }) { items { id } } }`,
+    });
+    const visible = (
+      anonymous.body as {
+        data: { categories: { items: Array<{ id: string }> } };
+      }
+    ).data.categories.items.map((item) => item.id);
+    expect(visible).not.toContain(category.id);
+
+    // New ads, chats, contract terms and featuring are refused.
+    await expect(listings.create(listingInput, provider.id)).rejects.toThrow(
+      'This section is currently unavailable',
+    );
+    const otherCustomer = await dataSource.getRepository(User).save({
+      name: 'Seasonal Customer',
+      email: 'seasonal-customer@example.com',
+      phone: '+970500000405',
+      password: '',
+      status: UserStatus.ACTIVE,
+      cityId: city.id,
+      countryId: country.id,
+      address: 'Customer address',
+    });
+    await expect(
+      app.get(ConversationService).create(
+        { listingId: listing.id },
+        {
+          sub: otherCustomer.id,
+          email: otherCustomer.email,
+          type: 'user',
+        },
+      ),
+    ).rejects.toThrow('This section is currently unavailable');
+    await expect(
+      app
+        .get(ContractService)
+        .quote(
+          { conversationId: conversation.id, agreedPrice: 100 },
+          transactionCustomer,
+        ),
+    ).rejects.toThrow('This section is currently unavailable');
+    await expect(
+      app.get(PaymentCheckoutService).startCheckout(
+        {
+          purpose: CheckoutPurpose.PREMIUM_AD,
+          targetId: listing.id,
+          method: PaymentMethod.ELECTRONIC,
+        },
+        providerPrincipal,
+      ),
+    ).rejects.toThrow('This section is currently unavailable');
+
+    // Reactivated: everything is back.
+    await categories.activate(category.id);
+    expect(await publicIds()).toEqual([listing.id]);
+    await expect(
+      listings.findOne(listing.id, 'en', transactionCustomer.sub),
+    ).resolves.toMatchObject({ id: listing.id });
   });
 
   // Last: it runs a badge assignment, which may change other providers.

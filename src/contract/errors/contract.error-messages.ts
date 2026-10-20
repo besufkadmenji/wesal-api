@@ -78,4 +78,8 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'A payment for this contract is in progress. Try again in a few minutes',
     ar: 'هناك عملية دفع جارية لهذا العقد، حاول مرة أخرى بعد بضع دقائق',
   },
+  [CONTRACT_ERROR_CODES.CATEGORY_INACTIVE]: {
+    en: 'This section is currently unavailable',
+    ar: 'هذا القسم غير متاح حالياً',
+  },
 };

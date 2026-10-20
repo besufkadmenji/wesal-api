@@ -2,6 +2,7 @@ import { PubSub } from 'graphql-subscriptions';
 import { IsNull, Repository } from 'typeorm';
 import { Contract } from '../contract/entities/contract.entity';
 import { ContractStatus } from '../contract/enums/contract-status.enum';
+import { CategoryStatus } from '../category/enum/category.enum';
 import { Message } from '../conversation/entities/message.entity';
 import { Listing } from '../listing/entities/listing.entity';
 import { ListingStatus, ListingType } from '../listing/enums/listing.enum';
@@ -116,11 +117,20 @@ describe('StatisticsService', () => {
       expect.stringContaining("date_trunc('day', now() AT TIME ZONE :zone)"),
       { zone: 'Asia/Riyadh' },
     );
+    // S4-56: ads of inactive categories are not counted.
     expect(listingCount).toHaveBeenCalledWith({
-      where: { status: ListingStatus.ACTIVE, type: ListingType.FEATURED },
+      where: {
+        status: ListingStatus.ACTIVE,
+        type: ListingType.FEATURED,
+        category: { status: CategoryStatus.ACTIVE },
+      },
     });
     expect(listingCount).toHaveBeenCalledWith({
-      where: { status: ListingStatus.ACTIVE, type: ListingType.FREE },
+      where: {
+        status: ListingStatus.ACTIVE,
+        type: ListingType.FREE,
+        category: { status: CategoryStatus.ACTIVE },
+      },
     });
   });
 

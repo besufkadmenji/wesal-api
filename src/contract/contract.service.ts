@@ -88,6 +88,7 @@ import {
   overdueSince,
   PROVIDER_OVERDUE_SQL,
 } from './contract-overdue';
+import { CategoryStatus } from '../category/enum/category.enum';
 
 const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
   [ContractStatus.DRAFT]: [ContractStatus.PENDING],
@@ -1946,6 +1947,10 @@ export class ContractService {
     });
     if (!category) {
       throw this.error('CATEGORY_NOT_FOUND', language);
+    }
+    // S4-56: no new contract terms in an inactive category.
+    if (category.status === CategoryStatus.INACTIVE) {
+      throw this.error('CATEGORY_INACTIVE', language);
     }
     let deliveryCompany: DeliveryCompany | null = null;
     if (deliveryCompanyId) {

@@ -67,8 +67,9 @@ export class ListingResolver {
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
     @CurrentUser() user?: JwtPayload,
+    @CurrentProvider() provider?: JwtPayload,
   ) {
-    return this.listingService.findOne(id, language, user?.sub);
+    return this.listingService.findOne(id, language, user?.sub, provider?.sub);
   }
 
   @Query(() => PaginatedListingResponse, { name: 'myListings' })
