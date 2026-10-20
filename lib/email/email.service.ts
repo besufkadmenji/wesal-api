@@ -19,10 +19,20 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly resend: Resend;
   private readonly from: string;
+  /**
+   * H-31: optional monitoring copy (comma-separated EMAIL_BCC). Every email
+   * used to BCC a hard-coded personal address; now nothing unless set.
+   */
+  private readonly bcc: string[] | undefined;
 
   constructor(private readonly configService: ConfigService) {
     const apiKey = this.configService.getOrThrow<string>('RESEND_API_KEY');
     this.from = this.configService.getOrThrow<string>('RESEND_FROM');
+    const bcc = (this.configService.get<string>('EMAIL_BCC') ?? '')
+      .split(',')
+      .map((address) => address.trim())
+      .filter(Boolean);
+    this.bcc = bcc.length > 0 ? bcc : undefined;
     this.resend = new Resend(apiKey);
   }
 
@@ -49,7 +59,7 @@ export class EmailService {
     const { error } = await this.resend.emails.send({
       from: this.from,
       to: email,
-      bcc: 'besufkadmenji@gmail.com',
+      ...(this.bcc ? { bcc: this.bcc } : {}),
       subject,
       html,
     });
@@ -86,7 +96,7 @@ export class EmailService {
     const { error } = await this.resend.emails.send({
       from: this.from,
       to: email,
-      bcc: 'besufkadmenji@gmail.com',
+      ...(this.bcc ? { bcc: this.bcc } : {}),
       subject,
       html,
     });
@@ -125,7 +135,7 @@ export class EmailService {
     const { error } = await this.resend.emails.send({
       from: this.from,
       to: email,
-      bcc: 'besufkadmenji@gmail.com',
+      ...(this.bcc ? { bcc: this.bcc } : {}),
       subject,
       html,
     });
@@ -161,7 +171,7 @@ export class EmailService {
     const { error } = await this.resend.emails.send({
       from: this.from,
       to: email,
-      bcc: 'besufkadmenji@gmail.com',
+      ...(this.bcc ? { bcc: this.bcc } : {}),
       subject,
       html,
     });
@@ -200,7 +210,7 @@ export class EmailService {
     const { error } = await this.resend.emails.send({
       from: this.from,
       to: email,
-      bcc: 'besufkadmenji@gmail.com',
+      ...(this.bcc ? { bcc: this.bcc } : {}),
       subject,
       html,
     });
@@ -237,7 +247,7 @@ export class EmailService {
     const { error } = await this.resend.emails.send({
       from: this.from,
       to: email,
-      bcc: 'besufkadmenji@gmail.com',
+      ...(this.bcc ? { bcc: this.bcc } : {}),
       subject,
       html,
     });
