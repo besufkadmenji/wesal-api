@@ -8,6 +8,10 @@
       {
         "include": "common/pdf/fonts/*.ttf",
         "outDir": "dist/src"
+      },
+      {
+        "include": "common/pdf/assets/*.png",
+        "outDir": "dist/src"
       }
     ]
   }

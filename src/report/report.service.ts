@@ -23,6 +23,12 @@ import {
   ContractFinancialReportRow,
 } from './dto/fee-report.response';
 import { ContractSettlementType } from '../contract/enums/contract-settlement-type.enum';
+import {
+  applyWatermark,
+  drawLogo,
+  PDF_BRAND,
+  PDF_LOGO_PATH,
+} from '../common/pdf/pdf-brand';
 
 @Injectable()
 export class ReportService {
@@ -562,9 +568,46 @@ export class ReportService {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet(title.slice(0, 31));
     sheet.views = [{ rightToLeft: language === 'ar' }];
-    sheet.addRow(headers);
+
+    // UI-15: a branded title block (logo, report name, generated at) above
+    // the table; spreadsheets can't carry a real watermark.
+    const logo = workbook.addImage({
+      filename: PDF_LOGO_PATH,
+      extension: 'png',
+    });
+    sheet.addImage(logo, {
+      tl: { col: 0, row: 0 },
+      ext: { width: 62, height: 48 },
+    });
+    sheet.getRow(1).height = 22;
+    sheet.getRow(2).height = 22;
+    const titleCell = sheet.getCell('B1');
+    titleCell.value = title;
+    titleCell.font = {
+      bold: true,
+      size: 16,
+      color: { argb: 'FF22283A' },
+    };
+    const generated = sheet.getCell('B2');
+    generated.value = new Intl.DateTimeFormat(
+      language === 'ar' ? 'ar-SA-u-ca-gregory-nu-latn' : 'en-GB',
+      { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Riyadh' },
+    ).format(new Date());
+    generated.font = { size: 10, color: { argb: 'FF667085' } };
+    sheet.addRow([]);
+
+    const headerRow = sheet.addRow(headers);
+    headerRow.height = 22;
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF22283A' },
+      };
+      cell.alignment = { vertical: 'middle' };
+    });
     for (const row of rows) sheet.addRow(row);
-    sheet.getRow(1).font = { bold: true };
     sheet.columns.forEach((column) => {
       column.width = 20;
     });
@@ -590,17 +633,10 @@ export class ReportService {
       document.on('error', reject);
       document.on('end', () => resolve(Buffer.concat(chunks)));
 
-      const colors = {
-        accent: '#2563EB',
-        accentDark: '#1D4ED8',
-        border: '#E5E7EB',
-        ink: '#111827',
-        muted: '#6B7280',
-        soft: '#EFF6FF',
-        stripe: '#F9FAFB',
-        white: '#FFFFFF',
-      };
+      // UI-15: brand palette, logo and a faint watermark on every page.
+      const colors = PDF_BRAND;
       registerPdfFont(document);
+      applyWatermark(document, { widthRatio: 0.34 });
 
       const rtl = language === 'ar';
       const shaped = shapePdfText;
@@ -647,21 +683,20 @@ export class ReportService {
 
       const drawHeader = () => {
         document.save().rect(0, 0, pageWidth, 8).fill(colors.accent).restore();
+        const logoHeight = 40;
+        const logoWidth = logoHeight * 1.29;
+        drawLogo(document, {
+          x: rtl ? margin : pageWidth - margin - logoWidth,
+          y: 20,
+          height: logoHeight,
+        });
         document
-          .fillColor(colors.accentDark)
-          .fontSize(10)
-          .text('WESAL', margin, 25, {
-            align,
-            characterSpacing: 1.2,
-            width: contentWidth,
-          });
-        document
-          .fillColor(colors.ink)
+          .fillColor(colors.accent)
           .fontSize(22)
-          .text(shaped(title), margin, 45, {
+          .text(shaped(title), rtl ? margin + logoWidth + 12 : margin, 36, {
             align,
             lineBreak: false,
-            width: contentWidth,
+            width: contentWidth - logoWidth - 12,
           });
         document
           .fillColor(colors.muted)

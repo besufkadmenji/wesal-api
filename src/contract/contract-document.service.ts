@@ -22,6 +22,7 @@ import { ContractDocument } from './entities/contract-document.entity';
 import { Contract } from './entities/contract.entity';
 import { ContractSignatureType } from './enums/contract-signature-type.enum';
 import { ContractStatus } from './enums/contract-status.enum';
+import { applyWatermark, drawLogo, PDF_BRAND } from '../common/pdf/pdf-brand';
 
 const SIGNATURE_LABELS: Partial<Record<ContractSignatureType, string>> = {
   [ContractSignatureType.CUSTOMER_ACCEPTANCE]: 'Customer acceptance',
@@ -167,6 +168,7 @@ export class ContractDocumentService {
       document.on('error', reject);
       document.on('end', () => resolve(Buffer.concat(chunks)));
       registerPdfFont(document);
+      applyWatermark(document);
 
       const margin = 40;
       const width = document.page.width - margin * 2;
@@ -185,23 +187,30 @@ export class ContractDocumentService {
       document
         .save()
         .rect(0, 0, document.page.width, 8)
-        .fill('#2563EB')
+        .fill(PDF_BRAND.accent)
         .restore();
+      // UI-15: the logo between the English and Arabic titles.
+      const logoHeight = 38;
+      drawLogo(document, {
+        x: (document.page.width - logoHeight * 1.29) / 2,
+        y: 18,
+        height: logoHeight,
+      });
       document
-        .fillColor('#111827')
+        .fillColor(PDF_BRAND.accent)
         .fontSize(18)
         .text('WESAL CONTRACT', margin, 28, { width, align: 'left' });
       document.fontSize(18).text(shapePdfText('عقد منصة وصال'), margin, 28, {
         width,
         align: 'right',
       });
-      document.y = 64;
+      document.y = 70;
 
       // Bilingual rows: English label | value | Arabic label.
       const row = (en: string, ar: string, value: string) => {
         ensureSpace(22);
         const y = document.y;
-        document.fillColor('#6B7280').fontSize(8);
+        document.fillColor(PDF_BRAND.muted).fontSize(8);
         document.text(en, margin, y, { width: width * 0.28 });
         document.text(shapePdfText(ar), margin + width * 0.72, y, {
           width: width * 0.28,
@@ -228,7 +237,7 @@ export class ContractDocumentService {
         ensureSpace(80);
         document.moveDown(0.6);
         const y = document.y;
-        document.fillColor('#1D4ED8').fontSize(11).text(en, margin, y, {
+        document.fillColor(PDF_BRAND.accent).fontSize(11).text(en, margin, y, {
           width,
           align: 'left',
         });
@@ -349,7 +358,7 @@ export class ContractDocumentService {
       for (const { signature, image } of signatures) {
         ensureSpace(100);
         document
-          .fillColor('#6B7280')
+          .fillColor(PDF_BRAND.muted)
           .fontSize(8)
           .text(
             `${SIGNATURE_LABELS[signature.signatureType] ?? signature.signatureType} - ${date(signature.signedAt)}`,

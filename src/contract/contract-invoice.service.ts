@@ -18,6 +18,7 @@ import { Contract } from './entities/contract.entity';
 import { ContractStatus } from './enums/contract-status.enum';
 import { CONTRACT_ERROR_CODES } from './errors/contract.error-codes';
 import { CONTRACT_ERROR_MESSAGES } from './errors/contract.error-messages';
+import { applyWatermark, drawLogo, PDF_BRAND } from '../common/pdf/pdf-brand';
 
 type Language = 'ar' | 'en';
 
@@ -68,14 +69,8 @@ const COPY = {
   },
 } as const;
 
-const COLORS = {
-  accent: '#2563EB',
-  accentDark: '#1D4ED8',
-  border: '#E5E7EB',
-  ink: '#111827',
-  muted: '#6B7280',
-  soft: '#EFF6FF',
-};
+// UI-15: brand palette (was the pre-refresh blue).
+const COLORS = PDF_BRAND;
 
 /**
  * S4-37: internal tax invoice for a paid contract, addressed to the customer
@@ -155,6 +150,7 @@ export class ContractInvoiceService {
       document.on('error', reject);
       document.on('end', () => resolve(Buffer.concat(chunks)));
       registerPdfFont(document);
+      applyWatermark(document);
 
       const margin = 40;
       const pageWidth = document.page.width;
@@ -184,11 +180,24 @@ export class ContractInvoiceService {
 
       // Header
       document.save().rect(0, 0, pageWidth, 8).fill(COLORS.accent).restore();
-      text('WESAL', margin, 26, contentWidth, {
-        size: 10,
-        color: COLORS.accentDark,
+      // UI-15: the logo on the end side, the title on the start side.
+      const logoHeight = 44;
+      const logoWidth = logoHeight * 1.29;
+      drawLogo(document, {
+        x: rtl ? margin : pageWidth - margin - logoWidth,
+        y: 22,
+        height: logoHeight,
       });
-      text(copy.title, margin, 42, contentWidth, { size: 22 });
+      text(
+        copy.title,
+        rtl ? margin + logoWidth + 12 : margin,
+        36,
+        contentWidth - logoWidth - 12,
+        {
+          size: 22,
+          color: COLORS.accent,
+        },
+      );
       const metaWidth = contentWidth / 3;
       const meta: Array<[string, string]> = [
         [copy.number, ContractInvoiceService.invoiceNumber(contract)],
