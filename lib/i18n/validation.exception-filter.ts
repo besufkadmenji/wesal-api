@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import type { LanguageCode } from './language.types';
-import { GqlArgumentsHost } from '@nestjs/graphql';
+import { exceptionLanguage, respondWith } from './exception-host';
 import { I18nService } from './i18n.service';
 import { errorMessageRegistry } from '../errors/error-message.registry';
 
@@ -21,15 +21,8 @@ interface ValidationError {
  */
 @Catch(BadRequestException)
 export class ValidationExceptionFilter implements ExceptionFilter {
-  catch(exception: BadRequestException, host: ArgumentsHost): unknown {
-    const http = host.getType() === 'http';
-    const request = http
-      ? host.switchToHttp().getRequest<{ headers?: Record<string, string> }>()
-      : GqlArgumentsHost.create(host).getContext<{
-          req?: { headers?: Record<string, string> };
-        }>()?.req;
-    const acceptLanguage = request?.headers?.['accept-language'];
-    const language: LanguageCode = acceptLanguage?.includes('ar') ? 'ar' : 'en';
+  catch(exception: BadRequestException, host: ArgumentsHost): void {
+    const language = exceptionLanguage(host);
 
     const exceptionResponse = exception.getResponse() as {
       message?: string | string[] | ValidationError[];
@@ -48,17 +41,7 @@ export class ValidationExceptionFilter implements ExceptionFilter {
         })
       : exception;
 
-    if (http) {
-      host
-        .switchToHttp()
-        .getResponse<{
-          status: (code: number) => { json: (body: unknown) => void };
-        }>()
-        .status(localized.getStatus())
-        .json(localized.getResponse());
-      return;
-    }
-    throw localized;
+    respondWith(host, localized);
   }
 
   private translateValidationErrors(
