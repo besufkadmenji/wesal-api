@@ -39,6 +39,14 @@ import { ListingService } from '../src/listing/listing.service';
 import { Payment } from '../src/payment/entities/payment.entity';
 import { PaymentPurpose } from '../src/payment/enums/payment-purpose.enum';
 import { PaymentService } from '../src/payment/payment.service';
+import { PaymentCheckoutService } from '../src/payment/payment-checkout.service';
+import { CheckoutPurpose } from '../src/payment/enums/checkout-purpose.enum';
+import { PaymentMethod } from '../src/payment/enums/payment-method.enum';
+import { PaymentStatus } from '../src/payment/enums/payment-status.enum';
+import {
+  MockPaymentGateway,
+  MOCK_SIGNATURE_HEADER,
+} from '../src/payment/gateway/mock.gateway';
 import { Provider } from '../src/provider/entities/provider.entity';
 import { ProviderStatus } from '../src/provider/enums/provider-status.enum';
 import { SignedContractStatus } from '../src/provider/enums/contract.enum';
@@ -75,6 +83,8 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     process.env.AUTO_SEED = 'false';
     process.env.ELASTIC_ENABLED = 'false';
     process.env.JWT_SECRET = 'sprint-3-e2e-secret';
+    process.env.PAYMENT_GATEWAY = 'mock';
+    process.env.WEB_APP_URL = 'https://web.e2e.test';
 
     const client = new Client({
       connectionString: container.getConnectionUri(),
@@ -404,7 +414,7 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     await participant.dispose();
   });
 
-  it('publishes featured listings as paid at create, records mock payment, and downgrades on expiry', async () => {
+  it('features a listing only after its premium fee is paid through checkout, and downgrades on expiry', async () => {
     const dataSource = app.get(DataSource);
     const country = await dataSource.getRepository(Country).save({
       nameEn: 'Premium Country',
@@ -449,13 +459,13 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       premiumAdFee: 99,
       premiumAdDurationDays: 30,
     });
-    const listing = await app.get(ListingService).create(
+    const created = await app.get(ListingService).create(
       {
         categoryId: category.id,
         cityId: city.id,
         name: 'Featured premium listing',
         description:
-          'This premium listing is published after mock payment at create.',
+          'This premium listing becomes featured once its fee is paid.',
         price: 250,
         type: ListingType.FEATURED,
         story: {
@@ -470,6 +480,39 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       },
       provider.id,
     );
+    // S4-10: published as a normal ad until the premium fee is paid.
+    expect(created).toMatchObject({
+      status: ListingStatus.ACTIVE,
+      type: ListingType.FREE,
+      promotionStatus: PromotionStatus.PENDING_PAYMENT,
+      featuredStartsAt: null,
+    });
+    expect(
+      await dataSource.getRepository(Payment).count({
+        where: { listingId: created.id, purpose: PaymentPurpose.PREMIUM_AD },
+      }),
+    ).toBe(0);
+    const providerPrincipal = {
+      sub: provider.id,
+      email: provider.email,
+      type: 'provider',
+    } as JwtPayload;
+    const checkout = await app.get(PaymentCheckoutService).startCheckout(
+      {
+        purpose: CheckoutPurpose.PREMIUM_AD,
+        targetId: created.id,
+        method: PaymentMethod.ELECTRONIC,
+      },
+      providerPrincipal,
+    );
+    await request(app.getHttpServer())
+      .post(new URL(checkout.redirectUrl).pathname)
+      .type('form')
+      .send({ outcome: 'SUCCEEDED' })
+      .expect(303);
+    const listing = await dataSource
+      .getRepository(Listing)
+      .findOneByOrFail({ id: created.id });
     expect(listing).toMatchObject({
       status: ListingStatus.ACTIVE,
       type: ListingType.FEATURED,
@@ -482,10 +525,11 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       app.get(ListingService).findOne(listing.id),
     ).resolves.toMatchObject({ id: listing.id });
     expect(
-      await dataSource.getRepository(Payment).count({
-        where: { listingId: listing.id, purpose: PaymentPurpose.PREMIUM_AD },
+      await dataSource.getRepository(Payment).findOneByOrFail({
+        listingId: listing.id,
+        purpose: PaymentPurpose.PREMIUM_AD,
       }),
-    ).toBe(1);
+    ).toMatchObject({ status: PaymentStatus.COMPLETED, amount: '99.00' });
 
     listing.featuredEndsAt = new Date(Date.now() - 1_000);
     await dataSource.getRepository(Listing).save(listing);
@@ -2134,6 +2178,216 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       claimContractNumber(manager),
     );
     expect(reused).toBe(numbers[0]);
+  });
+
+  it('pays through the mock gateway: failure, retry, signed webhook, replay (S4-10)', async () => {
+    const dataSource = app.get(DataSource);
+    const contracts = dataSource.getRepository(Contract);
+    const payments = dataSource.getRepository(Payment);
+    const checkoutService = app.get(PaymentCheckoutService);
+    const gateway = new MockPaymentGateway();
+    const server = app.getHttpServer();
+    const template = await contracts.findOneByOrFail({
+      id: transactionContractId,
+    });
+    const { id: _id, publicId: _number, ...fields } = template;
+    void _id;
+    void _number;
+    const clone = (versionOffset: number) =>
+      contracts.save(
+        contracts.create({
+          ...fields,
+          status: ContractStatus.ACCEPTED,
+          paidAt: null,
+          completedAt: null,
+          resolvedAt: null,
+          providerPaidNoticeAt: null,
+          supersedesContractId: null,
+          version: template.version + versionOffset,
+        }),
+      );
+    const accepted = await clone(20);
+    const input = {
+      purpose: CheckoutPurpose.CONTRACT,
+      targetId: accepted.id,
+      method: PaymentMethod.TABBY,
+    };
+
+    // Tabby above its admin bound is hidden and refused.
+    await app.get(SettingService).setSetting({ tabbyMaxAmount: 1 });
+    await expect(
+      checkoutService.startCheckout(input, transactionCustomer),
+    ).rejects.toThrow('not available for this amount');
+    await app.get(SettingService).setSetting({ tabbyMaxAmount: null });
+
+    // 1. The customer fails on the hosted page and comes back.
+    const first = await checkoutService.startCheckout(
+      input,
+      transactionCustomer,
+      'ar',
+    );
+    const firstPath = new URL(first.redirectUrl).pathname;
+    const page = await request(server).get(firstPath).expect(200);
+    expect(page.text).toContain('تابي');
+    const failed = await request(server)
+      .post(firstPath)
+      .type('form')
+      .send({ outcome: 'FAILED' })
+      .expect(303);
+    expect(failed.headers.location).toBe(
+      `https://web.e2e.test/ar/payments/return?paymentId=${first.paymentId}`,
+    );
+    expect(
+      await payments.findOneByOrFail({ id: first.paymentId }),
+    ).toMatchObject({
+      status: PaymentStatus.FAILED,
+      paymentMethod: PaymentMethod.TABBY,
+    });
+    expect(await contracts.findOneByOrFail({ id: accepted.id })).toMatchObject({
+      status: ContractStatus.ACCEPTED,
+      paidAt: null,
+    });
+
+    // 2. A retry reuses the payment row under a new reference.
+    const retry = await checkoutService.startCheckout(
+      { ...input, method: PaymentMethod.ELECTRONIC },
+      transactionCustomer,
+    );
+    expect(retry.paymentId).toBe(first.paymentId);
+    const reference = decodeURIComponent(
+      new URL(retry.redirectUrl).pathname.split('/').pop()!,
+    );
+    expect(firstPath).not.toContain(reference);
+
+    // Cancelling while the checkout may still succeed is refused.
+    await expect(
+      app
+        .get(ContractService)
+        .requestCancellation(
+          { contractId: accepted.id, reason: 'Too slow' },
+          transactionCustomer,
+        ),
+    ).rejects.toThrow('A payment for this contract is in progress');
+
+    // 3. Webhooks: unknown gateway, bad signature, then the signed success.
+    const body = { reference, outcome: 'SUCCEEDED' as const };
+    await request(server)
+      .post('/payments/webhooks/tabby')
+      .send(body)
+      .expect(404);
+    await request(server)
+      .post('/payments/webhooks/mock')
+      .set(MOCK_SIGNATURE_HEADER, gateway.sign({ ...body, outcome: 'FAILED' }))
+      .send(body)
+      .expect(401);
+    const signed = () =>
+      request(server)
+        .post('/payments/webhooks/mock')
+        .set(MOCK_SIGNATURE_HEADER, gateway.sign(body))
+        .send(body)
+        .expect(200);
+    await signed();
+    expect(await contracts.findOneByOrFail({ id: accepted.id })).toMatchObject({
+      status: ContractStatus.IN_PROGRESS,
+    });
+    const paid = await payments.findOneByOrFail({ id: first.paymentId });
+    expect(paid).toMatchObject({
+      status: PaymentStatus.COMPLETED,
+      paymentMethod: PaymentMethod.ELECTRONIC,
+      gateway: 'MOCK',
+      failedAt: null,
+    });
+    expect(paid.paidAt).toBeTruthy();
+
+    // 4. A replay changes nothing and posts no second chat event.
+    await signed();
+    const paidEvents = await dataSource
+      .getRepository(Message)
+      .createQueryBuilder('message')
+      .where('message.kind = :kind', { kind: MessageKind.CONTRACT_PAID })
+      .andWhere(`message.metadata->>'paymentId' = :id`, { id: paid.id })
+      .getCount();
+    expect(paidEvents).toBe(1);
+    await expect(
+      checkoutService.startCheckout(input, transactionCustomer),
+    ).rejects.toThrow();
+
+    // 5. Both parties see the method; only the provider gets the paid notice.
+    type GraphqlBody<T> = { data?: T; errors?: Array<{ message: string }> };
+    const graphql = async <T>(query: string, principal: JwtPayload) => {
+      const token = jwt.sign(principal, process.env.JWT_SECRET!, {
+        expiresIn: '5m',
+      });
+      const response = await request(server)
+        .post('/graphql')
+        .set({ Authorization: `Bearer ${token}` })
+        .send({ query, variables: { id: accepted.id } });
+      return response.body as GraphqlBody<T>;
+    };
+    const details = `query ($id: String!) {
+      contract(id: $id) { paymentMethod paymentMethods }
+    }`;
+    for (const principal of [transactionCustomer, transactionProvider]) {
+      const result = await graphql<{
+        contract: { paymentMethod: string; paymentMethods: string[] | null };
+      }>(details, principal);
+      expect(result.errors).toBeUndefined();
+      expect(result.data?.contract).toEqual({
+        paymentMethod: 'ELECTRONIC',
+        paymentMethods: null,
+      });
+    }
+    const notices = `query { myPaidContractNotices { id } }`;
+    const before = await graphql<{ myPaidContractNotices: { id: string }[] }>(
+      notices,
+      transactionProvider,
+    );
+    expect(before.data?.myPaidContractNotices.map((c) => c.id)).toContain(
+      accepted.id,
+    );
+    const acknowledged = await graphql<{ acknowledgeContractPaid: boolean }>(
+      `
+        mutation ($id: String!) {
+          acknowledgeContractPaid(contractId: $id)
+        }
+      `,
+      transactionProvider,
+    );
+    expect(acknowledged.data?.acknowledgeContractPaid).toBe(true);
+    const after = await graphql<{ myPaidContractNotices: { id: string }[] }>(
+      notices,
+      transactionProvider,
+    );
+    expect(after.data?.myPaidContractNotices.map((c) => c.id)).not.toContain(
+      accepted.id,
+    );
+
+    // 6. A chat fee goes through the same checkout, card only.
+    const conversations = dataSource.getRepository(Conversation);
+    const conversation = await conversations.findOneByOrFail({
+      id: transactionConversationId,
+    });
+    await conversations.update(conversation.id, {
+      feeCycle: conversation.feeCycle + 1,
+      customerFeePaidAt: null,
+    });
+    const fee = await checkoutService.startCheckout(
+      {
+        purpose: CheckoutPurpose.CHAT_FEE,
+        targetId: conversation.id,
+        method: PaymentMethod.ELECTRONIC,
+      },
+      transactionCustomer,
+    );
+    await request(server)
+      .post(new URL(fee.redirectUrl).pathname)
+      .type('form')
+      .send({ outcome: 'SUCCEEDED' })
+      .expect(303);
+    expect(
+      (await conversations.findOneByOrFail({ id: conversation.id }))
+        .customerFeePaidAt,
+    ).toBeTruthy();
   });
 
   // Last: it runs a badge assignment, which may change other providers.

@@ -74,4 +74,8 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'The invoice is available once the contract has been paid',
     ar: 'تتوفر الفاتورة بعد سداد قيمة التعاقد',
   },
+  [CONTRACT_ERROR_CODES.CHECKOUT_PENDING]: {
+    en: 'A payment for this contract is in progress. Try again in a few minutes',
+    ar: 'هناك عملية دفع جارية لهذا العقد، حاول مرة أخرى بعد بضع دقائق',
+  },
 };

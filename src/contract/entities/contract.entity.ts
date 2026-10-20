@@ -309,6 +309,10 @@ export class Contract {
   @Column({ type: 'timestamptz', nullable: true })
   customerOverdueAt: Date | null;
 
+  /** When the provider acknowledged the "contract paid" pop-up (S4-12). */
+  @Column({ type: 'timestamptz', nullable: true })
+  providerPaidNoticeAt: Date | null;
+
   @Field(() => [ContractSignature])
   @OneToMany(() => ContractSignature, (signature) => signature.contract, {
     cascade: true,

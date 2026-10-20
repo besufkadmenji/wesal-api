@@ -127,6 +127,27 @@ export class Payment {
   @Column({ type: 'text', nullable: true })
   notes: string | null;
 
+  /** Adapter that handled the current checkout (e.g. MOCK). */
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  gateway: string | null;
+
+  /** The current checkout attempt; gateway webhooks are matched on it. */
+  @Column({ type: 'varchar', length: 64, unique: true, nullable: true })
+  checkoutReference: string | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  paidAt: Date | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  failedAt: Date | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  failureReason: string | null;
+
   @Field()
   @CreateDateColumn()
   createdAt: Date;

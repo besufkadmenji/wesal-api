@@ -57,9 +57,17 @@ describe('ContractService', () => {
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => value),
   };
+  const pendingCheckouts = { getCount: jest.fn(async () => 0) };
+  const pendingCheckoutQuery = {
+    where: jest.fn(() => pendingCheckoutQuery),
+    andWhere: jest.fn(() => pendingCheckoutQuery),
+    getCount: () => pendingCheckouts.getCount(),
+  };
   const paymentRepository = {
     findOne: jest.fn(),
     count: jest.fn(async () => 0),
+    delete: jest.fn(async () => ({ affected: 0 })),
+    createQueryBuilder: jest.fn(() => pendingCheckoutQuery),
   };
   const ratingRepository = {
     findOne: jest.fn(),
@@ -923,6 +931,43 @@ describe('ContractService', () => {
         manager,
       );
       expect(contractRepository.save).not.toHaveBeenCalled();
+      // Abandoned or failed checkouts leave with the chain (S4-10).
+      const [abandoned] = paymentRepository.delete.mock.calls[0] as unknown as [
+        { contractId: { _value: string[] }; status: { _value: string[] } },
+      ];
+      expect(abandoned.contractId._value).toEqual([
+        'contract-v2',
+        'contract-v1',
+      ]);
+      expect(abandoned.status._value).toEqual(
+        expect.arrayContaining(['PENDING', 'FAILED']),
+      );
+    });
+
+    it('keeps the contract while a recent checkout may still succeed', async () => {
+      const accepted = {
+        id: 'contract-accepted',
+        publicId: 1303,
+        conversationId: conversation.id,
+        providerId: conversation.providerId,
+        clientId: conversation.userId,
+        status: ContractStatus.ACCEPTED,
+        version: 1,
+        supersedesContractId: null,
+        paidAt: null,
+      };
+      contractRepository.findOne
+        .mockResolvedValueOnce(accepted)
+        .mockResolvedValueOnce(accepted);
+      pendingCheckouts.getCount.mockResolvedValueOnce(1);
+
+      await expect(
+        service.requestCancellation(
+          { contractId: accepted.id, reason: 'Too slow' },
+          customer,
+        ),
+      ).rejects.toThrow('A payment for this contract is in progress');
+      expect(contractRepository.delete).not.toHaveBeenCalled();
     });
 
     it('gives the next new contract the smallest released number', async () => {

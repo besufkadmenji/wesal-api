@@ -1,7 +1,14 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Interval } from '@nestjs/schedule';
-import { DataSource, EntityManager, In, IsNull, Repository } from 'typeorm';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  IsNull,
+  Not,
+  Repository,
+} from 'typeorm';
 import {
   I18nNotFoundException,
   I18nBadRequestException,
@@ -161,6 +168,12 @@ interface ContractDetailsInput {
 type SettlementMoney = { payout: number; refund: number };
 
 /** Never paid: cancelling one deletes it (BRD 4.1.18, D-13). */
+/**
+ * A checkout started this recently may still succeed at the gateway, so the
+ * contract can't be removed yet (S4-10).
+ */
+const PENDING_CHECKOUT_WINDOW_MS = 30 * 60 * 1000;
+
 const PRE_PAYMENT_STATUSES = [
   ContractStatus.DRAFT,
   ContractStatus.PENDING,
@@ -860,6 +873,9 @@ export class ContractService {
       // BRD 4.1.18: before payment the contract disappears entirely and its
       // number returns to the cycle (D-13, decision 2026-10-19).
       if (PRE_PAYMENT_STATUSES.includes(previousStatus)) {
+        if (await this.hasPendingCheckout(contract, manager)) {
+          throw this.error('CHECKOUT_PENDING', language);
+        }
         const removed = {
           ...contract,
           status: ContractStatus.CANCELLED,
@@ -1537,6 +1553,49 @@ export class ContractService {
   }
 
   /**
+   * S4-12: paid contracts whose provider hasn't seen the "contract paid,
+   * please execute" pop-up yet, oldest payment first.
+   */
+  async myPaidContractNotices(principal: JwtPayload): Promise<Contract[]> {
+    if (principal.type !== 'provider') return [];
+    const contracts = await this.contractRepository.find({
+      where: {
+        providerId: principal.sub,
+        status: ContractStatus.IN_PROGRESS,
+        paidAt: Not(IsNull()),
+        providerPaidNoticeAt: IsNull(),
+      },
+      relations: CONTRACT_DETAIL_RELATIONS,
+      order: { paidAt: 'ASC' },
+    });
+    return contracts;
+  }
+
+  async acknowledgeContractPaid(
+    contractId: string,
+    principal: JwtPayload,
+    language: LanguageCode = 'en',
+  ): Promise<boolean> {
+    const contract = await this.contractRepository.findOne({
+      where: { id: contractId },
+    });
+    if (!contract) throw this.notFound(language);
+    if (
+      principal.type !== 'provider' ||
+      principal.sub !== contract.providerId
+    ) {
+      throw this.unauthorized(language);
+    }
+    if (!contract.providerPaidNoticeAt) {
+      await this.contractRepository.update(
+        { id: contract.id, providerPaidNoticeAt: IsNull() },
+        { providerPaidNoticeAt: new Date() },
+      );
+    }
+    return true;
+  }
+
+  /**
    * S4-2: flag newly overdue contracts once and tell the party; the web
    * pop-up itself reads `myOverdueContracts`.
    */
@@ -1627,6 +1686,7 @@ export class ContractService {
         lock: { mode: 'pessimistic_write' },
       });
       if (!current) return null;
+      if (await this.hasPendingCheckout(current, manager)) return null;
       return this.deleteUnpaidChain(current, manager, reason, {
         expired: true,
       });
@@ -1649,6 +1709,23 @@ export class ContractService {
         text,
       });
     }
+  }
+
+  private async hasPendingCheckout(
+    contract: Contract,
+    manager: EntityManager,
+  ): Promise<boolean> {
+    // updatedAt is a database-clock timestamp, so compare on that clock.
+    const pending = await manager
+      .getRepository(Payment)
+      .createQueryBuilder('payment')
+      .where('payment.contractId = :id', { id: contract.id })
+      .andWhere('payment.status = :status', { status: PaymentStatus.PENDING })
+      .andWhere(`payment.updatedAt > now() - make_interval(secs => :seconds)`, {
+        seconds: PENDING_CHECKOUT_WINDOW_MS / 1000,
+      })
+      .getCount();
+    return pending > 0;
   }
 
   /**
@@ -1677,13 +1754,26 @@ export class ContractService {
       throw new Error(`Contract ${contract.id} was paid; it cannot be removed`);
     }
     const ids = chain.map((entry) => entry.id);
+    const unsettled = In([
+      PaymentStatus.PENDING,
+      PaymentStatus.PROCESSING,
+      PaymentStatus.FAILED,
+      PaymentStatus.CANCELLED,
+    ]);
     const [payments, ratings] = await Promise.all([
-      manager.getRepository(Payment).count({ where: { contractId: In(ids) } }),
+      manager.getRepository(Payment).count({
+        where: { contractId: In(ids), status: Not(unsettled) },
+      }),
       manager.getRepository(Rating).count({ where: { contractId: In(ids) } }),
     ]);
     if (payments || ratings) {
       throw new Error(`Contract ${contract.id} has payments or ratings`);
     }
+    // Abandoned or failed checkouts leave with the contract; a late gateway
+    // success for them is reported to admins as unmatched (S4-10).
+    await manager
+      .getRepository(Payment)
+      .delete({ contractId: In(ids), status: unsettled });
     await manager.query(
       'UPDATE "complaints" SET "contractId" = NULL WHERE "contractId" = ANY($1::uuid[])',
       [ids],

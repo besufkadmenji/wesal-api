@@ -9,6 +9,9 @@ import {
   createUnionType,
 } from '@nestjs/graphql';
 import { PaymentService } from './payment.service';
+import { PaymentCheckoutService } from './payment-checkout.service';
+import { PaymentCheckout } from './dto/payment-checkout.response';
+import { StartPaymentCheckoutInput } from './dto/start-payment-checkout.input';
 import type { PaymentPayer as PaymentPayerValue } from './payment.service';
 import { Payment } from './entities/payment.entity';
 import { PaymentPaginationInput } from './dto/payment-pagination.input';
@@ -34,10 +37,14 @@ export const PaymentPayer = createUnionType({
 @Resolver(() => Payment)
 @UseGuards(JwtAuthGuard)
 export class PaymentResolver {
-  constructor(private readonly paymentService: PaymentService) {}
+  constructor(
+    private readonly paymentService: PaymentService,
+    private readonly checkoutService: PaymentCheckoutService,
+  ) {}
 
   @Mutation(() => ContractPaymentResponse, {
-    description: 'Settle an accepted contract using the Sprint 3 mock',
+    description:
+      'Instant mock settlement for the demo seed and tests; refused unless PAYMENT_GATEWAY=mock',
   })
   async payContract(
     @Args('contractId') contractId: string,
@@ -52,7 +59,8 @@ export class PaymentResolver {
   }
 
   @Mutation(() => ConversationFeePaymentResponse, {
-    description: 'Settle the authenticated participant conversation fee',
+    description:
+      'Instant mock chat-fee settlement for the demo seed and tests; refused unless PAYMENT_GATEWAY=mock',
   })
   async payConversationFee(
     @Args('conversationId') conversationId: string,
@@ -64,6 +72,18 @@ export class PaymentResolver {
       principal,
       language,
     );
+  }
+
+  @Mutation(() => PaymentCheckout, {
+    description:
+      'S4-10: start a gateway checkout; send the payer to redirectUrl',
+  })
+  async startPaymentCheckout(
+    @Args('input') input: StartPaymentCheckoutInput,
+    @CurrentPrincipal() principal: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<PaymentCheckout> {
+    return this.checkoutService.startCheckout(input, principal, language);
   }
 
   @Query(() => PaginatedPaymentResponse, { name: 'payments' })

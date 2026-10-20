@@ -212,6 +212,30 @@ export class SettingInput {
   @IsInt()
   @Min(0)
   defaultProviderConversationFee?: number;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  tabbyMinAmount?: number | null;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  tabbyMaxAmount?: number | null;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  tamaraMinAmount?: number | null;
+
+  @Field(() => Float, { nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  tamaraMaxAmount?: number | null;
 }
 
 @InputType()

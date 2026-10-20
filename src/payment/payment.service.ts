@@ -1,6 +1,6 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
   I18nBadRequestException,
   I18nNotFoundException,
@@ -35,8 +35,21 @@ import { MessageKind } from '../conversation/enums/message-kind.enum';
 import { ConversationStatus } from '../conversation/enums/conversation-status.enum';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { SettingService } from '../setting/setting.service';
+import { SearchService } from '../search/search.service';
+import { ListingType, PromotionStatus } from '../listing/enums/listing.enum';
+import { paymentGatewayConfig } from './gateway/payment-gateway.config';
 
 export type PaymentPayer = User | Provider;
+
+export interface PaymentFulfilment {
+  fulfilled: boolean;
+  after: () => Promise<void>;
+}
+
+const UNFULFILLED: PaymentFulfilment = {
+  fulfilled: false,
+  after: () => Promise.resolve(),
+};
 
 import { AdminNotificationService } from '../notification/admin-notification.service';
 import { NotificationService } from '../notification/notification.service';
@@ -62,6 +75,8 @@ export class PaymentService {
     private readonly adminNotifications?: AdminNotificationService,
     @Optional()
     private readonly notifications?: NotificationService,
+    @Optional()
+    private readonly searchService?: SearchService,
   ) {}
 
   async settleContractPayment(
@@ -69,6 +84,7 @@ export class PaymentService {
     principal: JwtPayload,
     language: LanguageCode = 'en',
   ): Promise<ContractPaymentResponse> {
+    this.assertMockShortcut(language);
     if (principal.type !== 'user') {
       throw this.unauthorized(language);
     }
@@ -102,6 +118,8 @@ export class PaymentService {
             vatAmount: Number(contract.vatAmount),
             paymentMethod: PaymentMethod.MOCK,
             status: PaymentStatus.COMPLETED,
+            paidAt: new Date(),
+            gateway: 'MOCK',
             transactionReference: `MOCK:${obligationKey}`,
             gatewayResponse: JSON.stringify({
               success: true,
@@ -159,6 +177,8 @@ export class PaymentService {
         },
         paymentMethod: PaymentMethod.MOCK,
         status: PaymentStatus.COMPLETED,
+        paidAt: new Date(),
+        gateway: 'MOCK',
         transactionReference: `MOCK:${obligationKey}`,
         gatewayResponse: JSON.stringify({ success: true, gateway: 'mock' }),
         notes: 'Sprint 3 mock contract settlement; no money moved.',
@@ -203,6 +223,7 @@ export class PaymentService {
     principal: JwtPayload,
     language: LanguageCode = 'en',
   ): Promise<ConversationFeePaymentResponse> {
+    this.assertMockShortcut(language);
     const result = await this.dataSource.transaction(async (manager) => {
       const conversation = await manager.getRepository(Conversation).findOne({
         where: { id: conversationId },
@@ -296,6 +317,8 @@ export class PaymentService {
             },
             paymentMethod: PaymentMethod.MOCK,
             status: PaymentStatus.COMPLETED,
+            paidAt: new Date(),
+            gateway: 'MOCK',
             transactionReference: `MOCK:${obligationKey}`,
             gatewayResponse: JSON.stringify({ success: true, gateway: 'mock' }),
             notes: 'Sprint 3 mock conversation fee; no money moved.',
@@ -315,6 +338,8 @@ export class PaymentService {
           },
           paymentMethod: PaymentMethod.MOCK,
           status: PaymentStatus.COMPLETED,
+          paidAt: new Date(),
+          gateway: 'MOCK',
           transactionReference: `MOCK:${obligationKey}`,
           gatewayResponse: JSON.stringify({ success: true, gateway: 'mock' }),
         });
@@ -366,61 +391,177 @@ export class PaymentService {
   }
 
   /**
-   * Records a completed mock premium-ad payment for a listing activated at create time.
-   * Featured publish is owned by ListingService.create — this only persists the fee row.
+   * S4-10: delivers what a gateway-confirmed payment bought, inside the
+   * caller's transaction. `fulfilled: false` means the target can no longer
+   * take the money (e.g. the contract expired meanwhile); admins then refund
+   * it (S4-13). `after` runs the notifications once the transaction commits.
    */
-  async recordMockPremiumAdPayment(
-    listing: Listing,
-    fee: number,
-    durationDays: number,
-  ): Promise<Payment> {
-    const obligationKey = this.obligationKey(
-      PaymentPurpose.PREMIUM_AD,
-      `${listing.id}:${listing.promotionCycle}`,
-      PayerType.PROVIDER,
-      listing.providerId,
+  async fulfil(
+    payment: Payment,
+    manager: EntityManager,
+    language: LanguageCode = 'en',
+  ): Promise<PaymentFulfilment> {
+    switch (payment.purpose) {
+      case PaymentPurpose.CONTRACT:
+        return this.fulfilContract(payment, manager, language);
+      case PaymentPurpose.CHAT_CUSTOMER:
+      case PaymentPurpose.CHAT_PROVIDER:
+        return this.fulfilChatFee(payment, manager);
+      case PaymentPurpose.PREMIUM_AD:
+        return this.fulfilPremiumAd(payment, manager);
+    }
+  }
+
+  private async fulfilContract(
+    payment: Payment,
+    manager: EntityManager,
+    language: LanguageCode,
+  ): Promise<PaymentFulfilment> {
+    const contract = payment.contractId
+      ? await manager.getRepository(Contract).findOne({
+          where: { id: payment.contractId },
+          lock: { mode: 'pessimistic_write' },
+        })
+      : null;
+    if (!contract || contract.status !== ContractStatus.ACCEPTED) {
+      return UNFULFILLED;
+    }
+    let paid: Contract;
+    try {
+      paid = await this.contractService.transitionAfterPayment(
+        contract.id,
+        manager,
+        language,
+      );
+    } catch (error) {
+      // A newer version superseded it: nothing to pay any more.
+      this.logger.warn(
+        `Paid contract ${contract.id} could not start: ${String(error)}`,
+      );
+      return UNFULFILLED;
+    }
+    const event = await this.messageService.persistSystemEvent(
+      contract.conversationId,
+      MessageKind.CONTRACT_PAID,
+      {
+        contractId: contract.id,
+        paymentId: payment.id,
+        amount: Number(payment.amount),
+      },
+      manager,
     );
-    const existing = await this.paymentRepository.findOne({
-      where: { obligationKey },
-    });
-    if (existing) return existing;
-    const saved = await this.paymentRepository.save(
-      this.paymentRepository.create({
-        purpose: PaymentPurpose.PREMIUM_AD,
-        payerId: listing.providerId,
-        payerType: PayerType.PROVIDER,
-        obligationKey,
-        contractId: null,
-        conversationId: null,
-        listingId: listing.id,
-        categoryId: listing.categoryId,
-        amount: Number(fee),
-        commissionPercent: 0,
-        commissionAmount: 0,
-        vatRate: 0,
-        vatAmount: 0,
-        configSnapshot: {
-          fee: Number(fee),
-          durationDays,
-          promotionCycle: listing.promotionCycle,
-        },
-        paymentMethod: PaymentMethod.MOCK,
-        status: PaymentStatus.COMPLETED,
-        transactionReference: `MOCK:${obligationKey}`,
-        gatewayResponse: JSON.stringify({ success: true, gateway: 'mock' }),
-        notes: 'Mock premium advertisement settled at create; no money moved.',
-      }),
+    return {
+      fulfilled: true,
+      after: async () => {
+        await this.publishSafely(event);
+        await this.notifyAdminsOfPayment(payment);
+        await this.notifyContractPaid(paid);
+      },
+    };
+  }
+
+  private async fulfilChatFee(
+    payment: Payment,
+    manager: EntityManager,
+  ): Promise<PaymentFulfilment> {
+    const repository = manager.getRepository(Conversation);
+    const conversation = payment.conversationId
+      ? await repository.findOne({
+          where: { id: payment.conversationId },
+          lock: { mode: 'pessimistic_write' },
+        })
+      : null;
+    const cycle = Number(payment.configSnapshot?.feeCycle);
+    if (
+      !conversation ||
+      conversation.status !== ConversationStatus.ACTIVE ||
+      conversation.feeCycle !== cycle
+    ) {
+      return UNFULFILLED;
+    }
+    const isProvider = payment.payerType === PayerType.PROVIDER;
+    const field = isProvider ? 'providerFeePaidAt' : 'customerFeePaidAt';
+    if (conversation[field]) return UNFULFILLED;
+    conversation[field] = new Date();
+    const saved = await repository.save(conversation);
+    const event = await this.messageService.persistSystemEvent(
+      conversation.id,
+      MessageKind.CHAT_FEE_PAID,
+      {
+        paymentId: payment.id,
+        payerType: payment.payerType,
+        amount: Number(payment.amount),
+      },
+      manager,
     );
-    await this.notifyAdminsOfPayment(saved);
-    await this.notifications?.notifyLocalized({
-      recipientId: listing.providerId,
-      recipientType: NotificationRecipientType.PROVIDER,
-      type: NotificationType.LISTING_FEATURED,
-      text: notificationTexts.listingFeatured(listing.name),
-      relatedEntityId: listing.id,
-      relatedEntityType: 'listing',
+    return {
+      fulfilled: true,
+      after: async () => {
+        await this.publishSafely(event);
+        await this.notifyAdminsOfPayment(payment);
+        await this.notifyChatFeePaid(saved, {
+          sub: payment.payerId,
+          type: isProvider ? 'provider' : 'user',
+        } as JwtPayload);
+      },
+    };
+  }
+
+  private async fulfilPremiumAd(
+    payment: Payment,
+    manager: EntityManager,
+  ): Promise<PaymentFulfilment> {
+    const repository = manager.getRepository(Listing);
+    const listing = payment.listingId
+      ? await repository.findOne({
+          where: { id: payment.listingId },
+          lock: { mode: 'pessimistic_write' },
+        })
+      : null;
+    const cycle = Number(payment.configSnapshot?.promotionCycle);
+    const durationDays = Number(payment.configSnapshot?.durationDays);
+    if (
+      !listing ||
+      listing.promotionStatus !== PromotionStatus.PENDING_PAYMENT ||
+      listing.promotionCycle + 1 !== cycle ||
+      !(durationDays >= 1)
+    ) {
+      return UNFULFILLED;
+    }
+    const now = new Date();
+    Object.assign(listing, {
+      type: ListingType.FEATURED,
+      promotionStatus: PromotionStatus.ACTIVE,
+      promotionCycle: cycle,
+      featuredStartsAt: now,
+      featuredEndsAt: new Date(now.getTime() + durationDays * 86_400_000),
     });
-    return saved;
+    const saved = await repository.save(listing);
+    return {
+      fulfilled: true,
+      after: async () => {
+        void this.searchService?.indexListing(saved).catch(() => undefined);
+        await this.notifyAdminsOfPayment(payment);
+        await this.notifications?.notifyLocalized({
+          recipientId: saved.providerId,
+          recipientType: NotificationRecipientType.PROVIDER,
+          type: NotificationType.LISTING_FEATURED,
+          text: notificationTexts.listingFeatured(saved.name),
+          relatedEntityId: saved.id,
+          relatedEntityType: 'listing',
+        });
+      },
+    };
+  }
+
+  /** The pre-gateway instant shortcuts serve the demo seed and tests only. */
+  private assertMockShortcut(language: LanguageCode): void {
+    if (paymentGatewayConfig.isMock) return;
+    const message = I18nService.translate(
+      PAYMENT_ERROR_MESSAGES[PAYMENT_ERROR_CODES.GATEWAY_NOT_MOCK],
+      language,
+    );
+    throw new I18nBadRequestException({ en: message, ar: message }, language);
   }
 
   /** S4-38: both parties learn the contract is paid and in progress. */
@@ -470,7 +611,7 @@ export class PaymentService {
   }
 
   /** BRD 4.3.25: admins see every successful fee or contract payment. */
-  private async notifyAdminsOfPayment(payment: Payment | null): Promise<void> {
+  async notifyAdminsOfPayment(payment: Payment | null): Promise<void> {
     if (!payment || !this.adminNotifications) return;
     const labels: Record<string, { ar: string; en: string }> = {
       [PaymentPurpose.PREMIUM_AD]: {

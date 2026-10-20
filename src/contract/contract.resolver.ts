@@ -138,6 +138,32 @@ export class ContractResolver {
     return this.contractService.myOverdueContracts(principal);
   }
 
+  @Query(() => [Contract], {
+    name: 'myPaidContractNotices',
+    description:
+      'S4-12: paid contracts the signed-in provider has not acknowledged yet',
+  })
+  async myPaidContractNotices(
+    @CurrentPrincipal() principal: JwtPayload,
+  ): Promise<Contract[]> {
+    return this.contractService.myPaidContractNotices(principal);
+  }
+
+  @Mutation(() => Boolean, {
+    description: 'S4-12: the provider has seen the "contract paid" pop-up',
+  })
+  async acknowledgeContractPaid(
+    @Args('contractId') contractId: string,
+    @CurrentPrincipal() principal: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<boolean> {
+    return this.contractService.acknowledgeContractPaid(
+      contractId,
+      principal,
+      language,
+    );
+  }
+
   @Query(() => Contract, { name: 'contract' })
   async findOne(
     @Args('id') id: string,

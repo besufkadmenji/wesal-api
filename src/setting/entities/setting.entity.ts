@@ -189,4 +189,22 @@ export class Setting {
   })
   @Column({ type: 'int', default: 0 })
   defaultProviderConversationFee: number;
+
+  // S4-10: Tabby/Tamara are offered only for amounts inside these bounds
+  // (SAR, inclusive); null means no bound.
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  tabbyMinAmount: number | null;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  tabbyMaxAmount: number | null;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  tamaraMinAmount: number | null;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  tamaraMaxAmount: number | null;
 }

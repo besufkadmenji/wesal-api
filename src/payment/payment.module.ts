@@ -13,6 +13,11 @@ import { ContractModule } from '../contract/contract.module';
 import { Conversation } from '../conversation/entities/conversation.entity';
 import { ConversationModule } from '../conversation/conversation.module';
 import { SettingModule } from '../setting/setting.module';
+import { SearchModule } from '../search/search.module';
+import { PaymentCheckoutService } from './payment-checkout.service';
+import { PaymentGatewayController } from './payment-gateway.controller';
+import { PaymentGatewayRegistry } from './gateway/payment-gateway.registry';
+import { ContractPaymentResolver } from './contract-payment.resolver';
 
 @Module({
   imports: [
@@ -29,8 +34,16 @@ import { SettingModule } from '../setting/setting.module';
     ContractModule,
     ConversationModule,
     SettingModule,
+    SearchModule,
   ],
-  providers: [PaymentResolver, PaymentService],
-  exports: [PaymentService],
+  controllers: [PaymentGatewayController],
+  providers: [
+    PaymentResolver,
+    PaymentService,
+    PaymentCheckoutService,
+    PaymentGatewayRegistry,
+    ContractPaymentResolver,
+  ],
+  exports: [PaymentService, PaymentCheckoutService],
 })
 export class PaymentModule {}

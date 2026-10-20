@@ -33,11 +33,6 @@ describe('ListingService provider finalization', () => {
     indexListing: jest.fn().mockResolvedValue(undefined),
   };
   const settingService = { getSetting: jest.fn() };
-  const paymentService = {
-    recordMockPremiumAdPayment: jest
-      .fn()
-      .mockResolvedValue({ id: 'payment-id' }),
-  };
   const service = new ListingService(
     listingRepository as never,
     providerRepository as never,
@@ -50,7 +45,6 @@ describe('ListingService provider finalization', () => {
     { trackAction: jest.fn(), getPopularListings: jest.fn() } as never,
     searchService as never,
     settingService as never,
-    paymentService as never,
   );
 
   beforeEach(() => {
@@ -94,7 +88,7 @@ describe('ListingService provider finalization', () => {
     expect(categoryRepository.findOne).not.toHaveBeenCalled();
   });
 
-  it('creates a featured listing as active with mock payment settled', async () => {
+  it('publishes a featured listing as a normal ad until its fee is paid (S4-10)', async () => {
     const listing = await service.create(
       {
         categoryId: 'category-id',
@@ -110,18 +104,13 @@ describe('ListingService provider finalization', () => {
     );
 
     expect(listing).toMatchObject({
-      type: ListingType.FEATURED,
+      type: ListingType.FREE,
       status: ListingStatus.ACTIVE,
-      promotionStatus: PromotionStatus.ACTIVE,
-      promotionCycle: 1,
+      promotionStatus: PromotionStatus.PENDING_PAYMENT,
+      promotionCycle: 0,
+      featuredStartsAt: null,
+      featuredEndsAt: null,
     });
-    expect(listing.featuredStartsAt).toBeInstanceOf(Date);
-    expect(listing.featuredEndsAt).toBeInstanceOf(Date);
-    expect(paymentService.recordMockPremiumAdPayment).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'listing-id' }),
-      75,
-      30,
-    );
   });
 
   it('rejects a non-video story when creating a listing', async () => {

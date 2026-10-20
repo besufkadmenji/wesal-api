@@ -13,6 +13,7 @@ import { Contract } from '../contract/entities/contract.entity';
 import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { Payment } from '../payment/entities/payment.entity';
 import { PaymentPurpose } from '../payment/enums/payment-purpose.enum';
+import { PaymentStatus } from '../payment/enums/payment-status.enum';
 import { FeeReportInput } from './dto/fee-report.input';
 import {
   ConversationFeeReport,
@@ -491,6 +492,10 @@ export class ReportService {
     query: SelectQueryBuilder<Payment>,
     input: FeeReportInput,
   ): void {
+    // Abandoned or failed checkouts are not revenue (S4-10).
+    query.andWhere('payment.status = :paidStatus', {
+      paidStatus: PaymentStatus.COMPLETED,
+    });
     if (input.from) {
       query.andWhere('payment.createdAt >= :from', { from: input.from });
     }

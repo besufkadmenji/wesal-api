@@ -42,7 +42,6 @@ import {
 import { LISTING_ERROR_CODES } from './errors/listing.error-codes';
 import { LISTING_ERROR_MESSAGES } from './errors/listing.error-messages';
 import { SettingService } from '../setting/setting.service';
-import { PaymentService } from '../payment/payment.service';
 
 export const TRUSTED_LISTINGS_DEFAULT = 10;
 export const TRUSTED_LISTINGS_MAX = 20;
@@ -69,7 +68,6 @@ export class ListingService {
     private readonly trackingService: TrackingService,
     private readonly searchService: SearchService,
     private readonly settingService: SettingService,
-    private readonly paymentService: PaymentService,
     @Optional()
     private readonly notifications?: NotificationService,
   ) {}
@@ -120,33 +118,25 @@ export class ListingService {
         );
       }
     }
-    const now = new Date();
-    const featuredEndsAt = isFeatured
-      ? new Date(now.getTime() + setting.premiumAdDurationDays * 86_400_000)
-      : null;
+    // S4-10: a featured ad is published as a normal one and becomes featured
+    // once its premium fee is paid through checkout.
     const listing = this.listingRepository.create({
       ...createListingInput,
       providerId,
+      type: ListingType.FREE,
       status: ListingStatus.ACTIVE,
       promotionStatus: isFeatured
-        ? PromotionStatus.ACTIVE
+        ? PromotionStatus.PENDING_PAYMENT
         : PromotionStatus.NONE,
-      promotionCycle: isFeatured ? 1 : 0,
-      featuredStartsAt: isFeatured ? now : null,
-      featuredEndsAt,
+      promotionCycle: 0,
+      featuredStartsAt: null,
+      featuredEndsAt: null,
       story: createListingInput.story ?? null,
       photos: createListingInput.photos,
       tags: '',
     });
 
     const saved = await this.listingRepository.save(listing);
-    if (isFeatured) {
-      await this.paymentService.recordMockPremiumAdPayment(
-        saved,
-        Number(setting.premiumAdFee),
-        setting.premiumAdDurationDays,
-      );
-    }
     // Index in Elasticsearch asynchronously
     this.searchService
       .indexListing(saved)
