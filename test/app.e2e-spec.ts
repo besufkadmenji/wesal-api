@@ -2390,6 +2390,74 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     ).toBeTruthy();
   });
 
+  it('answers accept and reject with the full contract over GraphQL (H-30)', async () => {
+    const contracts = app.get(DataSource).getRepository(Contract);
+    const template = await contracts.findOneByOrFail({
+      id: transactionContractId,
+    });
+    const { id: _id, publicId: _number, ...fields } = template;
+    void _id;
+    void _number;
+    const pending = (versionOffset: number) =>
+      contracts.save(
+        contracts.create({
+          ...fields,
+          status: ContractStatus.PENDING,
+          paidAt: null,
+          acceptedAt: null,
+          completedAt: null,
+          resolvedAt: null,
+          supersedesContractId: null,
+          version: template.version + versionOffset,
+        }),
+      );
+    const token = jwt.sign(transactionProvider, process.env.JWT_SECRET!, {
+      expiresIn: '5m',
+    });
+    const graphql = async (query: string, input: object) => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set({ Authorization: `Bearer ${token}` })
+        .send({ query, variables: { input } });
+      return response.body as {
+        data?: Record<string, Record<string, unknown>>;
+        errors?: Array<{ message: string }>;
+      };
+    };
+    const fields_ = `id status provider { id } client { id } signatures { signatureType }`;
+
+    const toAccept = await pending(30);
+    const accepted = await graphql(
+      `mutation ($input: AcceptContractInput!) { acceptContract(input: $input) { ${fields_} } }`,
+      {
+        contractId: toAccept.id,
+        signatureData: 'provider-signature-h30',
+        executionHours: 5,
+      },
+    );
+    expect(accepted.errors).toBeUndefined();
+    expect(accepted.data?.acceptContract).toMatchObject({
+      id: toAccept.id,
+      status: ContractStatus.ACCEPTED,
+      provider: { id: transactionProvider.sub },
+    });
+    expect(accepted.data?.acceptContract.signatures).toContainEqual({
+      signatureType: 'PROVIDER_ACCEPTANCE',
+    });
+
+    const toReject = await pending(31);
+    const rejected = await graphql(
+      `mutation ($input: RejectContractInput!) { rejectContract(input: $input) { ${fields_} } }`,
+      { contractId: toReject.id, reason: 'Not available this week' },
+    );
+    expect(rejected.errors).toBeUndefined();
+    expect(rejected.data?.rejectContract).toMatchObject({
+      id: toReject.id,
+      status: ContractStatus.REJECTED,
+      provider: { id: transactionProvider.sub },
+    });
+  });
+
   // Last: it runs a badge assignment, which may change other providers.
   it('labels providers no badge run has evaluated as newly added', async () => {
     const dataSource = app.get(DataSource);

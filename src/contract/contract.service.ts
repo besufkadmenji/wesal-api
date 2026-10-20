@@ -593,7 +593,9 @@ export class ContractService {
       result.contract,
       language,
     );
-    return result.contract;
+    // H-30: the row was read under lock without relations; return it with
+    // the details GraphQL needs (non-null provider, signatures, …).
+    return this.findOne(result.contract.id, principal, language);
   }
 
   async rejectContract(
@@ -658,7 +660,7 @@ export class ContractService {
       result.contract,
       language,
     );
-    return result.contract;
+    return this.findOne(result.contract.id, principal, language);
   }
 
   async completeContract(
