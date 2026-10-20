@@ -1,5 +1,6 @@
 import { Field, InputType, registerEnumType } from '@nestjs/graphql';
-import { IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsEnum, IsIn, IsOptional, IsString, IsUUID } from 'class-validator';
+import { SignedContractStatus } from '../../provider/enums/contract.enum';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 
 const SIGNED_CONTRACT_SORTABLE_FIELDS = [
@@ -35,6 +36,12 @@ export class SignedContractPaginationInput extends PaginationInput {
   @IsOptional()
   @IsString()
   search?: string;
+
+  // S4-58: e.g. the admin's "termination requested" filter.
+  @Field(() => SignedContractStatus, { nullable: true })
+  @IsOptional()
+  @IsEnum(SignedContractStatus)
+  status?: SignedContractStatus;
 
   @Field(() => SignedContractSortFieldEnum, {
     nullable: true,

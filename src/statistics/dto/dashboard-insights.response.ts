@@ -72,4 +72,10 @@ export class DashboardAttentionCounts {
 
   @Field(() => Int, { nullable: true })
   disputedContracts: number | null;
+
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Provider e-contract termination requests (S4-58)',
+  })
+  terminationRequests: number | null;
 }

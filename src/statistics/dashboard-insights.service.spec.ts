@@ -122,6 +122,7 @@ describe('DashboardInsightsService', () => {
       openComplaints: 2,
       cancellationRequests: 0,
       disputedContracts: 1,
+      terminationRequests: 0,
     });
     expect(permissionCount).not.toHaveBeenCalled();
   });
@@ -144,6 +145,7 @@ describe('DashboardInsightsService', () => {
       openComplaints: 5,
       cancellationRequests: null,
       disputedContracts: null,
+      terminationRequests: null,
     });
     expect(query).toHaveBeenCalledTimes(1);
   });

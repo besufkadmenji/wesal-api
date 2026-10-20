@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { SortOrder } from '../../lib/common/dto/pagination.input';
 import { SignedContractPaginationInput } from './dto/signed-contract-pagination.input';
@@ -24,6 +24,7 @@ export class SignedContractService {
       limit = 10,
       providerId,
       search,
+      status,
       sortBy,
       sortOrder = SortOrder.DESC,
     } = paginationInput ?? {};
@@ -31,10 +32,13 @@ export class SignedContractService {
 
     const queryBuilder = this.signedContractRepository
       .createQueryBuilder('signedContract')
-      .leftJoinAndSelect('signedContract.provider', 'provider')
-      .where('signedContract.status != :terminatedStatus', {
-        terminatedStatus: SignedContractStatus.TERMINATED_BY_PROVIDER,
-      });
+      .leftJoinAndSelect('signedContract.provider', 'provider');
+
+    // S4-58: provider terminations are shown too (they used to be hidden
+    // because the account vanished at once; they now follow an admin approval).
+    if (status) {
+      queryBuilder.andWhere('signedContract.status = :status', { status });
+    }
 
     if (providerId) {
       queryBuilder.andWhere('signedContract.providerId = :providerId', {
@@ -57,10 +61,15 @@ export class SignedContractService {
       : 'signedContract.createdAt';
     const orderDirection = sortOrder === SortOrder.DESC ? 'DESC' : 'ASC';
 
+    // Requests waiting for the admin come first. The provider join is
+    // one-to-one, so plain offset/limit is safe with the raw CASE ordering.
     const [items, total] = await queryBuilder
-      .skip(skip)
-      .take(limit)
-      .orderBy(orderByField, orderDirection)
+      .offset(skip)
+      .limit(limit)
+      .orderBy(
+        `CASE WHEN "signedContract"."status" = '${SignedContractStatus.TERMINATION_REQUESTED}' THEN 0 ELSE 1 END`,
+      )
+      .addOrderBy(orderByField, orderDirection)
       .getManyAndCount();
 
     const totalPages = Math.ceil(total / limit);
@@ -92,7 +101,7 @@ export class SignedContractService {
 
   async findById(id: string): Promise<SignedContract | null> {
     return this.signedContractRepository.findOne({
-      where: { id, status: Not(SignedContractStatus.TERMINATED_BY_PROVIDER) },
+      where: { id },
       relations: [
         'provider',
         'provider.categories',

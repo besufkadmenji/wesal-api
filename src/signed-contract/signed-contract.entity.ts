@@ -72,6 +72,26 @@ export class SignedContract {
   @Column({ type: 'text', nullable: true })
   terminationReason: string | null;
 
+  // S4-58: the provider's pending/last termination request and its outcome.
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  terminationRequestedAt: Date | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  terminationRequestReason: string | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  terminationRejectedAt: Date | null;
+
+  @Field(() => String, { nullable: true })
+  @Column({ type: 'text', nullable: true })
+  terminationRejectionReason: string | null;
+
+  @Column({ type: 'uuid', nullable: true })
+  terminationDecidedByAdminId: string | null;
+
   @Field(() => String, { nullable: true })
   @Column({ type: 'timestamp', nullable: true })
   deletedAt: Date | null;

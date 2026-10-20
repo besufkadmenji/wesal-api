@@ -6,7 +6,6 @@ import { I18nBadRequestException } from '../../lib/errors';
 import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Contract } from '../contract/entities/contract.entity';
-import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
 import type { BilingualText } from '../notification/notification-texts';
 import { NotificationType } from '../notification/enums/notification-type.enum';
@@ -31,19 +30,9 @@ import { BadgeBound } from './enums/badge-bound.enum';
 import { BadgeTier } from './enums/badge-tier.enum';
 import { BADGE_ERROR_CODES } from './errors/badge.error-codes';
 import { BADGE_ERROR_MESSAGES } from './errors/badge.error-messages';
+import { UNFINISHED_CONTRACT_STATUSES } from '../contract/unfinished-contracts';
 
 export const BADGE_TIME_ZONE = 'Asia/Riyadh';
-
-/** Contract states that block auto-deletion (BRD 4.3.7.2 / Q-B4). */
-export const UNFINISHED_CONTRACT_STATUSES: ContractStatus[] = [
-  ContractStatus.PENDING,
-  ContractStatus.ACCEPTED,
-  ContractStatus.IN_PROGRESS,
-  ContractStatus.AWAITING_CUSTOMER_CONFIRMATION,
-  ContractStatus.DELIVERY_IN_PROGRESS,
-  ContractStatus.CANCELLATION_REQUESTED,
-  ContractStatus.DISPUTED,
-];
 
 const TIER_NAMES: Record<BadgeTier, { en: string; ar: string }> = {
   [BadgeTier.TRUST]: { en: 'Trust badge', ar: 'وسام الثقة' },

@@ -8,6 +8,7 @@ import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { PaymentPurpose } from '../payment/enums/payment-purpose.enum';
 import { PaymentStatus } from '../payment/enums/payment-status.enum';
 import { PermissionPlatform } from '../permission/enums/permission-platform.enum';
+import { SignedContractStatus } from '../provider/enums/contract.enum';
 import { ProviderStatus } from '../provider/enums/provider-status.enum';
 import { DashboardRange } from './dto/dashboard-range.enum';
 import {
@@ -173,6 +174,7 @@ export class DashboardInsightsService {
       openComplaints,
       cancellationRequests,
       disputedContracts,
+      terminationRequests,
     ] = await Promise.all([
       providers
         ? count(
@@ -199,12 +201,19 @@ export class DashboardInsightsService {
             [ContractStatus.DISPUTED],
           )
         : null,
+      providers
+        ? count(
+            `SELECT COUNT(*) AS "count" FROM "signed_contracts" WHERE "status" = $1`,
+            [SignedContractStatus.TERMINATION_REQUESTED],
+          )
+        : null,
     ]);
     return {
       pendingProviderRequests,
       openComplaints,
       cancellationRequests,
       disputedContracts,
+      terminationRequests,
     };
   }
 

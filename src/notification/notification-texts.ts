@@ -11,6 +11,17 @@ const sar = (amount: number) =>
   );
 
 export const notificationTexts = {
+  // S4-58: the admin rejected the provider's e-contract termination request.
+  eContractTerminationRejected: (reason: string): BilingualText => ({
+    ar: {
+      title: 'تم رفض طلب فسخ العقد',
+      message: `رفضت الإدارة طلب فسخ العقد الإلكتروني. السبب: ${reason}`,
+    },
+    en: {
+      title: 'Termination request rejected',
+      message: `The administration rejected your e-contract termination request. Reason: ${reason}`,
+    },
+  }),
   contractStatus: (
     reference: string | number,
     status: { ar: string; en: string },
