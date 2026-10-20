@@ -15,17 +15,20 @@ interface ValidationError {
   children?: ValidationError[];
 }
 
+/**
+ * Localizes class-validator errors. H-23: works for REST as well as GraphQL;
+ * it used to assume a GraphQL context, so every REST 400 became a 500.
+ */
 @Catch(BadRequestException)
 export class ValidationExceptionFilter implements ExceptionFilter {
-  catch(exception: BadRequestException, host: ArgumentsHost): void {
-    const gqlHost = GqlArgumentsHost.create(host);
-    const ctx: {
-      req: { headers: Record<string, string> };
-    } = gqlHost.getContext();
-    const request = ctx.req;
-
-    const acceptLanguage = request.headers['accept-language'];
-    console.log('Accept-Language header:', acceptLanguage);
+  catch(exception: BadRequestException, host: ArgumentsHost): unknown {
+    const http = host.getType() === 'http';
+    const request = http
+      ? host.switchToHttp().getRequest<{ headers?: Record<string, string> }>()
+      : GqlArgumentsHost.create(host).getContext<{
+          req?: { headers?: Record<string, string> };
+        }>()?.req;
+    const acceptLanguage = request?.headers?.['accept-language'];
     const language: LanguageCode = acceptLanguage?.includes('ar') ? 'ar' : 'en';
 
     const exceptionResponse = exception.getResponse() as {
@@ -33,23 +36,29 @@ export class ValidationExceptionFilter implements ExceptionFilter {
       error?: string;
     };
 
-    // Handle validation errors
-    if (Array.isArray(exceptionResponse.message)) {
-      const translatedErrors = this.translateValidationErrors(
-        exceptionResponse.message,
-        language,
-      );
+    // Validation errors get localized; any other 400 passes through as is.
+    const localized = Array.isArray(exceptionResponse.message)
+      ? new BadRequestException({
+          statusCode: 400,
+          message: language === 'ar' ? 'فشل التحقق' : 'Validation failed',
+          errors: this.translateValidationErrors(
+            exceptionResponse.message,
+            language,
+          ),
+        })
+      : exception;
 
-      const errorMessage =
-        language === 'ar' ? 'فشل التحقق' : 'Validation failed';
-
-      // Re-throw with localized message
-      throw new BadRequestException({
-        statusCode: 400,
-        message: errorMessage,
-        errors: translatedErrors,
-      });
+    if (http) {
+      host
+        .switchToHttp()
+        .getResponse<{
+          status: (code: number) => { json: (body: unknown) => void };
+        }>()
+        .status(localized.getStatus())
+        .json(localized.getResponse());
+      return;
     }
+    throw localized;
   }
 
   private translateValidationErrors(

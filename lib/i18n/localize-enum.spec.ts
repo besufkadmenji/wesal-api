@@ -16,8 +16,8 @@ describe('localizeEnum', () => {
   });
 
   it('falls back to a title-cased value when the label is missing', () => {
-    expect(
-      localizeEnum(labels, 'UNKNOWN_STATUS' as 'REJECTED', 'en'),
-    ).toBe('Unknown Status');
+    expect(localizeEnum(labels, 'UNKNOWN_STATUS' as 'REJECTED', 'en')).toBe(
+      'Unknown Status',
+    );
   });
 });
