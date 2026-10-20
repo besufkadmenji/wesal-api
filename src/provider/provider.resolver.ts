@@ -4,7 +4,9 @@ import {
   Context,
   ID,
   Mutation,
+  Parent,
   Query,
+  ResolveField,
   Resolver,
   Subscription,
 } from '@nestjs/graphql';
@@ -28,9 +30,13 @@ import { DeleteProviderInput } from './dto/delete-provider.input';
 import { PaginatedProviderResponse } from './dto/paginated-provider.response';
 import { ProviderPaginationInput } from './dto/provider-pagination.input';
 import { SignContractInput } from './dto/sign-contract.input';
-import { AdminTerminateContractInput } from './dto/terminate-contract.input';
+import {
+  AdminTerminateContractInput,
+  RejectContractTerminationInput,
+} from './dto/terminate-contract.input';
 import { UpdateProviderInput } from './dto/update-provider.input';
 import { ProviderStatus } from './enums/provider-status.enum';
+import { isNewlyAddedProvider } from './newly-added';
 import { PROVIDER_ERROR_CODES } from './errors/provider.error-codes';
 import { PROVIDER_ERROR_MESSAGES } from './errors/provider.error-messages';
 import { ProviderService } from './provider.service';
@@ -186,7 +192,8 @@ export class ProviderResolver {
   }
 
   @Mutation(() => Provider, {
-    description: 'Terminate provider contract',
+    description:
+      'Provider asks the administration to terminate their e-contract (S4-58); refused while customer contracts are unfinished',
   })
   @UseGuards(JwtAuthGuard)
   terminateProviderContract(
@@ -214,6 +221,43 @@ export class ProviderResolver {
     return this.providerService.adminTerminateContract(
       admin.sub,
       input,
+      language,
+    );
+  }
+
+  @Mutation(() => Provider, {
+    description:
+      "Admin approves a provider's e-contract termination request: the account is deleted (S4-58)",
+  })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('provider', 'update')
+  approveProviderContractTermination(
+    @Args('providerId', { type: () => ID }) providerId: string,
+    @CurrentAdmin() admin: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.providerService.approveContractTermination(
+      admin.sub,
+      providerId,
+      language,
+    );
+  }
+
+  @Mutation(() => Provider, {
+    description:
+      "Admin rejects a provider's e-contract termination request; the contract is active again (S4-58)",
+  })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('provider', 'update')
+  rejectProviderContractTermination(
+    @Args('input') input: RejectContractTerminationInput,
+    @CurrentAdmin() admin: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ) {
+    return this.providerService.rejectContractTermination(
+      admin.sub,
+      input.providerId,
+      input.reason,
       language,
     );
   }
@@ -279,5 +323,13 @@ export class ProviderResolver {
       throw new UnauthorizedException('Provider not authenticated');
     }
     return this.pubSub.asyncIterableIterator('providerUpdated');
+  }
+
+  @ResolveField(() => Boolean, {
+    description:
+      'Not evaluated by a monthly badge run yet: shows "Newly Added" (S4-54)',
+  })
+  isNewlyAdded(@Parent() provider: Provider): boolean {
+    return isNewlyAddedProvider(provider);
   }
 }

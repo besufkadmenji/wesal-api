@@ -38,4 +38,20 @@ export const CATEGORY_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Category is already inactive',
     ar: 'الفئة غير مفعّلة بالفعل',
   },
+  CATEGORY_HAS_PROVIDERS: {
+    en: 'This category cannot be deactivated while service providers are linked to it',
+    ar: 'لا يمكن تعطيل القسم لارتباطه بمقدمي خدمة',
+  },
+  CATEGORY_HAS_OPEN_CONTRACTS: {
+    en: 'This category has unfinished contracts and cannot be deactivated or deleted until they end',
+    ar: 'لا يمكن تعطيل أو حذف القسم لوجود تعاقدات غير منتهية مرتبطة به',
+  },
+  CONTRACT_VALUE_REQUIRED: {
+    en: 'Every enabled contract setting needs a whole-number value (at least 1; the minimum commission may be 0)',
+    ar: 'يجب إدخال قيمة صحيحة لكل إعداد تعاقد مفعّل (لا تقل عن 1، ويمكن أن يكون الحد الأدنى للعمولة 0)',
+  },
+  CONTRACT_TEXT_REQUIRED: {
+    en: 'Every enabled contract text must be filled in',
+    ar: 'يجب تعبئة جميع نصوص التعاقد المفعّلة',
+  },
 };

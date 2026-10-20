@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { NotificationModule } from '../notification/notification.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -20,6 +21,7 @@ import { OtpCodeGenerator } from './otp-code-generator';
 
 @Module({
   imports: [
+    NotificationModule,
     TypeOrmModule.forFeature([User, Provider, Otp]),
     UserModule,
     ProviderModule,

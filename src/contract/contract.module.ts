@@ -18,11 +18,13 @@ import { ContractAudit } from './entities/contract-audit.entity';
 import { ContractDocument } from './entities/contract-document.entity';
 import { Payment } from '../payment/entities/payment.entity';
 import { ContractController } from './contract.controller';
+import { ContractInvoiceService } from './contract-invoice.service';
 import { ContractDocumentService } from './contract-document.service';
 import { ParticipantContractDocumentController } from './participant-contract-document.controller';
 import { FileUploadModule } from '../../lib/file-upload';
 import { NotificationModule } from '../notification/notification.module';
 
+import { RatingModule } from '../rating/rating.module';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
@@ -44,8 +46,14 @@ import { NotificationModule } from '../notification/notification.module';
     AdminPermissionGuardModule,
     FileUploadModule,
     NotificationModule,
+    RatingModule,
   ],
-  providers: [ContractResolver, ContractService, ContractDocumentService],
+  providers: [
+    ContractResolver,
+    ContractService,
+    ContractDocumentService,
+    ContractInvoiceService,
+  ],
   controllers: [ContractController, ParticipantContractDocumentController],
   exports: [ContractService],
 })

@@ -13,6 +13,7 @@ import { ContractSettlement } from './entities/contract-settlement.entity';
 import { ContractAudit } from './entities/contract-audit.entity';
 import { Payment } from '../payment/entities/payment.entity';
 import { ContractResolver } from './contract.resolver';
+import { Rating } from '../rating/entities/rating.entity';
 
 describe('ContractService', () => {
   const contractQueryBuilder = {
@@ -31,8 +32,9 @@ describe('ContractService', () => {
       Object.assign(target, ...sources),
     ),
     save: jest.fn(async (value) => value),
+    delete: jest.fn(async () => ({ affected: 1 })),
   };
-  const conversationRepository = { findOne: jest.fn() };
+  const conversationRepository = { findOne: jest.fn(), update: jest.fn() };
   const listingRepository = { findOne: jest.fn() };
   const categoryRepository = { findOne: jest.fn() };
   const providerRepository = { findOne: jest.fn() };
@@ -55,10 +57,40 @@ describe('ContractService', () => {
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => value),
   };
+  const pendingCheckouts = { getCount: jest.fn(async () => 0) };
+  const pendingCheckoutQuery = {
+    where: jest.fn(() => pendingCheckoutQuery),
+    andWhere: jest.fn(() => pendingCheckoutQuery),
+    getCount: () => pendingCheckouts.getCount(),
+  };
   const paymentRepository = {
     findOne: jest.fn(),
+    count: jest.fn(async () => 0),
+    delete: jest.fn(async () => ({ affected: 0 })),
+    createQueryBuilder: jest.fn(() => pendingCheckoutQuery),
   };
+  const ratingRepository = {
+    findOne: jest.fn(),
+    count: jest.fn(async () => 0),
+    create: jest.fn((value) => value),
+    save: jest.fn(async (value) => value),
+  };
+  // Raw SQL: the contract number pool (empty unless a test fills it) and the
+  // unlinking updates of a pre-payment deletion.
+  const pooled: number[] = [];
+  const query = jest.fn(async (sql: string, params?: unknown[]) => {
+    if (sql.includes('DELETE FROM "contract_number_pool"')) {
+      pooled.sort((a, b) => a - b);
+      const number = pooled.shift();
+      return [number === undefined ? [] : [{ number: String(number) }], 0];
+    }
+    if (sql.includes('INSERT INTO "contract_number_pool"')) {
+      pooled.push(...(params?.[0] as number[]));
+    }
+    return [];
+  });
   const manager = {
+    query,
     getRepository: jest.fn((entity) => {
       if (entity === Contract) return contractRepository;
       if (entity === Conversation) return conversationRepository;
@@ -71,6 +103,7 @@ describe('ContractService', () => {
       if (entity === ContractSettlement) return settlementRepository;
       if (entity === ContractAudit) return auditRepository;
       if (entity === Payment) return paymentRepository;
+      if (entity === Rating) return ratingRepository;
       return {};
     }),
   };
@@ -126,10 +159,10 @@ describe('ContractService', () => {
       minCommissionEnabled: true,
       contractDocumentEnabled: true,
       contractDocumentText: 'Binding terms',
-      maxCompletionDays: 30,
-      maxCompletionDaysEnabled: true,
-      maxTerminationDays: 5,
-      maxTerminationDaysEnabled: true,
+      maxExecutionHours: 30,
+      maxExecutionHoursEnabled: true,
+      maxTerminationHours: 5,
+      maxTerminationHoursEnabled: true,
     });
     settingService.getSetting.mockResolvedValue({
       vatEnabled: true,
@@ -333,28 +366,84 @@ describe('ContractService', () => {
     expect(contract.audits).toBeUndefined();
   });
 
+  const customer = {
+    sub: conversation.userId,
+    email: 'customer@example.com',
+    type: 'user' as const,
+  };
+
   it('calculates contract terms on the server', async () => {
+    // 2% of 10,000 = 200 SAR, above the 100 SAR minimum: commission applies.
     const quote = await service.quote(
-      { conversationId: conversation.id, agreedPrice: 500 },
-      {
-        sub: conversation.userId,
-        email: 'customer@example.com',
-        type: 'user',
-      },
+      { conversationId: conversation.id, agreedPrice: 10000 },
+      customer,
     );
 
     expect(quote).toMatchObject({
-      agreedPrice: 500,
+      agreedPrice: 10000,
       depositPercent: 10,
-      downPayment: 50,
+      downPayment: 1000,
       commissionPercent: 2,
-      commissionAmount: 10,
+      commissionAmount: 200,
+      isCharity: false,
+      charityAmount: 0,
       vatRate: 15,
-      vatAmount: 75,
-      totalPayable: 575,
-      providerNetAmount: 490,
+      vatAmount: 1500,
+      totalPayable: 11500,
+      providerNetAmount: 9800,
       contractDocumentText: 'Binding terms',
     });
+  });
+
+  it('makes a contract charity when the commission is at or below the minimum', async () => {
+    // 2% of 500 = 10 SAR ≤ 100 SAR minimum: still deducted from the
+    // provider, but set aside for donation instead of platform revenue.
+    await expect(
+      service.quote(
+        { conversationId: conversation.id, agreedPrice: 500 },
+        customer,
+      ),
+    ).resolves.toMatchObject({
+      commissionAmount: 10,
+      isCharity: true,
+      charityAmount: 10,
+      providerNetAmount: 490,
+    });
+    // Boundary: 2% of 5,000 = 100 SAR equals the minimum, so still charity.
+    await expect(
+      service.quote(
+        { conversationId: conversation.id, agreedPrice: 5000 },
+        customer,
+      ),
+    ).resolves.toMatchObject({ isCharity: true, charityAmount: 100 });
+  });
+
+  it('never makes a contract charity without a minimum or a commission', async () => {
+    const category = (await categoryRepository.findOne()) as Record<
+      string,
+      unknown
+    >;
+    categoryRepository.findOne.mockResolvedValue({
+      ...category,
+      minCommissionEnabled: false,
+    });
+    await expect(
+      service.quote(
+        { conversationId: conversation.id, agreedPrice: 500 },
+        customer,
+      ),
+    ).resolves.toMatchObject({ isCharity: false, commissionAmount: 10 });
+
+    categoryRepository.findOne.mockResolvedValue({
+      ...category,
+      commissionEnabled: false,
+    });
+    await expect(
+      service.quote(
+        { conversationId: conversation.id, agreedPrice: 500 },
+        customer,
+      ),
+    ).resolves.toMatchObject({ isCharity: false, commissionAmount: 0 });
   });
 
   it('rejects provider delivery time above the snapshot limit', async () => {
@@ -365,7 +454,7 @@ describe('ContractService', () => {
       clientId: conversation.userId,
       status: ContractStatus.PENDING,
       version: 1,
-      maxCompletionDays: 10,
+      maxExecutionHours: 10,
     };
     contractRepository.findOne
       .mockResolvedValueOnce(contract)
@@ -376,7 +465,7 @@ describe('ContractService', () => {
         {
           contractId: contract.id,
           signatureData: 'signature',
-          deliveryTimeDays: 11,
+          executionHours: 11,
         },
         {
           sub: conversation.providerId,
@@ -496,6 +585,63 @@ describe('ContractService', () => {
     );
   });
 
+  it('sets the customer deadline from delivery hours plus grace hours', async () => {
+    const now = new Date('2026-10-18T09:00:00Z');
+    jest.useFakeTimers({ now, doNotFake: ['nextTick', 'setImmediate'] });
+    const contract = {
+      id: 'contract-id',
+      conversationId: conversation.id,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      status: ContractStatus.IN_PROGRESS,
+      version: 1,
+      deliveryCompanyId: 'delivery-company-id',
+    } as Record<string, unknown>;
+    contractRepository.findOne
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract);
+    settingService.getSetting.mockResolvedValue({
+      completionConfirmationGraceHours: 24,
+    });
+    const provider = {
+      sub: conversation.providerId,
+      email: 'provider@example.com',
+      type: 'provider' as const,
+    };
+
+    try {
+      await expect(
+        service.providerCompleteContract(
+          { contractId: contract.id as string, signatureData: 'sig.png' },
+          provider,
+        ),
+      ).rejects.toThrow('Delivery time in hours is required');
+
+      contractRepository.findOne
+        .mockResolvedValueOnce(contract)
+        .mockResolvedValueOnce(contract)
+        .mockResolvedValueOnce(contract);
+      await service.providerCompleteContract(
+        {
+          contractId: contract.id as string,
+          signatureData: 'sig.png',
+          deliveryHours: 5,
+        },
+        provider,
+      );
+    } finally {
+      jest.useRealTimers();
+    }
+
+    expect(contract.deliveryHours).toBe(5);
+    expect(contract.status).toBe(ContractStatus.DELIVERY_IN_PROGRESS);
+    // 5 delivery hours + 24 grace hours, no day conversion.
+    expect(contract.confirmationDeadlineAt).toEqual(
+      new Date(now.getTime() + 29 * 3_600_000),
+    );
+  });
+
   it('balances an early cancellation from the immutable payment snapshot', async () => {
     const contract = {
       id: 'contract-id',
@@ -534,6 +680,345 @@ describe('ContractService', () => {
     expect(settlementRepository.save).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'PLATFORM_COMMISSION', amount: 10 }),
     );
+  });
+
+  it('refunds everything and records 0 stars when the provider is overdue', async () => {
+    const contract = {
+      id: 'contract-id',
+      conversationId: conversation.id,
+      listingId: conversation.listingId,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      status: ContractStatus.IN_PROGRESS,
+      version: 1,
+      downPayment: 50,
+      commissionAmount: 10,
+      executionHours: 24,
+      // Paid 49 h ago: past 24 h of execution plus the 24 h grace.
+      paidAt: new Date(Date.now() - 49 * 3_600_000),
+    };
+    contractRepository.findOne
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce({ ...contract, status: ContractStatus.CANCELLED });
+    ratingRepository.findOne.mockResolvedValue(null);
+
+    await service.requestCancellation(
+      { contractId: contract.id, reason: 'The provider never delivered' },
+      { sub: conversation.userId, email: 'customer@example.com', type: 'user' },
+    );
+
+    expect(settlementRepository.save).toHaveBeenCalledTimes(1);
+    expect(settlementRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'CUSTOMER_REFUND',
+        amount: 575,
+        idempotencyKey: 'CONTRACT:contract-id:PROVIDER_OVERDUE:CUSTOMER_REFUND',
+      }),
+    );
+    expect(ratingRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractId: 'contract-id',
+        rating: 0,
+        isSystemGenerated: true,
+      }),
+    );
+    expect(auditRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: { providerOverdue: true } }),
+    );
+  });
+
+  it('keeps the deposit split while the provider is within time', async () => {
+    const contract = {
+      id: 'contract-id',
+      conversationId: conversation.id,
+      listingId: conversation.listingId,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      status: ContractStatus.IN_PROGRESS,
+      version: 1,
+      downPayment: 50,
+      commissionAmount: 10,
+      executionHours: 24,
+      paidAt: new Date(Date.now() - 47 * 3_600_000),
+    };
+    contractRepository.findOne
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce({ ...contract, status: ContractStatus.CANCELLED });
+
+    await service.requestCancellation(
+      { contractId: contract.id, reason: 'Scope is no longer required' },
+      { sub: conversation.userId, email: 'customer@example.com', type: 'user' },
+    );
+
+    expect(settlementRepository.save).toHaveBeenCalledTimes(3);
+    expect(ratingRepository.save).not.toHaveBeenCalled();
+  });
+
+  it('stops the chat timer once a contract is paid', async () => {
+    const contract = {
+      id: 'contract-id',
+      conversationId: conversation.id,
+      clientId: conversation.userId,
+      status: ContractStatus.ACCEPTED,
+      version: 1,
+    };
+    contractRepository.findOne
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract);
+
+    await service.transitionAfterPayment(contract.id, manager as never);
+
+    expect(conversationRepository.update).toHaveBeenCalledWith(
+      conversation.id,
+      { expiresAt: null },
+    );
+  });
+
+  describe('admin resolution without the customer signature (Q-C3)', () => {
+    const admin = {
+      sub: 'admin-id',
+      email: 'admin@example.com',
+      permissionType: 'SUPER_ADMIN',
+    } as never;
+    const resolvable = (overrides: object) => ({
+      id: 'contract-id',
+      conversationId: conversation.id,
+      listingId: conversation.listingId,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      version: 1,
+      providerNetAmount: 490,
+      commissionAmount: 10,
+      vatAmount: 75,
+      signatures: [],
+      ...overrides,
+    });
+
+    it.each([
+      [
+        'an overdue confirmation completed by the admin',
+        {
+          status: ContractStatus.AWAITING_CUSTOMER_CONFIRMATION,
+          confirmationDeadlineAt: new Date(Date.now() - 60_000),
+        },
+        'COMPLETE',
+      ],
+      [
+        'a dispute released to the provider',
+        { status: ContractStatus.DISPUTED },
+        'RELEASE_PROVIDER',
+      ],
+    ])(
+      'closes %s as ADMIN_RESOLVED, never COMPLETED',
+      async (_, state, resolution) => {
+        const contract = resolvable(state);
+        contractRepository.findOne
+          .mockResolvedValueOnce(contract)
+          .mockResolvedValueOnce(contract);
+
+        await service.adminResolveContract(
+          {
+            contractId: contract.id,
+            resolution,
+            reason: 'Admin decision',
+          } as never,
+          admin,
+        );
+
+        expect(contractRepository.save).toHaveBeenCalledWith(
+          expect.objectContaining({ status: ContractStatus.ADMIN_RESOLVED }),
+        );
+        const saved = contractRepository.save.mock.calls.at(-1)?.[0] as {
+          completedAt?: Date;
+          resolvedAt?: Date;
+        };
+        expect(saved.resolvedAt).toBeInstanceOf(Date);
+        expect(saved.completedAt).toBeUndefined();
+        expect(settlementRepository.save).toHaveBeenCalledWith(
+          expect.objectContaining({ type: 'PROVIDER_RELEASE', amount: 490 }),
+        );
+        expect(messageService.persistSystemEvent).toHaveBeenCalledWith(
+          conversation.id,
+          'CONTRACT_ADMIN_RESOLVED',
+          expect.objectContaining({ reason: 'Admin decision' }),
+          manager,
+        );
+      },
+    );
+
+    it('refuses to complete a contract the customer has not signed', () => {
+      expect(() =>
+        (
+          service as unknown as {
+            assertCustomerSigned: (
+              contract: object,
+              added: object[],
+              language: string,
+            ) => void;
+          }
+        ).assertCustomerSigned(
+          resolvable({
+            signatures: [
+              {
+                contractId: 'contract-id',
+                signatureType: 'PROVIDER_COMPLETION',
+              },
+            ],
+          }),
+          [],
+          'en',
+        ),
+      ).toThrow();
+    });
+  });
+
+  describe('pre-payment cancellation removes the contract (BRD 4.1.18, D-13)', () => {
+    const customer = {
+      sub: conversation.userId,
+      email: 'customer@example.com',
+      type: 'user' as const,
+    };
+
+    beforeEach(() => {
+      pooled.length = 0;
+    });
+
+    it('deletes the whole unpaid chain, unlinks it and pools its numbers', async () => {
+      const older = {
+        id: 'contract-v1',
+        publicId: 1300,
+        status: ContractStatus.REJECTED,
+        supersedesContractId: null,
+        paidAt: null,
+      };
+      const pending = {
+        id: 'contract-v2',
+        publicId: 1301,
+        conversationId: conversation.id,
+        providerId: conversation.providerId,
+        clientId: conversation.userId,
+        status: ContractStatus.PENDING,
+        version: 2,
+        supersedesContractId: 'contract-v1',
+        paidAt: null,
+      };
+      contractRepository.findOne
+        .mockResolvedValueOnce(pending) // lock
+        .mockResolvedValueOnce(pending) // latest version
+        .mockResolvedValueOnce(older); // chain walk
+
+      const result = await service.requestCancellation(
+        { contractId: pending.id, reason: 'Changed my mind' },
+        customer,
+      );
+
+      expect(result.status).toBe(ContractStatus.CANCELLED);
+      const [deleted] = contractRepository.delete.mock.calls[0] as unknown as [
+        { id: { _value: string[] } },
+      ];
+      expect(deleted.id._value).toEqual(['contract-v2', 'contract-v1']);
+      expect(pooled.sort()).toEqual([1300, 1301]);
+      expect(query).toHaveBeenCalledWith(
+        expect.stringContaining('UPDATE "complaints" SET "contractId" = NULL'),
+        [['contract-v2', 'contract-v1']],
+      );
+      expect(messageService.persistSystemEvent).toHaveBeenCalledWith(
+        conversation.id,
+        'CONTRACT_CANCELLED',
+        { contractNumber: 1301, reason: 'Changed my mind', removed: true },
+        manager,
+      );
+      expect(contractRepository.save).not.toHaveBeenCalled();
+      // Abandoned or failed checkouts leave with the chain (S4-10).
+      const [abandoned] = paymentRepository.delete.mock.calls[0] as unknown as [
+        { contractId: { _value: string[] }; status: { _value: string[] } },
+      ];
+      expect(abandoned.contractId._value).toEqual([
+        'contract-v2',
+        'contract-v1',
+      ]);
+      expect(abandoned.status._value).toEqual(
+        expect.arrayContaining(['PENDING', 'FAILED']),
+      );
+    });
+
+    it('keeps the contract while a recent checkout may still succeed', async () => {
+      const accepted = {
+        id: 'contract-accepted',
+        publicId: 1303,
+        conversationId: conversation.id,
+        providerId: conversation.providerId,
+        clientId: conversation.userId,
+        status: ContractStatus.ACCEPTED,
+        version: 1,
+        supersedesContractId: null,
+        paidAt: null,
+      };
+      contractRepository.findOne
+        .mockResolvedValueOnce(accepted)
+        .mockResolvedValueOnce(accepted);
+      pendingCheckouts.getCount.mockResolvedValueOnce(1);
+
+      await expect(
+        service.requestCancellation(
+          { contractId: accepted.id, reason: 'Too slow' },
+          customer,
+        ),
+      ).rejects.toThrow('A payment for this contract is in progress');
+      expect(contractRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('gives the next new contract the smallest released number', async () => {
+      pooled.push(1301, 1256);
+      const number = await (
+        service as unknown as {
+          reusedNumber: (m: unknown) => Promise<{ publicId?: number }>;
+        }
+      ).reusedNumber(manager);
+      expect(number).toEqual({ publicId: 1256 });
+      expect(pooled).toEqual([1301]);
+
+      pooled.length = 0;
+      await expect(
+        (
+          service as unknown as {
+            reusedNumber: (m: unknown) => Promise<{ publicId?: number }>;
+          }
+        ).reusedNumber(manager),
+      ).resolves.toEqual({});
+    });
+
+    it('never deletes a paid contract', async () => {
+      const paid = {
+        id: 'contract-paid',
+        publicId: 1302,
+        conversationId: conversation.id,
+        providerId: conversation.providerId,
+        clientId: conversation.userId,
+        status: ContractStatus.IN_PROGRESS,
+        version: 1,
+        downPayment: 50,
+        commissionAmount: 10,
+        paidAt: new Date(),
+        executionHours: 72,
+      };
+      contractRepository.findOne
+        .mockResolvedValueOnce(paid)
+        .mockResolvedValueOnce(paid)
+        .mockResolvedValueOnce({ ...paid, status: ContractStatus.CANCELLED });
+
+      await service.requestCancellation(
+        { contractId: paid.id, reason: 'No longer needed' },
+        customer,
+      );
+
+      expect(contractRepository.delete).not.toHaveBeenCalled();
+      expect(contractRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: ContractStatus.CANCELLED }),
+      );
+    });
   });
 
   it('resends a rejected contract as an immutable new version', async () => {

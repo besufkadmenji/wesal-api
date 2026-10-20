@@ -1,8 +1,9 @@
-import { NestFactory } from '@nestjs/core';
+import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { ValidationExceptionFilter } from '../lib/i18n/validation.exception-filter';
+import { MalformedInputExceptionFilter } from '../lib/errors/malformed-input.exception-filter';
 import { runDatabaseSeeds } from './database/seeds/run-seeds';
 import { AppDataSource } from './database/data-source';
 import { graphqlUploadExpress } from 'graphql-upload-ts';
@@ -28,8 +29,11 @@ async function bootstrap() {
     }),
   );
 
-  // Register validation exception filter for localized error messages
-  app.useGlobalFilters(new ValidationExceptionFilter());
+  // Localized validation errors; H-36: malformed ids/values answer 400.
+  app.useGlobalFilters(
+    new ValidationExceptionFilter(),
+    new MalformedInputExceptionFilter(app.get(HttpAdapterHost).httpAdapter),
+  );
 
   // Swagger/OpenAPI setup
   const config = new DocumentBuilder()

@@ -21,6 +21,7 @@ import { CurrentPrincipal } from '../auth/decorators/current-principal.decorator
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { ContractQuoteInput } from './dto/contract-quote.input';
 import { ContractQuote } from './dto/contract-quote.response';
+import { CharitySummary } from './dto/charity-summary.response';
 import { AcceptContractInput } from './dto/accept-contract.input';
 import { CompleteContractInput } from './dto/complete-contract.input';
 import { RejectContractInput } from './dto/reject-contract.input';
@@ -37,6 +38,14 @@ import type { AdminJwtPayload } from '../admin/types/admin-jwt-payload.type';
 import { ContractSignature } from './entities/contract-signature.entity';
 import { ContractSettlement } from './entities/contract-settlement.entity';
 import { ContractAudit } from './entities/contract-audit.entity';
+import { User } from '../user/entities/user.entity';
+import { visibleContractClient } from './contract-client-visibility';
+import { cancellationOutcome } from './cancellation-outcome';
+import { CancellationPreview } from './dto/cancellation-preview.response';
+import {
+  CONTRACT_STATUS_GROUPS,
+  ContractStatusGroup,
+} from './contract-status-group';
 
 @Resolver(() => Contract)
 @UseGuards(JwtAuthGuard)
@@ -56,6 +65,33 @@ export class ContractResolver {
   @ResolveField(() => [ContractAudit])
   audits(@Parent() contract: Contract): ContractAudit[] {
     return contract.audits ?? [];
+  }
+
+  /** BRD: providers see the customer's identity only after payment. */
+  @ResolveField(() => User)
+  client(
+    @Parent() contract: Contract,
+    @CurrentPrincipal() principal?: JwtPayload,
+  ): User {
+    return visibleContractClient(contract, principal) as User;
+  }
+
+  /** S4-1: the My Contracts tab this contract appears under (null for drafts). */
+  /** BRD 4.1.18 warning before cancelling; only the contract's customer sees it. */
+  @ResolveField(() => CancellationPreview, { nullable: true })
+  cancellationPreview(
+    @Parent() contract: Contract,
+    @CurrentPrincipal() principal?: JwtPayload,
+  ): CancellationPreview | null {
+    if (principal?.type !== 'user' || principal.sub !== contract.clientId) {
+      return null;
+    }
+    return cancellationOutcome(contract);
+  }
+
+  @ResolveField(() => ContractStatusGroup, { nullable: true })
+  statusGroup(@Parent() contract: Contract): ContractStatusGroup | null {
+    return CONTRACT_STATUS_GROUPS[contract.status] ?? null;
   }
 
   @Mutation(() => Contract, {
@@ -91,6 +127,43 @@ export class ContractResolver {
     return this.contractService.findAll(input ?? {}, principal);
   }
 
+  @Query(() => [Contract], {
+    name: 'myOverdueContracts',
+    description:
+      'S4-4: the signed-in customer or provider overdue contracts, oldest first',
+  })
+  async myOverdueContracts(
+    @CurrentPrincipal() principal: JwtPayload,
+  ): Promise<Contract[]> {
+    return this.contractService.myOverdueContracts(principal);
+  }
+
+  @Query(() => [Contract], {
+    name: 'myPaidContractNotices',
+    description:
+      'S4-12: paid contracts the signed-in provider has not acknowledged yet',
+  })
+  async myPaidContractNotices(
+    @CurrentPrincipal() principal: JwtPayload,
+  ): Promise<Contract[]> {
+    return this.contractService.myPaidContractNotices(principal);
+  }
+
+  @Mutation(() => Boolean, {
+    description: 'S4-12: the provider has seen the "contract paid" pop-up',
+  })
+  async acknowledgeContractPaid(
+    @Args('contractId') contractId: string,
+    @CurrentPrincipal() principal: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<boolean> {
+    return this.contractService.acknowledgeContractPaid(
+      contractId,
+      principal,
+      language,
+    );
+  }
+
   @Query(() => Contract, { name: 'contract' })
   async findOne(
     @Args('id') id: string,
@@ -107,6 +180,28 @@ export class ContractResolver {
     @Args('input', { nullable: true }) input?: ContractPaginationInput,
   ): Promise<IPaginatedType<Contract>> {
     return this.contractService.findAll(input ?? {});
+  }
+
+  @Query(() => PaginatedContractResponse, {
+    name: 'adminCharityContracts',
+    description: 'Wesal Al-Khair list (BRD 4.3.11): charity contracts only',
+  })
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('charity', 'read')
+  adminCharityContracts(
+    @Args('input', { nullable: true }) input?: ContractPaginationInput,
+  ): Promise<IPaginatedType<Contract>> {
+    return this.contractService.findAll({ ...(input ?? {}), isCharity: true });
+  }
+
+  @Query(() => CharitySummary, { name: 'adminCharitySummary' })
+  @UseGuards(AdminAuthGuard, AdminPermissionGuard)
+  @RequirePermission('charity', 'read')
+  adminCharitySummary(
+    @Args('from', { type: () => Date, nullable: true }) from?: Date,
+    @Args('to', { type: () => Date, nullable: true }) to?: Date,
+  ): Promise<CharitySummary> {
+    return this.contractService.charitySummary(from, to);
   }
 
   @Query(() => Contract, { name: 'adminContract' })

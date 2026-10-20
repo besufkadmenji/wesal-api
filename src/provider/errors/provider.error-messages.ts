@@ -72,4 +72,17 @@ export const PROVIDER_ERROR_MESSAGES: Record<
     en: 'Platform manager signature is missing',
     ar: 'توقيع مدير المنصة مفقود',
   },
+  [PROVIDER_ERROR_CODES.TERMINATION_ALREADY_REQUESTED]: {
+    en: 'A termination request is already waiting for the administration',
+    ar: 'يوجد طلب فسخ عقد بانتظار رد الإدارة بالفعل',
+  },
+  [PROVIDER_ERROR_CODES.NO_TERMINATION_REQUEST]: {
+    en: 'There is no pending termination request for this contract',
+    ar: 'لا يوجد طلب فسخ معلق لهذا العقد',
+  },
+  // BRD 4.3.7.3 alternative scenario: "The contract is not terminated".
+  [PROVIDER_ERROR_CODES.CONTRACT_HAS_UNFINISHED_CONTRACTS]: {
+    en: 'The contract was not terminated: the service provider still has ongoing contracts',
+    ar: 'لم يتم فسخ العقد لوجود تعاقدات جارية لمقدم الخدمة',
+  },
 };

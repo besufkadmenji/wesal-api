@@ -7,9 +7,15 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json';
+
 import { User } from 'src/user/entities/user.entity';
 import { NotificationType } from '../enums/notification-type.enum';
 import { NotificationRecipientType } from '../enums/notification-recipient-type.enum';
+
+export type NotificationTranslations = Partial<
+  Record<'en' | 'ar', { title: string; message: string }>
+>;
 
 @ObjectType()
 @Entity('notifications')
@@ -62,6 +68,14 @@ export class Notification {
   @Field()
   @Column({ type: 'text' })
   message: string;
+
+  @Field(() => GraphQLJSON, {
+    nullable: true,
+    description:
+      'Other-language copies, e.g. { en: { title, message } }; title/message hold Arabic',
+  })
+  @Column({ type: 'jsonb', nullable: true })
+  translations?: NotificationTranslations | null;
 
   @Field({ nullable: true })
   @Column({ type: 'uuid', nullable: true })

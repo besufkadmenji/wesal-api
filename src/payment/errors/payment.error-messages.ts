@@ -58,4 +58,20 @@ export const PAYMENT_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'An active platform contract is required',
     ar: 'يلزم وجود عقد نشط مع المنصة',
   },
+  [PAYMENT_ERROR_CODES.METHOD_NOT_AVAILABLE]: {
+    en: 'This payment method is not available for this amount',
+    ar: 'طريقة الدفع هذه غير متاحة لهذا المبلغ',
+  },
+  [PAYMENT_ERROR_CODES.NOT_PAYABLE]: {
+    en: 'There is nothing to pay here right now',
+    ar: 'لا يوجد ما يستلزم الدفع حالياً',
+  },
+  [PAYMENT_ERROR_CODES.GATEWAY_NOT_MOCK]: {
+    en: 'Instant payment is only available with the test gateway',
+    ar: 'الدفع الفوري متاح فقط مع بوابة الاختبار',
+  },
+  [PAYMENT_ERROR_CODES.CATEGORY_INACTIVE]: {
+    en: 'This section is currently unavailable',
+    ar: 'هذا القسم غير متاح حالياً',
+  },
 };

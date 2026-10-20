@@ -46,4 +46,8 @@ export const CONTRACT_STATUS_LABELS: Record<ContractStatus, TranslatedError> = {
     en: 'Cancelled',
     ar: 'ملغي',
   },
+  [ContractStatus.ADMIN_RESOLVED]: {
+    en: 'Closed by admin',
+    ar: 'مغلق من الإدارة',
+  },
 };

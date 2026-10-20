@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import type { FileUpload } from 'graphql-upload-ts';
 import { Repository } from 'typeorm';
@@ -27,7 +27,12 @@ import { ComplaintReporterType } from './enums/complaint-reporter-type.enum';
 import { ComplaintStatus } from './enums/complaint-status.enum';
 import { COMPLAINT_STATUS_LABELS } from './complaint-status.labels';
 import { NotificationService } from '../notification/notification.service';
+import { AdminNotificationService } from '../notification/admin-notification.service';
 import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
+import {
+  notificationTexts,
+  type BilingualText,
+} from '../notification/notification-texts';
 import { NotificationType } from '../notification/enums/notification-type.enum';
 
 const CLOSED_STATUSES = new Set([
@@ -49,6 +54,8 @@ export class ComplaintService {
     private readonly contractRepository: Repository<Contract>,
     private readonly fileUploadService: FileUploadService,
     private readonly notificationService: NotificationService,
+    @Optional()
+    private readonly adminNotifications?: AdminNotificationService,
   ) {}
 
   async create(
@@ -107,6 +114,27 @@ export class ComplaintService {
         reviewedAt: null,
       }),
     );
+    const reporter =
+      reporterType === ComplaintReporterType.PROVIDER
+        ? 'مقدم خدمة'
+        : 'طالب خدمة';
+    const reporterEn =
+      reporterType === ComplaintReporterType.PROVIDER
+        ? 'a provider'
+        : 'a customer';
+    await this.adminNotifications?.notifyAdmins({
+      type: NotificationType.ADMIN_COMPLAINT,
+      ar: {
+        title: 'شكوى جديدة',
+        message: `شكوى جديدة من ${reporter}: ${saved.title}`,
+      },
+      en: {
+        title: 'New complaint',
+        message: `New complaint from ${reporterEn}: ${saved.title}`,
+      },
+      relatedEntityType: 'complaint',
+      relatedEntityId: saved.id,
+    });
     return this.load(saved.id, language);
   }
 
@@ -194,10 +222,7 @@ export class ComplaintService {
     await this.notifyReporter(
       complaint,
       NotificationType.COMPLAINT_RESPONSE,
-      language === 'ar' ? 'رد على الشكوى' : 'Complaint response',
-      language === 'ar'
-        ? 'ردت الإدارة على شكواك.'
-        : 'The administration replied to your complaint.',
+      notificationTexts.complaintReply(),
     );
     return message;
   }
@@ -217,20 +242,15 @@ export class ComplaintService {
     complaint.reviewedByAdminId = admin.sub;
     complaint.reviewedAt = new Date();
     const saved = await this.complaintRepository.save(complaint);
-    const statusLabel = localizeEnum(
-      COMPLAINT_STATUS_LABELS,
-      status,
-      language,
-    );
     await this.notifyReporter(
       saved,
       status === ComplaintStatus.RESOLVED
         ? NotificationType.COMPLAINT_RESOLVED
         : NotificationType.COMPLAINT_RESPONSE,
-      language === 'ar' ? 'تم تحديث حالة الشكوى' : 'Complaint status updated',
-      language === 'ar'
-        ? `أصبحت حالة شكواك الآن ${statusLabel}.`
-        : `Your complaint status is now ${statusLabel}.`,
+      notificationTexts.complaintStatus({
+        ar: localizeEnum(COMPLAINT_STATUS_LABELS, status, 'ar'),
+        en: localizeEnum(COMPLAINT_STATUS_LABELS, status, 'en'),
+      }),
     );
     return saved;
   }
@@ -238,18 +258,16 @@ export class ComplaintService {
   private notifyReporter(
     complaint: Complaint,
     type: NotificationType,
-    title: string,
-    message: string,
+    text: BilingualText,
   ) {
-    return this.notificationService.createForRecipient({
+    return this.notificationService.notifyLocalized({
       recipientId: complaint.reporterId,
       recipientType:
         complaint.reporterType === ComplaintReporterType.PROVIDER
           ? NotificationRecipientType.PROVIDER
           : NotificationRecipientType.USER,
       type,
-      title,
-      message,
+      text,
       relatedEntityId: complaint.id,
       relatedEntityType: 'complaint',
     });

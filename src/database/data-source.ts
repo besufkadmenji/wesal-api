@@ -35,5 +35,8 @@ export const AppDataSource = new DataSource({
   entities: [path.join(__dirname, '..', '**', '*.entity{.ts,.js}')],
   migrations: [path.join(__dirname, '..', 'migrations', '*{.ts,.js}')],
   synchronize: false,
+  // Each migration commits on its own, so a migration can use enum values a
+  // previous one added (Postgres forbids that within one transaction).
+  migrationsTransactionMode: 'each',
   logging: false,
 });

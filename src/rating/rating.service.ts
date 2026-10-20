@@ -1,140 +1,341 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import {
-  I18nNotFoundException,
   I18nBadRequestException,
+  I18nNotFoundException,
 } from '../../lib/errors';
 import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { SortOrder } from '../../lib/common/dto/pagination.input';
-import { CreateRatingInput } from './dto/create-rating.input';
-import { UpdateRatingInput } from './dto/update-rating.input';
+import type { AdminJwtPayload } from '../admin/types/admin-jwt-payload.type';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { Contract } from '../contract/entities/contract.entity';
+import { ContractStatus } from '../contract/enums/contract-status.enum';
+import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
+import { notificationTexts } from '../notification/notification-texts';
+import { NotificationType } from '../notification/enums/notification-type.enum';
+import { NotificationService } from '../notification/notification.service';
+import { ListingReviewsInput } from './dto/listing-reviews.input';
+import { ListingReview } from './dto/listing-review.response';
+import {
+  RATING_COMMENT_MAX_LENGTH,
+  RateContractInput,
+} from './dto/rate-contract.input';
 import { RatingPaginationInput } from './dto/rating-pagination.input';
 import { RatingStatistics } from './dto/rating-statistics.response';
 import { Rating } from './entities/rating.entity';
-import { User } from '../user/entities/user.entity';
+import { RatingStatus } from './enums/rating-status.enum';
+import { RATING_ERROR_CODES } from './errors/rating.error-codes';
 import { RATING_ERROR_MESSAGES } from './errors/rating.error-messages';
-import { Listing } from 'src/listing/entities/listing.entity';
+
+/** Letters/marks/digits in any script, whitespace and basic punctuation (D-10). */
+const COMMENT_PATTERN = /^[\p{L}\p{M}\p{N}\s.,!?؟،؛:;'"()-]*$/u;
 
 @Injectable()
 export class RatingService {
+  private readonly logger = new Logger(RatingService.name);
+
   constructor(
     @InjectRepository(Rating)
     private readonly ratingRepository: Repository<Rating>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    @InjectRepository(Listing)
-    private readonly listingRepository: Repository<Listing>,
+    private readonly dataSource: DataSource,
+    @Optional()
+    private readonly notificationService?: NotificationService,
   ) {}
 
-  async create(
-    createRatingInput: CreateRatingInput,
+  /** Customer rates their own completed contract — once (BRD 4.1.20.1). */
+  async rateContract(
+    input: RateContractInput,
+    principal: JwtPayload,
     language: LanguageCode = 'en',
   ): Promise<Rating> {
-    // Validate rating value
-    if (createRatingInput.rating < 1 || createRatingInput.rating > 5) {
-      const message = I18nService.translate(
-        RATING_ERROR_MESSAGES['INVALID_RATING_VALUE'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
+    if (principal.type !== 'user')
+      throw this.error('UNAUTHORIZED_ACCESS', language);
+    if (
+      !Number.isInteger(input.rating) ||
+      input.rating < 1 ||
+      input.rating > 5
+    ) {
+      throw this.error('INVALID_RATING_VALUE', language);
     }
+    const comment = this.normalizeComment(input.comment, language);
 
-    // Validate user exists
-    const user = await this.userRepository.findOne({
-      where: { id: createRatingInput.userId },
+    const saved = await this.dataSource.transaction(async (manager) => {
+      const contract = await manager
+        .getRepository(Contract)
+        .createQueryBuilder('contract')
+        .setLock('pessimistic_write')
+        .where('contract.id = :id', { id: input.contractId })
+        .getOne();
+      if (!contract) throw this.notFound('CONTRACT_NOT_FOUND', language);
+      if (contract.clientId !== principal.sub) {
+        throw this.error('UNAUTHORIZED_ACCESS', language);
+      }
+      if (contract.status !== ContractStatus.COMPLETED) {
+        throw this.error('CONTRACT_NOT_COMPLETED', language);
+      }
+      const ratings = manager.getRepository(Rating);
+      if (await ratings.exists({ where: { contractId: contract.id } })) {
+        throw this.error('DUPLICATE_RATING', language);
+      }
+      const rating = await ratings.save(
+        ratings.create({
+          userId: contract.clientId,
+          listingId: contract.listingId,
+          providerId: contract.providerId,
+          contractId: contract.id,
+          rating: input.rating,
+          comment,
+          status: RatingStatus.PUBLISHED,
+          isSystemGenerated: false,
+        }),
+      );
+      await this.recalculate(manager, contract.listingId, contract.providerId);
+      return { rating, contract };
     });
-    if (!user) {
-      const message = I18nService.translate(
-        RATING_ERROR_MESSAGES['USER_NOT_FOUND'],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
 
-    // Validate listing exists
-    const listing = await this.listingRepository.findOne({
-      where: { id: createRatingInput.listingId },
-    });
-    if (!listing) {
-      const message = I18nService.translate(
-        RATING_ERROR_MESSAGES['LISTING_NOT_FOUND'],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    // Check for duplicate rating
-    const existingRating = await this.ratingRepository.findOne({
-      where: {
-        userId: createRatingInput.userId,
-        listingId: createRatingInput.listingId,
-      },
-    });
-
-    if (existingRating) {
-      const message = I18nService.translate(
-        RATING_ERROR_MESSAGES['DUPLICATE_RATING'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    const rating = this.ratingRepository.create(createRatingInput);
-    return await this.ratingRepository.save(rating);
+    await this.notifyProvider(saved.rating, saved.contract);
+    return this.load(saved.rating.id, language);
   }
 
-  async findAll(
-    paginationInput: RatingPaginationInput,
+  findForContract(contractId: string): Promise<Rating | null> {
+    return this.ratingRepository.findOne({ where: { contractId } });
+  }
+
+  /** Public, published-only reviews for a listing; no reviewer contact data. */
+  async listingReviews(
+    input: ListingReviewsInput,
+  ): Promise<IPaginatedType<ListingReview>> {
+    const page = input.page ?? 1;
+    const limit = input.limit ?? 10;
+    const [ratings, total] = await this.ratingRepository
+      .createQueryBuilder('rating')
+      .leftJoinAndSelect('rating.user', 'user')
+      .where('rating.listingId = :listingId', { listingId: input.listingId })
+      .andWhere('rating.status = :status', { status: RatingStatus.PUBLISHED })
+      .orderBy('rating.createdAt', 'DESC')
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getManyAndCount();
+    return this.paginate(
+      ratings.map((rating) => ({
+        id: rating.id,
+        rating: rating.rating,
+        comment: rating.comment,
+        reviewerName: rating.user?.name ?? null,
+        reviewerAvatarFilename: rating.user?.avatarFilename ?? null,
+        createdAt: rating.createdAt,
+      })),
+      total,
+      page,
+      limit,
+    );
+  }
+
+  /** Admin comments management list (BRD 4.3.19). */
+  async findAdmin(
+    input: RatingPaginationInput,
   ): Promise<IPaginatedType<Rating>> {
     const {
       page = 1,
       limit = 10,
-      userId,
+      search,
+      status,
       listingId,
+      providerId,
       minRating,
       maxRating,
+      from,
+      to,
       sortBy,
-      sortOrder = SortOrder.ASC,
-    } = paginationInput;
-    const skip = (page - 1) * limit;
-
-    const queryBuilder = this.ratingRepository
+      sortOrder = SortOrder.DESC,
+    } = input;
+    const query = this.ratingRepository
       .createQueryBuilder('rating')
       .leftJoinAndSelect('rating.user', 'user')
-      .leftJoinAndSelect('rating.listing', 'listing');
-
-    if (userId) {
-      queryBuilder.andWhere('rating.userId = :userId', { userId });
+      .leftJoinAndSelect('rating.listing', 'listing')
+      .leftJoinAndSelect('rating.provider', 'provider')
+      .leftJoinAndSelect('rating.contract', 'contract');
+    if (status) query.andWhere('rating.status = :status', { status });
+    if (listingId)
+      query.andWhere('rating.listingId = :listingId', { listingId });
+    if (providerId) {
+      query.andWhere('rating.providerId = :providerId', { providerId });
     }
-
-    if (listingId) {
-      queryBuilder.andWhere('rating.listingId = :listingId', {
-        listingId,
-      });
-    }
-
     if (minRating !== undefined) {
-      queryBuilder.andWhere('rating.rating >= :minRating', { minRating });
+      query.andWhere('rating.rating >= :minRating', { minRating });
     }
-
     if (maxRating !== undefined) {
-      queryBuilder.andWhere('rating.rating <= :maxRating', { maxRating });
+      query.andWhere('rating.rating <= :maxRating', { maxRating });
     }
-
-    const orderByField = sortBy ? `rating.${sortBy}` : 'rating.createdAt';
-    const orderDirection = sortOrder === SortOrder.DESC ? 'DESC' : 'ASC';
-
-    const [items, total] = await queryBuilder
-      .skip(skip)
+    if (from) query.andWhere('rating.createdAt >= :from', { from });
+    if (to) query.andWhere('rating.createdAt <= :to', { to });
+    if (search?.trim()) {
+      query.andWhere(
+        `(user.name ILIKE :search
+          OR user.phone ILIKE :search
+          OR contract."publicId"::text ILIKE :search
+          OR listing.name ILIKE :search
+          OR provider."commercialName" ILIKE :search)`,
+        { search: `%${search.trim()}%` },
+      );
+    }
+    const [items, total] = await query
+      .orderBy(
+        `rating.${sortBy ?? 'createdAt'}`,
+        sortOrder === SortOrder.ASC ? 'ASC' : 'DESC',
+      )
+      .skip((page - 1) * limit)
       .take(limit)
-      .orderBy(orderByField, orderDirection)
       .getManyAndCount();
+    return this.paginate(items, total, page, limit);
+  }
 
+  /** Publish or hide a rating; hidden ratings leave the averages (BRD 4.3.19). */
+  async setStatus(
+    id: string,
+    status: RatingStatus,
+    admin: AdminJwtPayload,
+    language: LanguageCode = 'en',
+  ): Promise<Rating> {
+    await this.dataSource.transaction(async (manager) => {
+      const ratings = manager.getRepository(Rating);
+      const rating = await ratings
+        .createQueryBuilder('rating')
+        .setLock('pessimistic_write')
+        .where('rating.id = :id', { id })
+        .getOne();
+      if (!rating) throw this.notFound('RATING_NOT_FOUND', language);
+      if (rating.status === status) return;
+      rating.status = status;
+      rating.moderatedAt = new Date();
+      rating.moderatedByAdminId = admin.sub;
+      await ratings.save(rating);
+      await this.recalculate(manager, rating.listingId, rating.providerId);
+    });
+    return this.load(id, language);
+  }
+
+  async findOne(id: string, language: LanguageCode = 'en'): Promise<Rating> {
+    return this.load(id, language);
+  }
+
+  /** Star distribution for a listing; published ratings only. */
+  async getStatistics(listingId: string): Promise<RatingStatistics> {
+    const rows = await this.ratingRepository
+      .createQueryBuilder('rating')
+      .select('rating.rating', 'stars')
+      .addSelect('COUNT(*)::int', 'count')
+      .where('rating.listingId = :listingId', { listingId })
+      .andWhere('rating.status = :status', { status: RatingStatus.PUBLISHED })
+      .groupBy('rating.rating')
+      .getRawMany<{ stars: number; count: number }>();
+    const countOf = (stars: number) =>
+      rows.find((row) => Number(row.stars) === stars)?.count ?? 0;
+    const totalRatings = rows.reduce((sum, row) => sum + row.count, 0);
+    const sum = rows.reduce(
+      (acc, row) => acc + Number(row.stars) * row.count,
+      0,
+    );
+    return {
+      averageRating: totalRatings
+        ? Math.round((sum / totalRatings) * 100) / 100
+        : 0,
+      totalRatings,
+      fiveStars: countOf(5),
+      fourStars: countOf(4),
+      threeStars: countOf(3),
+      twoStars: countOf(2),
+      oneStar: countOf(1),
+    };
+  }
+
+  /**
+   * Refresh cached aggregates. Listing average = mean of its published
+   * ratings; provider average = mean of its rated listings' averages
+   * (BRD 4.3.18). Must run inside the transaction that changed ratings.
+   */
+  async recalculate(
+    manager: EntityManager,
+    listingId: string,
+    providerId: string,
+  ): Promise<void> {
+    await manager.query(
+      `UPDATE "listings" l
+       SET "ratingAverage" = COALESCE(stats.average, 0),
+           "ratingCount" = COALESCE(stats.total, 0)
+       FROM (
+         SELECT ROUND(AVG(r.rating)::numeric, 2) AS average, COUNT(*)::int AS total
+         FROM "ratings" r
+         WHERE r."listingId" = $1 AND r.status = $2
+       ) stats
+       WHERE l.id = $1`,
+      [listingId, RatingStatus.PUBLISHED],
+    );
+    await manager.query(
+      `UPDATE "providers" p
+       SET "ratingAverage" = COALESCE(stats.average, 0),
+           "ratingCount" = COALESCE(stats.total, 0)
+       FROM (
+         SELECT ROUND(AVG(l."ratingAverage"), 2) AS average,
+                SUM(l."ratingCount")::int AS total
+         FROM "listings" l
+         WHERE l."providerId" = $1 AND l."ratingCount" > 0
+       ) stats
+       WHERE p.id = $1`,
+      [providerId],
+    );
+  }
+
+  private normalizeComment(
+    comment: string | undefined,
+    language: LanguageCode,
+  ): string | null {
+    const trimmed = comment?.trim();
+    if (!trimmed) return null;
+    if (
+      trimmed.length > RATING_COMMENT_MAX_LENGTH ||
+      !COMMENT_PATTERN.test(trimmed)
+    ) {
+      throw this.error('INVALID_COMMENT', language);
+    }
+    return trimmed;
+  }
+
+  private async notifyProvider(
+    rating: Rating,
+    contract: Contract,
+  ): Promise<void> {
+    if (!this.notificationService) return;
+    const reference = contract.publicId ?? contract.id;
+    await this.notificationService.notifyLocalized({
+      recipientId: rating.providerId,
+      recipientType: NotificationRecipientType.PROVIDER,
+      type: NotificationType.NEW_RATING,
+      text: notificationTexts.newRating(reference, rating.rating),
+      relatedEntityId: contract.id,
+      relatedEntityType: 'contract',
+    });
+  }
+
+  private async load(id: string, language: LanguageCode): Promise<Rating> {
+    const rating = await this.ratingRepository.findOne({
+      where: { id },
+      relations: ['user', 'listing', 'provider', 'contract'],
+    });
+    if (!rating) throw this.notFound('RATING_NOT_FOUND', language);
+    return rating;
+  }
+
+  private paginate<T>(
+    items: T[],
+    total: number,
+    page: number,
+    limit: number,
+  ): IPaginatedType<T> {
     const totalPages = Math.ceil(total / limit);
-
     return {
       items,
       meta: {
@@ -148,86 +349,29 @@ export class RatingService {
     };
   }
 
-  async findOne(id: string, language: LanguageCode = 'en'): Promise<Rating> {
-    const rating = await this.ratingRepository.findOne({
-      where: { id },
-      relations: ['user', 'listing'],
-    });
-
-    if (!rating) {
-      const message = I18nService.translate(
-        RATING_ERROR_MESSAGES['RATING_NOT_FOUND'],
-        language,
-      );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
-    }
-
-    return rating;
+  private message(
+    code: keyof typeof RATING_ERROR_CODES,
+    language: LanguageCode,
+  ): string {
+    return I18nService.translate(
+      RATING_ERROR_MESSAGES[RATING_ERROR_CODES[code]],
+      language,
+    );
   }
 
-  async update(
-    updateRatingInput: UpdateRatingInput,
-    language: LanguageCode = 'en',
-  ): Promise<Rating> {
-    const rating = await this.findOne(updateRatingInput.id, language);
-
-    // Validate rating value if being updated
-    if (
-      updateRatingInput.rating !== undefined &&
-      (updateRatingInput.rating < 1 || updateRatingInput.rating > 5)
-    ) {
-      const message = I18nService.translate(
-        RATING_ERROR_MESSAGES['INVALID_RATING_VALUE'],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    Object.assign(rating, updateRatingInput);
-    return await this.ratingRepository.save(rating);
+  private error(
+    code: keyof typeof RATING_ERROR_CODES,
+    language: LanguageCode,
+  ): I18nBadRequestException {
+    const message = this.message(code, language);
+    return new I18nBadRequestException({ en: message, ar: message }, language);
   }
 
-  async remove(id: string, language: LanguageCode = 'en'): Promise<Rating> {
-    const rating = await this.findOne(id, language);
-    await this.ratingRepository.remove(rating);
-    return rating;
-  }
-
-  async getStatistics(listingId: string): Promise<RatingStatistics> {
-    const ratings = await this.ratingRepository.find({
-      where: { listingId },
-    });
-
-    const totalRatings = ratings.length;
-    if (totalRatings === 0) {
-      return {
-        averageRating: 0,
-        totalRatings: 0,
-        fiveStars: 0,
-        fourStars: 0,
-        threeStars: 0,
-        twoStars: 0,
-        oneStar: 0,
-      };
-    }
-
-    const sum = ratings.reduce((acc, rating) => acc + rating.rating, 0);
-    const averageRating = sum / totalRatings;
-
-    const fiveStars = ratings.filter((r) => r.rating === 5).length;
-    const fourStars = ratings.filter((r) => r.rating === 4).length;
-    const threeStars = ratings.filter((r) => r.rating === 3).length;
-    const twoStars = ratings.filter((r) => r.rating === 2).length;
-    const oneStar = ratings.filter((r) => r.rating === 1).length;
-
-    return {
-      averageRating: Math.round(averageRating * 100) / 100,
-      totalRatings,
-      fiveStars,
-      fourStars,
-      threeStars,
-      twoStars,
-      oneStar,
-    };
+  private notFound(
+    code: keyof typeof RATING_ERROR_CODES,
+    language: LanguageCode,
+  ): I18nNotFoundException {
+    const message = this.message(code, language);
+    return new I18nNotFoundException({ en: message, ar: message }, language);
   }
 }

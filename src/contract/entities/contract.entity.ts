@@ -109,6 +109,21 @@ export class Contract {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   commissionAmount: number;
 
+  /**
+   * Wesal Al-Khair (BRD 4.3.17.5, PO 2026-10-18): the commission is still
+   * deducted from the provider but donated instead of kept by the platform.
+   */
+  @Field()
+  @Column({ type: 'boolean', default: false })
+  isCharity: boolean;
+
+  @Field(() => Float, {
+    description:
+      'Commission set aside for donation on a charity contract (0 otherwise)',
+  })
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  charityAmount: number;
+
   @Field(() => Float)
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 0 })
   vatRate: number;
@@ -191,15 +206,19 @@ export class Contract {
 
   @Field(() => Int, { nullable: true })
   @Column({ type: 'int', nullable: true })
-  maxCompletionDays: number | null;
+  maxExecutionHours: number | null;
 
   @Field(() => Int, { nullable: true })
   @Column({ type: 'int', nullable: true })
-  maxTerminationDays: number | null;
+  maxTerminationHours: number | null;
 
-  @Field(() => Int, { nullable: true })
+  @Field(() => Int, {
+    nullable: true,
+    description:
+      'Execution time the provider committed to at acceptance, in hours',
+  })
   @Column({ type: 'int', nullable: true })
-  deliveryTimeDays: number | null;
+  executionHours: number | null;
 
   @Field(() => ContractStatus)
   @Column({
@@ -241,9 +260,12 @@ export class Contract {
   @Column({ type: 'timestamptz', nullable: true })
   deliveryStartedAt: Date | null;
 
-  @Field(() => Int, { nullable: true })
+  @Field(() => Int, {
+    nullable: true,
+    description: 'Delivery time entered at provider completion, in hours',
+  })
   @Column({ type: 'int', nullable: true })
-  deliveryEstimateDays: number | null;
+  deliveryHours: number | null;
 
   @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamptz', nullable: true })
@@ -264,6 +286,32 @@ export class Contract {
   @Field(() => Date, { nullable: true })
   @Column({ type: 'timestamptz', nullable: true })
   cancelledAt: Date | null;
+
+  @Field(() => Date, {
+    nullable: true,
+    description:
+      'When the administration closed the contract with a payout (ADMIN_RESOLVED)',
+  })
+  @Column({ type: 'timestamptz', nullable: true })
+  resolvedAt: Date | null;
+
+  @Field(() => Date, {
+    nullable: true,
+    description: 'When the provider was flagged overdue (S4-2)',
+  })
+  @Column({ type: 'timestamptz', nullable: true })
+  providerOverdueAt: Date | null;
+
+  @Field(() => Date, {
+    nullable: true,
+    description: 'When the customer was flagged overdue (S4-2)',
+  })
+  @Column({ type: 'timestamptz', nullable: true })
+  customerOverdueAt: Date | null;
+
+  /** When the provider acknowledged the "contract paid" pop-up (S4-12). */
+  @Column({ type: 'timestamptz', nullable: true })
+  providerPaidNoticeAt: Date | null;
 
   @Field(() => [ContractSignature])
   @OneToMany(() => ContractSignature, (signature) => signature.contract, {

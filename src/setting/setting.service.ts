@@ -65,6 +65,17 @@ export class SettingService {
       );
     }
 
+    for (const [min, max] of [
+      [next.tabbyMinAmount, next.tabbyMaxAmount],
+      [next.tamaraMinAmount, next.tamaraMaxAmount],
+    ]) {
+      if (min != null && max != null && Number(min) > Number(max)) {
+        throw new BadRequestException(
+          'The installment minimum amount must not exceed the maximum',
+        );
+      }
+    }
+
     if (setting) {
       // Update existing settings
       Object.assign(setting, input);

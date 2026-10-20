@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/require-await */
+/* eslint-disable @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/require-await */
 import { PaymentService } from './payment.service';
 import { Payment } from './entities/payment.entity';
 import { Contract } from '../contract/entities/contract.entity';
@@ -200,48 +200,163 @@ describe('PaymentService', () => {
     expect(result.access.canSend).toBe(true);
   });
 
-  it('records a mock premium payment for a featured listing created as paid', async () => {
-    const listing = {
-      id: 'listing-id',
-      providerId: 'provider-id',
-      categoryId: 'category-id',
-      type: ListingType.FEATURED,
-      status: ListingStatus.ACTIVE,
-      promotionStatus: PromotionStatus.ACTIVE,
-      promotionCycle: 1,
-    };
-    paymentRepository.findOne.mockResolvedValue(null);
+  describe('fulfil (gateway-confirmed payments, S4-10)', () => {
+    const paid = (overrides: Partial<Payment>) =>
+      ({
+        id: 'payment-id',
+        payerId: 'payer-id',
+        amount: 100,
+        status: PaymentStatus.COMPLETED,
+        ...overrides,
+      }) as Payment;
 
-    const payment = await service.recordMockPremiumAdPayment(listing as never, 75, 30);
-
-    expect(payment).toMatchObject({
-      purpose: PaymentPurpose.PREMIUM_AD,
-      amount: 75,
-      configSnapshot: { durationDays: 30, promotionCycle: 1 },
-      status: PaymentStatus.COMPLETED,
+    it('starts an accepted contract and posts the paid event', async () => {
+      contractRepository.findOne.mockResolvedValue({
+        id: 'contract-id',
+        conversationId: 'conversation-id',
+        status: ContractStatus.ACCEPTED,
+      });
+      const result = await service.fulfil(
+        paid({ purpose: PaymentPurpose.CONTRACT, contractId: 'contract-id' }),
+        manager as never,
+      );
+      expect(result.fulfilled).toBe(true);
+      expect(contractService.transitionAfterPayment).toHaveBeenCalledWith(
+        'contract-id',
+        manager,
+        'en',
+      );
+      expect(messageService.persistSystemEvent).toHaveBeenCalledWith(
+        'conversation-id',
+        'CONTRACT_PAID',
+        expect.objectContaining({ paymentId: 'payment-id', amount: 100 }),
+        manager,
+      );
+      await result.after();
+      expect(messageService.publish).toHaveBeenCalled();
     });
-    expect(paymentRepository.save).toHaveBeenCalledTimes(1);
-  });
 
-  it('reuses an existing mock premium payment for the same obligation', async () => {
-    const existing = {
-      id: 'payment-id',
-      status: PaymentStatus.COMPLETED,
-    };
-    paymentRepository.findOne.mockResolvedValue(existing);
+    it('leaves a contract that is no longer awaiting payment untouched', async () => {
+      contractRepository.findOne.mockResolvedValue({
+        id: 'contract-id',
+        status: ContractStatus.CANCELLED,
+      });
+      const result = await service.fulfil(
+        paid({ purpose: PaymentPurpose.CONTRACT, contractId: 'contract-id' }),
+        manager as never,
+      );
+      expect(result.fulfilled).toBe(false);
+      expect(contractService.transitionAfterPayment).not.toHaveBeenCalled();
+    });
 
-    const payment = await service.recordMockPremiumAdPayment(
-      {
+    it('unlocks the payer side of the chat for the paid fee cycle', async () => {
+      conversationRepository.findOne.mockResolvedValue({
+        id: 'conversation-id',
+        status: ConversationStatus.ACTIVE,
+        feeCycle: 2,
+        customerFeePaidAt: null,
+        providerFeePaidAt: null,
+      });
+      const result = await service.fulfil(
+        paid({
+          purpose: PaymentPurpose.CHAT_PROVIDER,
+          payerType: PayerType.PROVIDER,
+          conversationId: 'conversation-id',
+          configSnapshot: { feeCycle: 2 },
+        }),
+        manager as never,
+      );
+      expect(result.fulfilled).toBe(true);
+      const saved = conversationRepository.save.mock.calls[0][0];
+      expect(saved.providerFeePaidAt).toBeInstanceOf(Date);
+      expect(saved.customerFeePaidAt).toBeNull();
+    });
+
+    it('ignores a chat fee paid for an older cycle', async () => {
+      conversationRepository.findOne.mockResolvedValue({
+        id: 'conversation-id',
+        status: ConversationStatus.ACTIVE,
+        feeCycle: 3,
+        customerFeePaidAt: null,
+      });
+      const result = await service.fulfil(
+        paid({
+          purpose: PaymentPurpose.CHAT_CUSTOMER,
+          payerType: PayerType.USER,
+          conversationId: 'conversation-id',
+          configSnapshot: { feeCycle: 2 },
+        }),
+        manager as never,
+      );
+      expect(result.fulfilled).toBe(false);
+      expect(conversationRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('features a listing only once its premium fee is paid', async () => {
+      listingRepository.findOne.mockResolvedValue({
         id: 'listing-id',
         providerId: 'provider-id',
-        categoryId: 'category-id',
+        type: ListingType.FREE,
+        status: ListingStatus.ACTIVE,
+        promotionStatus: PromotionStatus.PENDING_PAYMENT,
+        promotionCycle: 0,
+      });
+      const result = await service.fulfil(
+        paid({
+          purpose: PaymentPurpose.PREMIUM_AD,
+          listingId: 'listing-id',
+          configSnapshot: { durationDays: 30, promotionCycle: 1 },
+        }),
+        manager as never,
+      );
+      expect(result.fulfilled).toBe(true);
+      const saved = listingRepository.save.mock.calls[0][0];
+      expect(saved).toMatchObject({
+        type: ListingType.FEATURED,
+        promotionStatus: PromotionStatus.ACTIVE,
         promotionCycle: 1,
-      } as never,
-      75,
-      30,
-    );
+      });
+      expect(
+        saved.featuredEndsAt.getTime() - saved.featuredStartsAt.getTime(),
+      ).toBe(30 * 86_400_000);
+    });
 
-    expect(payment).toBe(existing);
-    expect(paymentRepository.save).not.toHaveBeenCalled();
+    it('does not feature a listing that is no longer waiting for payment', async () => {
+      listingRepository.findOne.mockResolvedValue({
+        id: 'listing-id',
+        promotionStatus: PromotionStatus.ACTIVE,
+        promotionCycle: 1,
+      });
+      const result = await service.fulfil(
+        paid({
+          purpose: PaymentPurpose.PREMIUM_AD,
+          listingId: 'listing-id',
+          configSnapshot: { durationDays: 30, promotionCycle: 1 },
+        }),
+        manager as never,
+      );
+      expect(result.fulfilled).toBe(false);
+      expect(listingRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
+  it('refuses the instant shortcuts once a real gateway is configured', async () => {
+    process.env.PAYMENT_GATEWAY = 'moyasar';
+    try {
+      await expect(
+        service.settleContractPayment('contract-id', {
+          sub: 'user-id',
+          type: 'user',
+        } as never),
+      ).rejects.toThrow('Instant payment is only available');
+      await expect(
+        service.settleConversationFee('conversation-id', {
+          sub: 'user-id',
+          type: 'user',
+        } as never),
+      ).rejects.toThrow('Instant payment is only available');
+    } finally {
+      delete process.env.PAYMENT_GATEWAY;
+    }
   });
 });

@@ -1,7 +1,7 @@
 import * as jwt from 'jsonwebtoken';
-import { verifySubscriptionPrincipal } from './graphql.module';
+import { verifySubscriptionConnection } from './graphql.module';
 
-describe('verifySubscriptionPrincipal', () => {
+describe('verifySubscriptionConnection', () => {
   const originalSecret = process.env.JWT_SECRET;
 
   beforeAll(() => {
@@ -19,19 +19,51 @@ describe('verifySubscriptionPrincipal', () => {
       { expiresIn: '5m' },
     );
 
-    expect(
-      verifySubscriptionPrincipal({ authorization: `Bearer ${token}` }),
-    ).toMatchObject({ sub: 'provider-id', type: 'provider' });
+    const auth = verifySubscriptionConnection({
+      authorization: `Bearer ${token}`,
+    });
+    expect(auth.principal).toMatchObject({
+      sub: 'provider-id',
+      type: 'provider',
+    });
+    expect(auth.admin).toBeUndefined();
   });
 
-  it('rejects a missing or invalid token', () => {
-    expect(() => verifySubscriptionPrincipal()).toThrow('missing token');
+  it('accepts a valid admin access token as an admin, not a participant', () => {
+    const token = jwt.sign(
+      {
+        sub: 'admin-id',
+        email: 'admin@example.com',
+        permissionType: 'SUPER_ADMIN',
+      },
+      process.env.JWT_SECRET!,
+      { expiresIn: '5m' },
+    );
+
+    const auth = verifySubscriptionConnection({
+      Authorization: `Bearer ${token}`,
+    });
+    expect(auth.admin).toMatchObject({ sub: 'admin-id' });
+    expect(auth.principal).toBeUndefined();
+  });
+
+  it('treats a connection without a token as anonymous', () => {
+    expect(verifySubscriptionConnection()).toEqual({});
+    expect(verifySubscriptionConnection({ 'accept-language': 'ar' })).toEqual(
+      {},
+    );
+  });
+
+  it('rejects a malformed or invalid token', () => {
     expect(() =>
-      verifySubscriptionPrincipal({ Authorization: 'Bearer not-a-jwt' }),
+      verifySubscriptionConnection({ Authorization: 'Bearer not-a-jwt' }),
+    ).toThrow('invalid token');
+    expect(() =>
+      verifySubscriptionConnection({ Authorization: 'Token abc' }),
     ).toThrow('invalid token');
   });
 
-  it('rejects expired and non-participant token types', () => {
+  it('rejects expired and reset token types', () => {
     const expired = jwt.sign(
       {
         sub: 'user-id',
@@ -45,12 +77,15 @@ describe('verifySubscriptionPrincipal', () => {
       { sub: 'user-id', type: 'password_reset' },
       process.env.JWT_SECRET!,
     );
+    const adminResetToken = jwt.sign(
+      { sub: 'admin-id', type: 'admin_password_reset' },
+      process.env.JWT_SECRET!,
+    );
 
-    expect(() =>
-      verifySubscriptionPrincipal({ Authorization: `Bearer ${expired}` }),
-    ).toThrow('invalid token');
-    expect(() =>
-      verifySubscriptionPrincipal({ Authorization: `Bearer ${resetToken}` }),
-    ).toThrow('invalid token');
+    for (const token of [expired, resetToken, adminResetToken]) {
+      expect(() =>
+        verifySubscriptionConnection({ Authorization: `Bearer ${token}` }),
+      ).toThrow('invalid token');
+    }
   });
 });

@@ -1,5 +1,5 @@
 import { UseGuards } from '@nestjs/common';
-import { Args, ID, Mutation, Query, Resolver } from '@nestjs/graphql';
+import { Args, ID, Int, Mutation, Query, Resolver } from '@nestjs/graphql';
 import { CurrentAdmin } from 'src/admin/decorators/current-admin.decorator';
 import { CurrentProvider } from 'src/auth/decorators/current-provider.decorator';
 import { CurrentUser } from 'src/auth/decorators/current-user.decorator';
@@ -16,7 +16,7 @@ import { PaginatedListingResponse } from './dto/paginated-listings.response';
 import { RemoveListingResponse } from './dto/remove-listing.response';
 import { UpdateListingInput } from './dto/update-listing.input';
 import { Listing } from './entities/listing.entity';
-import { ListingService } from './listing.service';
+import { ListingService, TRUSTED_LISTINGS_DEFAULT } from './listing.service';
 
 @Resolver(() => Listing)
 export class ListingResolver {
@@ -45,14 +45,31 @@ export class ListingResolver {
     return this.listingService.findAll(paginationInput, user?.sub);
   }
 
+  @Query(() => [Listing], {
+    name: 'trustedListings',
+    description:
+      'Home carousel: one active ad per Trust-badge provider, best sellers first',
+  })
+  @UseGuards(OptionalJwtAuthGuard)
+  trustedListings(
+    @Args('limit', {
+      type: () => Int,
+      defaultValue: TRUSTED_LISTINGS_DEFAULT,
+    })
+    limit: number,
+  ): Promise<Listing[]> {
+    return this.listingService.findTrusted(limit);
+  }
+
   @Query(() => Listing, { name: 'listing', nullable: true })
   @UseGuards(OptionalJwtAuthGuard)
   async findOne(
     @Args('id', { type: () => ID }) id: string,
     @GetLanguage() language: LanguageCode,
     @CurrentUser() user?: JwtPayload,
+    @CurrentProvider() provider?: JwtPayload,
   ) {
-    return this.listingService.findOne(id, language, user?.sub);
+    return this.listingService.findOne(id, language, user?.sub, provider?.sub);
   }
 
   @Query(() => PaginatedListingResponse, { name: 'myListings' })

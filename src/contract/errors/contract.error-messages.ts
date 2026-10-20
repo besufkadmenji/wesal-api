@@ -43,8 +43,12 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, TranslatedError> = {
     ar: 'يمكن تغيير أحدث نسخة من العقد فقط',
   },
   [CONTRACT_ERROR_CODES.INVALID_DELIVERY_TIME]: {
-    en: 'Delivery time exceeds the configured contract limit',
-    ar: 'مدة التوصيل تتجاوز الحد المحدد للعقد',
+    en: 'Execution time exceeds the maximum hours allowed for this category',
+    ar: 'مدة التنفيذ تتجاوز الحد الأقصى من الساعات المسموح به لهذا القسم',
+  },
+  [CONTRACT_ERROR_CODES.DELIVERY_HOURS_REQUIRED]: {
+    en: 'Delivery time in hours is required for this contract',
+    ar: 'مدة التوصيل بالساعات مطلوبة لهذا العقد',
   },
   [CONTRACT_ERROR_CODES.DELIVERY_COMPANY_NOT_FOUND]: {
     en: 'Delivery company not found or inactive',
@@ -65,5 +69,17 @@ export const CONTRACT_ERROR_MESSAGES: Record<string, TranslatedError> = {
   [CONTRACT_ERROR_CODES.REJECTION_REASON_REQUIRED]: {
     en: 'A rejection reason is required',
     ar: 'سبب الرفض مطلوب',
+  },
+  [CONTRACT_ERROR_CODES.INVOICE_NOT_AVAILABLE]: {
+    en: 'The invoice is available once the contract has been paid',
+    ar: 'تتوفر الفاتورة بعد سداد قيمة التعاقد',
+  },
+  [CONTRACT_ERROR_CODES.CHECKOUT_PENDING]: {
+    en: 'A payment for this contract is in progress. Try again in a few minutes',
+    ar: 'هناك عملية دفع جارية لهذا العقد، حاول مرة أخرى بعد بضع دقائق',
+  },
+  [CONTRACT_ERROR_CODES.CATEGORY_INACTIVE]: {
+    en: 'This section is currently unavailable',
+    ar: 'هذا القسم غير متاح حالياً',
   },
 };

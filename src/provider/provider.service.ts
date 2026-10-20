@@ -1,10 +1,10 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
 import { PubSub } from 'graphql-subscriptions';
 import { EmailService } from 'lib/email/email.service';
 import { PUB_SUB } from 'lib/pubsub/pubsub.module';
-import { In, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import {
   I18nBadRequestException,
@@ -16,7 +16,10 @@ import { Admin } from '../admin/entities/admin.entity';
 import { Category } from '../category/entities/category.entity';
 import { Provider } from '../provider/entities/provider.entity';
 import { ProviderStatus } from '../provider/enums/provider-status.enum';
-import { PROVIDER_ERROR_CODES } from '../provider/errors/provider.error-codes';
+import {
+  PROVIDER_ERROR_CODES,
+  type ProviderErrorCode,
+} from '../provider/errors/provider.error-codes';
 import { PROVIDER_ERROR_MESSAGES } from '../provider/errors/provider.error-messages';
 import { SettingService } from '../setting/setting.service';
 import { SignedContract } from '../signed-contract/signed-contract.entity';
@@ -27,6 +30,14 @@ import { SignContractInput } from './dto/sign-contract.input';
 import { AdminTerminateContractInput } from './dto/terminate-contract.input';
 import { UpdateProviderInput } from './dto/update-provider.input';
 import { SignedContractStatus } from './enums/contract.enum';
+import { AdminNotificationService } from '../notification/admin-notification.service';
+import { NotificationType } from '../notification/enums/notification-type.enum';
+import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
+import { notificationTexts } from '../notification/notification-texts';
+import { NotificationService } from '../notification/notification.service';
+import { providerHasUnfinishedContracts } from '../contract/unfinished-contracts';
+import { Listing } from '../listing/entities/listing.entity';
+import { ListingStatus } from '../listing/enums/listing.enum';
 
 @Injectable()
 export class ProviderService {
@@ -45,6 +56,10 @@ export class ProviderService {
     private readonly signedContractService: SignedContractService,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
     private readonly emailService: EmailService,
+    @Optional()
+    private readonly adminNotifications?: AdminNotificationService,
+    @Optional()
+    private readonly notifications?: NotificationService,
   ) {}
 
   async create(
@@ -104,7 +119,22 @@ export class ProviderService {
       status: ProviderStatus.PENDING_APPROVAL,
     });
 
-    return this.providerRepository.save(provider);
+    const saved = await this.providerRepository.save(provider);
+    const name = saved.commercialName ?? saved.name ?? saved.phone;
+    await this.adminNotifications?.notifyAdmins({
+      type: NotificationType.ADMIN_PROVIDER_REQUEST,
+      ar: {
+        title: 'طلب انضمام مقدم خدمة',
+        message: `طلب انضمام جديد من ${name}`,
+      },
+      en: {
+        title: 'Provider join request',
+        message: `New join request from ${name}`,
+      },
+      relatedEntityType: 'provider_request',
+      relatedEntityId: saved.id,
+    });
+    return saved;
   }
 
   async findAll(
@@ -451,6 +481,12 @@ export class ProviderService {
     return this.providerRepository.save(provider);
   }
 
+  /**
+   * S4-58 (D-22, PO 2026-10-20): the provider's "Terminate contract" sends a
+   * request to the administration instead of deleting the account. Refused
+   * while customer contracts are unfinished (BRD 4.3.7.3); the provider keeps
+   * working until an admin approves or rejects it.
+   */
   async terminateContract(
     providerId: string,
     terminationReason: string,
@@ -459,62 +495,264 @@ export class ProviderService {
     const provider = await this.providerRepository.findOne({
       where: { id: providerId },
     });
-
     if (!provider) {
-      const message = I18nService.translate(
-        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND],
+      this.throwNotFound(PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND, language);
+    }
+    const contract = provider.signedContract;
+    if (!contract) {
+      this.throwNotFound(PROVIDER_ERROR_CODES.NO_SIGNED_CONTRACT, language);
+    }
+    if (contract.status === SignedContractStatus.TERMINATION_REQUESTED) {
+      this.throwBadRequest(
+        PROVIDER_ERROR_CODES.TERMINATION_ALREADY_REQUESTED,
         language,
       );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
-
-    // Check if contract exists
-    if (!provider.signedContract) {
-      const message = I18nService.translate(
-        PROVIDER_ERROR_MESSAGES[PROVIDER_ERROR_CODES.NO_SIGNED_CONTRACT],
+    if (contract.status !== SignedContractStatus.ACTIVE) {
+      this.throwBadRequest(
+        PROVIDER_ERROR_CODES.CONTRACT_ALREADY_TERMINATED,
         language,
       );
-      throw new I18nNotFoundException({ en: message, ar: message }, language);
     }
+    await this.assertNoUnfinishedContracts(provider.id, language);
 
-    // Check if contract is already terminated or expired
-    if (
-      provider.signedContract.status ===
-        SignedContractStatus.TERMINATED_BY_PROVIDER ||
-      provider.signedContract.status ===
-        SignedContractStatus.TERMINATED_BY_ADMIN ||
-      provider.signedContract.status === SignedContractStatus.EXPIRED
-    ) {
-      const message = I18nService.translate(
-        PROVIDER_ERROR_MESSAGES[
-          PROVIDER_ERROR_CODES.CONTRACT_ALREADY_TERMINATED
-        ],
-        language,
-      );
-      throw new I18nBadRequestException({ en: message, ar: message }, language);
-    }
-
-    // Terminate contract via soft-delete: mark status, set deletedAt, obfuscate credentials
-    const updatedContract = await this.signedContractService.update(
-      provider.signedContract.id,
+    const reason = terminationReason.trim();
+    provider.signedContract = await this.signedContractService.update(
+      contract.id,
       {
-        status: SignedContractStatus.TERMINATED_BY_PROVIDER,
-        terminationReason,
-        deletedAt: new Date(),
-        deleteReason: terminationReason,
+        status: SignedContractStatus.TERMINATION_REQUESTED,
+        terminationRequestedAt: new Date(),
+        terminationRequestReason: reason,
       },
     );
+    await this.pubSub.publish('providerUpdated', { providerUpdated: provider });
 
-    // Obfuscate provider credentials so the same email/phone can be re-used on re-registration
+    const name = provider.commercialName ?? provider.name ?? provider.phone;
+    await this.adminNotifications?.notifyAdmins({
+      type: NotificationType.ADMIN_ECONTRACT_TERMINATION_REQUESTED,
+      ar: {
+        title: 'طلب فسخ عقد إلكتروني',
+        message: `طلب ${name} فسخ العقد الإلكتروني. السبب: ${reason}`,
+      },
+      en: {
+        title: 'E-contract termination request',
+        message: `${name} asked to terminate their e-contract. Reason: ${reason}`,
+      },
+      relatedEntityType: 'signed_contract',
+      relatedEntityId: contract.id,
+    });
+    return provider;
+  }
+
+  /**
+   * S4-58: the admin approves a termination request. Re-checks unfinished
+   * contracts (BRD "The contract is not terminated"), then deletes the
+   * account like the low-rating auto-delete and emails the provider.
+   */
+  async approveContractTermination(
+    adminId: string,
+    providerId: string,
+    language: LanguageCode = 'en',
+  ): Promise<Provider> {
+    const provider = await this.findTerminationRequest(providerId, language);
+    await this.assertNoUnfinishedContracts(provider.id, language);
+
+    const originalEmail = provider.email;
+    const reason =
+      provider.signedContract.terminationRequestReason ??
+      provider.signedContract.terminationReason ??
+      '';
+    const saved = await this.providerRepository.manager.transaction((manager) =>
+      this.deleteProviderAccount(manager, provider, {
+        contractStatus: SignedContractStatus.TERMINATED_BY_PROVIDER,
+        reason,
+        adminId,
+      }),
+    );
+    await this.pubSub.publish('providerUpdated', { providerUpdated: saved });
+    this.sendTerminationEmail(originalEmail, reason, provider);
+    return saved;
+  }
+
+  /** S4-58: the admin rejects a request; the contract is Active again. */
+  async rejectContractTermination(
+    adminId: string,
+    providerId: string,
+    rejectionReason: string,
+    language: LanguageCode = 'en',
+  ): Promise<Provider> {
+    const request = await this.findTerminationRequest(providerId, language);
+    const contractId = request.signedContract.id;
+    const provider: Provider = request;
+    const reason = rejectionReason.trim();
+    provider.signedContract = await this.signedContractService.update(
+      contractId,
+      {
+        status: SignedContractStatus.ACTIVE,
+        terminationRejectedAt: new Date(),
+        terminationRejectionReason: reason,
+        terminationDecidedByAdminId: adminId,
+      },
+    );
+    await this.pubSub.publish('providerUpdated', { providerUpdated: provider });
+    await this.notifications?.notifyLocalized({
+      recipientId: provider.id,
+      recipientType: NotificationRecipientType.PROVIDER,
+      type: NotificationType.ECONTRACT_TERMINATION_REJECTED,
+      text: notificationTexts.eContractTerminationRejected(reason),
+      relatedEntityType: 'signed_contract',
+      relatedEntityId: contractId,
+    });
+    return provider;
+  }
+
+  private async findTerminationRequest(
+    providerId: string,
+    language: LanguageCode,
+  ): Promise<Provider & { signedContract: SignedContract }> {
+    const provider = await this.providerRepository.findOne({
+      where: { id: providerId },
+    });
+    if (!provider) {
+      this.throwNotFound(PROVIDER_ERROR_CODES.PROVIDER_NOT_FOUND, language);
+    }
+    if (
+      provider.signedContract?.status !==
+      SignedContractStatus.TERMINATION_REQUESTED
+    ) {
+      this.throwBadRequest(
+        PROVIDER_ERROR_CODES.NO_TERMINATION_REQUEST,
+        language,
+      );
+    }
+    return provider as Provider & { signedContract: SignedContract };
+  }
+
+  /** BRD 4.3.7.3: no termination while customer contracts are running. */
+  private async assertNoUnfinishedContracts(
+    providerId: string,
+    language: LanguageCode,
+  ): Promise<void> {
+    if (
+      await providerHasUnfinishedContracts(
+        this.providerRepository.manager,
+        providerId,
+      )
+    ) {
+      this.throwBadRequest(
+        PROVIDER_ERROR_CODES.CONTRACT_HAS_UNFINISHED_CONTRACTS,
+        language,
+      );
+    }
+  }
+
+  private throwNotFound(
+    code: ProviderErrorCode,
+    language: LanguageCode,
+  ): never {
+    const message = I18nService.translate(
+      PROVIDER_ERROR_MESSAGES[code],
+      language,
+    );
+    throw new I18nNotFoundException({ en: message, ar: message }, language);
+  }
+
+  private throwBadRequest(
+    code: ProviderErrorCode,
+    language: LanguageCode,
+  ): never {
+    const message = I18nService.translate(
+      PROVIDER_ERROR_MESSAGES[code],
+      language,
+    );
+    throw new I18nBadRequestException({ en: message, ar: message }, language);
+  }
+
+  /**
+   * Ends the e-contract (kept for audit), unpublishes the provider's ads and
+   * soft-deletes the account, freeing its email and phone for re-registration.
+   */
+  private async deleteProviderAccount(
+    manager: EntityManager,
+    provider: Provider,
+    options: {
+      contractStatus: SignedContractStatus;
+      reason: string;
+      adminId?: string;
+    },
+  ): Promise<Provider> {
+    const contract = provider.signedContract;
+    if (
+      contract &&
+      (contract.status === SignedContractStatus.ACTIVE ||
+        contract.status === SignedContractStatus.TERMINATION_REQUESTED)
+    ) {
+      const changes: Partial<SignedContract> = {
+        status: options.contractStatus,
+        terminationReason: options.reason,
+        ...(options.adminId
+          ? { terminationDecidedByAdminId: options.adminId }
+          : {}),
+      };
+      await manager.update(SignedContract, contract.id, changes);
+      Object.assign(contract, changes);
+    }
+    await manager.update(
+      Listing,
+      { providerId: provider.id },
+      { status: ListingStatus.INACTIVE },
+    );
+
     provider.email = `DELETED_${provider.id}_${provider.email}`;
     provider.phone = `DELETED_${provider.id}_${provider.phone}`;
     provider.status = ProviderStatus.DELETED;
+    provider.isActive = false;
     provider.deletedAt = new Date();
-    provider.deleteReason = terminationReason;
-    provider.signedContract = updatedContract;
+    provider.deleteReason = options.reason;
+    return manager.save(Provider, provider);
+  }
 
-    const saved = await this.providerRepository.save(provider);
+  private sendTerminationEmail(
+    email: string,
+    reason: string,
+    provider: Provider,
+  ): void {
+    void this.emailService
+      .sendContractTerminationEmail(
+        email,
+        reason,
+        (provider.languageCode as 'en' | 'ar') ?? 'ar',
+        provider.name ?? undefined,
+      )
+      .catch((err) =>
+        this.logger.error(`Failed to send termination email to ${email}`, err),
+      );
+  }
+
+  /**
+   * BRD 4.3.18: deletes a provider who stayed Under-improvement for a full
+   * month. Ends the e-contract (kept for audit, unlike remove()), soft-deletes
+   * the account, unpublishes their ads and emails them. The caller has already
+   * checked that no contract is unfinished.
+   */
+  async autoDeleteForLowRating(
+    providerId: string,
+    reason: string,
+  ): Promise<Provider | null> {
+    const provider = await this.providerRepository.findOne({
+      where: { id: providerId },
+    });
+    if (!provider || provider.deletedAt) return null;
+
+    const originalEmail = provider.email;
+    const saved = await this.providerRepository.manager.transaction((manager) =>
+      this.deleteProviderAccount(manager, provider, {
+        contractStatus: SignedContractStatus.TERMINATED_BY_ADMIN,
+        reason,
+      }),
+    );
     await this.pubSub.publish('providerUpdated', { providerUpdated: saved });
+    this.sendTerminationEmail(originalEmail, reason, provider);
     return saved;
   }
 
@@ -572,6 +810,9 @@ export class ProviderService {
       );
       throw new I18nBadRequestException({ en: message, ar: message }, language);
     }
+
+    // S4-58 / BRD 4.3.7.3: not while customer contracts are running.
+    await this.assertNoUnfinishedContracts(provider.id, language);
 
     // Terminate contract
     const updatedContract = await this.signedContractService.update(

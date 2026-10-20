@@ -10,6 +10,7 @@ import { Listing } from '../listing/entities/listing.entity';
 import { User } from '../user/entities/user.entity';
 import { Provider } from '../provider/entities/provider.entity';
 import { Category } from '../category/entities/category.entity';
+import { NotificationModule } from '../notification/notification.module';
 import { SettingModule } from '../setting/setting.module';
 import { AdminPermissionGuardModule } from '../../lib/common/admin-permission-guard.module';
 
@@ -24,6 +25,7 @@ import { AdminPermissionGuardModule } from '../../lib/common/admin-permission-gu
       Category,
     ]),
     SettingModule,
+    NotificationModule,
     AdminPermissionGuardModule,
   ],
   providers: [

@@ -1,4 +1,4 @@
-import { Field, ID, Int, ObjectType } from '@nestjs/graphql';
+import { Field, Float, ID, Int, ObjectType } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
@@ -11,10 +11,12 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { numericColumnTransformer } from '../../../lib/common/transformers/numeric-column.transformer';
 import { Category } from '../../category/entities/category.entity';
 import { City } from '../../city/entities/city.entity';
 import { Country } from '../../country/entities/country.entity';
 import { SignedContract } from '../../signed-contract/signed-contract.entity';
+import { BadgeTier } from '../../badge/enums/badge-tier.enum';
 import { ProviderStatus } from '../enums/provider-status.enum';
 
 @ObjectType()
@@ -174,6 +176,44 @@ export class Provider {
   @Field(() => String, { nullable: true })
   @Column({ type: 'varchar', length: 500, nullable: true })
   deleteReason?: string | null;
+
+  @Field(() => Float, {
+    description: "Mean of the provider's rated listings' averages (BRD 4.3.18)",
+  })
+  @Column({
+    type: 'numeric',
+    precision: 3,
+    scale: 2,
+    default: 0,
+    transformer: numericColumnTransformer,
+  })
+  ratingAverage: number;
+
+  @Field(() => Int, {
+    description:
+      'Number of published ratings across all of the provider listings',
+  })
+  @Column({ type: 'int', default: 0 })
+  ratingCount: number;
+
+  @Field(() => BadgeTier, {
+    nullable: true,
+    description: 'Badge from the latest monthly run (BRD 4.3.18)',
+  })
+  @Column({ type: 'enum', enum: BadgeTier, nullable: true })
+  badge: BadgeTier | null;
+
+  @Field(() => Date, { nullable: true })
+  @Column({ type: 'timestamptz', nullable: true })
+  badgeAssignedAt: Date | null;
+
+  /** Last monthly badge run that evaluated this provider (S4-54). */
+  @Column({ type: 'timestamptz', nullable: true })
+  badgeEvaluatedAt: Date | null;
+
+  /** Start of the current Under-improvement streak; cleared when it ends. */
+  @Column({ type: 'timestamptz', nullable: true })
+  underImprovementSince: Date | null;
 
   @Field()
   @CreateDateColumn()

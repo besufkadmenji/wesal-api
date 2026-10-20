@@ -19,9 +19,13 @@ export class ProviderCompleteContractInput {
   @MinLength(1)
   signatureData: string;
 
-  @Field(() => Int, { nullable: true })
+  @Field(() => Int, {
+    nullable: true,
+    description:
+      'Delivery time in hours; required when a delivery company is set',
+  })
   @IsOptional()
   @IsInt()
   @Min(1)
-  deliveryEstimateDays?: number;
+  deliveryHours?: number;
 }

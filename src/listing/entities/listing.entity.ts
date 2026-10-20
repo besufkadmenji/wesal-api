@@ -1,4 +1,4 @@
-import { Field, Int, ObjectType } from '@nestjs/graphql';
+import { Field, Float, Int, ObjectType } from '@nestjs/graphql';
 import {
   Column,
   CreateDateColumn,
@@ -8,6 +8,7 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { numericColumnTransformer } from '../../../lib/common/transformers/numeric-column.transformer';
 import { Category } from '../../category/entities/category.entity';
 import { City } from '../../city/entities/city.entity';
 import { Provider } from '../../provider/entities/provider.entity';
@@ -114,6 +115,24 @@ export class Listing {
   @Field(() => String, { nullable: true })
   @Column({ type: 'text', nullable: true })
   deactivationReason?: string;
+
+  @Field(() => Float, {
+    description: 'Average of published ratings for this listing',
+  })
+  @Column({
+    type: 'numeric',
+    precision: 3,
+    scale: 2,
+    default: 0,
+    transformer: numericColumnTransformer,
+  })
+  ratingAverage: number;
+
+  @Field(() => Int, {
+    description: 'Number of published ratings for this listing',
+  })
+  @Column({ type: 'int', default: 0 })
+  ratingCount: number;
 
   @Field()
   @CreateDateColumn()

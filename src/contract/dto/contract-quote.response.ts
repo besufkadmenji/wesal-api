@@ -17,6 +17,18 @@ export class ContractQuote {
   @Field(() => Float)
   commissionAmount: number;
 
+  @Field({
+    description:
+      'Wesal Al-Khair: the commission is at or below the category minimum, so it is donated instead of kept by the platform',
+  })
+  isCharity: boolean;
+
+  @Field(() => Float, {
+    description:
+      'Commission set aside for donation on a charity contract (0 otherwise)',
+  })
+  charityAmount: number;
+
   @Field(() => Float)
   vatRate: number;
 
@@ -32,9 +44,25 @@ export class ContractQuote {
   @Field()
   contractDocumentText: string;
 
-  @Field(() => Int, { nullable: true })
-  maxCompletionDays: number | null;
+  @Field({
+    description: 'Customer undertaking with commission and minimum filled in',
+  })
+  undertakingTextAr: string;
+
+  @Field({
+    description: 'Customer undertaking with commission and minimum filled in',
+  })
+  undertakingTextEn: string;
+
+  @Field()
+  refundPolicyAr: string;
+
+  @Field()
+  refundPolicyEn: string;
 
   @Field(() => Int, { nullable: true })
-  maxTerminationDays: number | null;
+  maxExecutionHours: number | null;
+
+  @Field(() => Int, { nullable: true })
+  maxTerminationHours: number | null;
 }

@@ -41,6 +41,7 @@ export class ReportController {
   }
 
   @Get('contracts/export')
+  @RequirePermission('report', 'export')
   async contracts(
     @Query() query: ReportExportQuery,
     @Res() response: Response,

@@ -7,6 +7,10 @@ export enum PaymentMethod {
   CASH = 'CASH',
   BANK_TRANSFER = 'BANK_TRANSFER',
   WALLET = 'WALLET',
+  /** Full card/mada payment through the card gateway (BRD 4.1.17 option 1). */
+  ELECTRONIC = 'ELECTRONIC',
+  TABBY = 'TABBY',
+  TAMARA = 'TAMARA',
 }
 
 registerEnumType(PaymentMethod, {

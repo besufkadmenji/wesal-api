@@ -90,6 +90,39 @@ describe('ConversationService', () => {
     expect(result.lastActivityAt).toBeInstanceOf(Date);
   });
 
+  it("times a restarted chat by the category's deal window when set", async () => {
+    const expired = {
+      id: '5fa17f3e-5eb4-4b87-958a-85859b83656d',
+      listingId: '16f43bf8-42a7-424c-8f62-0aa74422669b',
+      userId: '24f67fef-b430-474a-8849-a8dca645f3de',
+      providerId: '7842b840-fcb2-4ebf-8de4-64af766a1333',
+      status: ConversationStatus.CLOSED,
+      closeReason: 'EXPIRED',
+      feeCycle: 1,
+      listing: { categoryId: '31261a67-3386-492c-b065-00601e4692fd' },
+    };
+    conversationRepository.findOne.mockResolvedValue(expired);
+    categoryRepository.findOne.mockResolvedValue({
+      maxTerminationHours: 5,
+      maxTerminationHoursEnabled: true,
+    });
+    settingService.getSetting.mockResolvedValue({
+      contractAcceptanceWindowEnabled: true,
+      contractAcceptanceWindowDays: 3,
+    });
+    const before = Date.now();
+
+    const result = await service.restart(expired.id, {
+      sub: expired.userId,
+      email: 'user@example.com',
+      type: 'user',
+    });
+
+    const window = result.expiresAt!.getTime() - before;
+    expect(window).toBeGreaterThanOrEqual(5 * 3_600_000);
+    expect(window).toBeLessThan(5 * 3_600_000 + 60_000);
+  });
+
   it('orders participant conversations by latest activity by default', async () => {
     const queryBuilder = {
       leftJoinAndSelect: jest.fn().mockReturnThis(),

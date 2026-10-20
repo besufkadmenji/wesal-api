@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import { In, LessThanOrEqual, Repository } from 'typeorm';
 import { Interval } from '@nestjs/schedule';
 import {
   I18nBadRequestException,
@@ -18,6 +18,10 @@ import { SignedContractStatus } from '../provider/enums/contract.enum';
 import { ProviderStatus } from '../provider/enums/provider-status.enum';
 import { Rating } from '../rating/entities/rating.entity';
 import { SearchService } from '../search/search.service';
+import { NotificationService } from '../notification/notification.service';
+import { NotificationType } from '../notification/enums/notification-type.enum';
+import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
+import { notificationTexts } from '../notification/notification-texts';
 import { ActionType } from '../tracking/enums/action-type.enum';
 import { TargetType } from '../tracking/enums/target-type.enum';
 import { TrackingService } from '../tracking/tracking.service';
@@ -26,6 +30,8 @@ import { ListingPaginationInput } from './dto/listing-pagination.input';
 import { PaginatedListingResponse } from './dto/paginated-listings.response';
 import { UpdateListingInput } from './dto/update-listing.input';
 import { CreateListingMediaInput } from './dto/create-listing-media.input';
+import { BadgeTier } from '../badge/enums/badge-tier.enum';
+import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { Listing } from './entities/listing.entity';
 import { MediaType } from './enums/media.enum';
 import {
@@ -36,7 +42,14 @@ import {
 import { LISTING_ERROR_CODES } from './errors/listing.error-codes';
 import { LISTING_ERROR_MESSAGES } from './errors/listing.error-messages';
 import { SettingService } from '../setting/setting.service';
-import { PaymentService } from '../payment/payment.service';
+import { CategoryStatus } from '../category/enum/category.enum';
+import {
+  activeCategoryCondition,
+  isCategoryActive,
+} from '../category/category-active';
+
+export const TRUSTED_LISTINGS_DEFAULT = 10;
+export const TRUSTED_LISTINGS_MAX = 20;
 
 @Injectable()
 export class ListingService {
@@ -60,7 +73,8 @@ export class ListingService {
     private readonly trackingService: TrackingService,
     private readonly searchService: SearchService,
     private readonly settingService: SettingService,
-    private readonly paymentService: PaymentService,
+    @Optional()
+    private readonly notifications?: NotificationService,
   ) {}
 
   async create(
@@ -78,6 +92,12 @@ export class ListingService {
     if (!category) {
       throw new I18nNotFoundException(
         LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.CATEGORY_NOT_FOUND],
+        language,
+      );
+    }
+    if (!(await isCategoryActive(this.categoryRepository, category.id))) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.CATEGORY_INACTIVE],
         language,
       );
     }
@@ -109,33 +129,25 @@ export class ListingService {
         );
       }
     }
-    const now = new Date();
-    const featuredEndsAt = isFeatured
-      ? new Date(now.getTime() + setting.premiumAdDurationDays * 86_400_000)
-      : null;
+    // S4-10: a featured ad is published as a normal one and becomes featured
+    // once its premium fee is paid through checkout.
     const listing = this.listingRepository.create({
       ...createListingInput,
       providerId,
+      type: ListingType.FREE,
       status: ListingStatus.ACTIVE,
       promotionStatus: isFeatured
-        ? PromotionStatus.ACTIVE
+        ? PromotionStatus.PENDING_PAYMENT
         : PromotionStatus.NONE,
-      promotionCycle: isFeatured ? 1 : 0,
-      featuredStartsAt: isFeatured ? now : null,
-      featuredEndsAt,
+      promotionCycle: 0,
+      featuredStartsAt: null,
+      featuredEndsAt: null,
       story: createListingInput.story ?? null,
       photos: createListingInput.photos,
       tags: '',
     });
 
     const saved = await this.listingRepository.save(listing);
-    if (isFeatured) {
-      await this.paymentService.recordMockPremiumAdPayment(
-        saved,
-        Number(setting.premiumAdFee),
-        setting.premiumAdDurationDays,
-      );
-    }
     // Index in Elasticsearch asynchronously
     this.searchService
       .indexListing(saved)
@@ -146,6 +158,7 @@ export class ListingService {
   async findAll(
     paginationInput: ListingPaginationInput,
     userId?: string,
+    { includeInactiveCategories = false } = {},
   ): Promise<PaginatedListingResponse> {
     const page = paginationInput.page ?? 1;
     const limit = paginationInput.limit ?? 10;
@@ -178,6 +191,7 @@ export class ListingService {
           cityId: cityId ?? undefined,
           minPrice: minPrice ?? undefined,
           maxPrice: maxPrice ?? undefined,
+          includeInactiveCategories,
         },
       );
 
@@ -228,24 +242,36 @@ export class ListingService {
         .leftJoinAndSelect('listing.provider', 'provider')
         .leftJoinAndSelect('listing.category', 'category')
         .leftJoinAndSelect('listing.city', 'city');
+      // S4-56: an inactive category's ads are hidden from the public.
+      if (!includeInactiveCategories) {
+        query.andWhere(activeCategoryCondition('category'));
+      }
 
-      // BRD §4.2.10: Featured first, then badge tier (placeholder until badges exist),
-      // then rating, sales, then requested sort.
+      // BRD §4.1.12 / §4.2.10: featured first, then badge tier (Trust,
+      // Diligence, no badge, Under-improvement), then rating, sales, then the
+      // requested sort.
       query.addSelect(
         `CASE WHEN listing.type = :featuredType THEN 0 ELSE 1 END`,
         'featured_rank',
       );
       query.setParameter('featuredType', ListingType.FEATURED);
       query.addSelect(
-        `(SELECT COALESCE(AVG(r.rating), 0) FROM ratings r WHERE r."listingId" = listing.id)`,
-        'rating_rank',
+        `CASE provider.badge WHEN :trustBadge THEN 0 WHEN :diligenceBadge THEN 1 WHEN :underImprovementBadge THEN 3 ELSE 2 END`,
+        'badge_rank',
       );
+      query.setParameters({
+        trustBadge: BadgeTier.TRUST,
+        diligenceBadge: BadgeTier.DILIGENCE,
+        underImprovementBadge: BadgeTier.UNDER_IMPROVEMENT,
+      });
       query.addSelect(
         `(SELECT COUNT(*)::int FROM contracts c WHERE c."listingId" = listing.id AND c.status = 'COMPLETED')`,
         'sales_rank',
       );
       query.orderBy('featured_rank', 'ASC');
-      query.addOrderBy('rating_rank', 'DESC');
+      query.addOrderBy('badge_rank', 'ASC');
+      // Cached average of published ratings (kept fresh by RatingService).
+      query.addOrderBy('listing.ratingAverage', 'DESC');
       query.addOrderBy('sales_rank', 'DESC');
 
       if (userId) {
@@ -306,6 +332,7 @@ export class ListingService {
     id: string,
     language: LanguageCode = 'en',
     userId?: string,
+    viewerProviderId?: string,
   ): Promise<Listing> {
     const listing = await this.listingRepository.findOne({
       where: { id },
@@ -325,6 +352,16 @@ export class ListingService {
         language,
       );
     }
+    // S4-56: hidden while its category is inactive, except from its owner.
+    if (
+      listing.category?.status === CategoryStatus.INACTIVE &&
+      listing.providerId !== viewerProviderId
+    ) {
+      throw new I18nNotFoundException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.CATEGORY_INACTIVE],
+        language,
+      );
+    }
 
     // Track view for logged-in users
     if (userId) {
@@ -340,6 +377,64 @@ export class ListingService {
     }
 
     return listing;
+  }
+
+  /**
+   * Home "trusted advertisers" carousel (BRD 4.1.2 / 4.2.2): one active ad
+   * per Trust-badge provider, best-selling providers first. Each provider's
+   * ad is their featured one, else their best-selling, else their newest.
+   */
+  async findTrusted(limit = TRUSTED_LISTINGS_DEFAULT): Promise<Listing[]> {
+    const take = Math.min(Math.max(limit, 1), TRUSTED_LISTINGS_MAX);
+    const rows: Array<{ id: string }> = await this.listingRepository.query(
+      `
+      SELECT picked.id
+      FROM (
+        SELECT DISTINCT ON (l."providerId") l.id, l."providerId", l."createdAt"
+        FROM listings l
+        JOIN providers p ON p.id = l."providerId"
+        JOIN categories cat ON cat.id = l."categoryId"
+        WHERE l.status = $1
+          AND cat.status = '${CategoryStatus.ACTIVE}'
+          AND p.status = $2
+          AND p."isActive" = true
+          AND p."deletedAt" IS NULL
+          AND p.badge = $3
+        ORDER BY
+          l."providerId",
+          (l.type = $4) DESC,
+          (SELECT COUNT(*) FROM contracts c
+            WHERE c."listingId" = l.id AND c.status = $5) DESC,
+          l."createdAt" DESC
+      ) picked
+      JOIN providers p ON p.id = picked."providerId"
+      ORDER BY
+        (SELECT COUNT(*) FROM contracts c
+          WHERE c."providerId" = p.id AND c.status = $5) DESC,
+        p."ratingAverage" DESC,
+        picked."createdAt" DESC
+      LIMIT $6
+      `,
+      [
+        ListingStatus.ACTIVE,
+        ProviderStatus.ACTIVE,
+        BadgeTier.TRUST,
+        ListingType.FEATURED,
+        ContractStatus.COMPLETED,
+        take,
+      ],
+    );
+    if (rows.length === 0) return [];
+
+    const ids = rows.map((row) => row.id);
+    const listings = await this.listingRepository.find({
+      where: { id: In(ids) },
+      relations: ['provider', 'category', 'city'],
+    });
+    const byId = new Map(listings.map((listing) => [listing.id, listing]));
+    return ids
+      .map((id) => byId.get(id))
+      .filter((listing): listing is Listing => Boolean(listing));
   }
 
   @Interval(60_000)
@@ -364,6 +459,14 @@ export class ListingService {
         listing.status = ListingStatus.ACTIVE;
         listing.promotionStatus = PromotionStatus.EXPIRED;
         void this.searchService.indexListing(listing).catch(() => undefined);
+        await this.notifications?.notifyLocalized({
+          recipientId: listing.providerId,
+          recipientType: NotificationRecipientType.PROVIDER,
+          type: NotificationType.LISTING_FEATURED_EXPIRED,
+          text: notificationTexts.listingFeaturedExpired(listing.name),
+          relatedEntityId: listing.id,
+          relatedEntityType: 'listing',
+        });
       }
     }
   }
@@ -471,6 +574,17 @@ export class ListingService {
       if (!category) {
         throw new I18nNotFoundException(
           LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.CATEGORY_NOT_FOUND],
+          language,
+        );
+      }
+      // S4-56: an ad can stay in its (now inactive) category, but can't
+      // move into an inactive one.
+      if (
+        category.id !== listing.categoryId &&
+        !(await isCategoryActive(this.categoryRepository, category.id))
+      ) {
+        throw new I18nBadRequestException(
+          LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.CATEGORY_INACTIVE],
           language,
         );
       }

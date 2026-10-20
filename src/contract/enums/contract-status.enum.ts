@@ -12,6 +12,11 @@ export enum ContractStatus {
   DISPUTED = 'DISPUTED',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
+  /**
+   * The administration paid the provider without the customer's completion
+   * signature (dispute or overdue confirmation). Never "Completed".
+   */
+  ADMIN_RESOLVED = 'ADMIN_RESOLVED',
 }
 
 registerEnumType(ContractStatus, {

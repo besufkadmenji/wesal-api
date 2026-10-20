@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EmailService } from 'lib/email/email.service';
@@ -12,6 +12,8 @@ import { UpdateContactMessageInput } from './dto/update-contact-message.input';
 import { ContactMessagePaginationInput } from './dto/contact-message-pagination.input';
 import { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { AdminNotificationService } from '../notification/admin-notification.service';
+import { NotificationType } from '../notification/enums/notification-type.enum';
 
 @Injectable()
 export class ContactMessageService {
@@ -21,6 +23,8 @@ export class ContactMessageService {
     @InjectRepository(ContactMessage)
     private readonly contactMessageRepository: Repository<ContactMessage>,
     private readonly emailService: EmailService,
+    @Optional()
+    private readonly adminNotifications?: AdminNotificationService,
   ) {}
 
   async create(
@@ -41,7 +45,21 @@ export class ContactMessageService {
       senderType,
       senderId,
     });
-    return this.contactMessageRepository.save(message);
+    const saved = await this.contactMessageRepository.save(message);
+    await this.adminNotifications?.notifyAdmins({
+      type: NotificationType.ADMIN_CONTACT_MESSAGE,
+      ar: {
+        title: 'رسالة تواصل جديدة',
+        message: `رسالة جديدة من ${saved.name}`,
+      },
+      en: {
+        title: 'New contact message',
+        message: `New message from ${saved.name}`,
+      },
+      relatedEntityType: 'contact_message',
+      relatedEntityId: saved.id,
+    });
+    return saved;
   }
 
   async findAll(

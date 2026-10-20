@@ -3,7 +3,6 @@ import {
   IsBoolean,
   IsInt,
   IsNotEmpty,
-  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -50,7 +49,7 @@ export class CreateCategoryInput {
   // --- Per-section fee & contract rules (admin-editable) ---
   @Field(() => Float, { nullable: true })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(0)
   @Max(100)
   commissionPercent?: number;
@@ -62,7 +61,7 @@ export class CreateCategoryInput {
 
   @Field(() => Float, { nullable: true })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(0)
   minCommissionAmount?: number;
 
@@ -73,7 +72,7 @@ export class CreateCategoryInput {
 
   @Field(() => Float, { nullable: true })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(0)
   @Max(100)
   depositPercent?: number;
@@ -83,31 +82,31 @@ export class CreateCategoryInput {
   @IsBoolean()
   depositEnabled?: boolean;
 
-  @Field(() => Int, { nullable: true })
+  @Field(() => Int, { nullable: true, description: 'In hours' })
   @IsOptional()
   @IsInt()
   @Min(0)
-  maxCompletionDays?: number;
+  maxExecutionHours?: number;
 
   @Field({ nullable: true })
   @IsOptional()
   @IsBoolean()
-  maxCompletionDaysEnabled?: boolean;
+  maxExecutionHoursEnabled?: boolean;
 
-  @Field(() => Int, { nullable: true })
+  @Field(() => Int, { nullable: true, description: 'In hours' })
   @IsOptional()
   @IsInt()
   @Min(0)
-  maxTerminationDays?: number;
+  maxTerminationHours?: number;
 
   @Field({ nullable: true })
   @IsOptional()
   @IsBoolean()
-  maxTerminationDaysEnabled?: boolean;
+  maxTerminationHoursEnabled?: boolean;
 
   @Field(() => Float, { nullable: true })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(0)
   customerConversationFee?: number;
 
@@ -118,7 +117,7 @@ export class CreateCategoryInput {
 
   @Field(() => Float, { nullable: true })
   @IsOptional()
-  @IsNumber()
+  @IsInt()
   @Min(0)
   providerConversationFee?: number;
 

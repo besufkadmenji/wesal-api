@@ -30,4 +30,8 @@ export const CONVERSATION_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Cannot delete conversation that has contracts',
     ar: 'لا يمكن حذف محادثة مرتبطة بعقود',
   },
+  [CONVERSATION_ERROR_CODES.CATEGORY_INACTIVE]: {
+    en: 'This section is currently unavailable',
+    ar: 'هذا القسم غير متاح حالياً',
+  },
 };

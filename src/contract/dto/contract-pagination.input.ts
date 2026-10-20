@@ -6,10 +6,12 @@ import {
   IsIn,
   IsString,
   IsDate,
+  IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 import { ContractStatus } from '../enums/contract-status.enum';
+import { ContractStatusGroup } from '../contract-status-group';
 
 const CONTRACT_SORTABLE_FIELDS = [
   'id',
@@ -58,10 +60,26 @@ export class ContractPaginationInput extends PaginationInput {
   @IsEnum(ContractStatus)
   status?: ContractStatus;
 
+  @Field(() => ContractStatusGroup, {
+    nullable: true,
+    description: 'My Contracts tab (S4-1); combines with status if both set',
+  })
+  @IsOptional()
+  @IsEnum(ContractStatusGroup)
+  statusGroup?: ContractStatusGroup;
+
   @Field({ nullable: true })
   @IsOptional()
   @IsUUID()
   categoryId?: string;
+
+  @Field({
+    nullable: true,
+    description: 'Only Wesal Al-Khair (charity) contracts, or only non-charity',
+  })
+  @IsOptional()
+  @IsBoolean()
+  isCharity?: boolean;
 
   @Field({ nullable: true })
   @IsOptional()

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { NotificationModule } from '../notification/notification.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { EmailService } from 'lib/email/email.service';
 import { AdminPermission } from 'src/admin-permission/entities/admin-permission.entity';
@@ -16,6 +17,7 @@ import { ProviderService } from './provider.service';
 
 @Module({
   imports: [
+    NotificationModule,
     TypeOrmModule.forFeature([
       Provider,
       Admin,

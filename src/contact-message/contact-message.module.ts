@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { NotificationModule } from '../notification/notification.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AdminPermissionGuardModule } from 'lib/common/admin-permission-guard.module';
 import { EmailService } from 'lib/email/email.service';
@@ -10,6 +11,7 @@ import { AdminPermission } from 'src/admin-permission/entities/admin-permission.
 
 @Module({
   imports: [
+    NotificationModule,
     TypeOrmModule.forFeature([ContactMessage, AdminPermission]),
     AdminPermissionGuardModule,
   ],

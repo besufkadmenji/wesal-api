@@ -81,6 +81,38 @@ export class Setting {
   @Column({ type: 'text', nullable: true })
   platformManagerName: string | null;
 
+  @Field(() => String, {
+    nullable: true,
+    description: 'Legal name on invoices (Arabic)',
+  })
+  @Column({ type: 'text', nullable: true })
+  sellerLegalNameAr: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Legal name on invoices (English)',
+  })
+  @Column({ type: 'text', nullable: true })
+  sellerLegalNameEn: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'VAT registration number on invoices',
+  })
+  @Column({ type: 'text', nullable: true })
+  sellerVatNumber: string | null;
+
+  @Field(() => String, {
+    nullable: true,
+    description: 'Commercial registration number on invoices',
+  })
+  @Column({ type: 'text', nullable: true })
+  sellerCrNumber: string | null;
+
+  @Field(() => String, { nullable: true, description: 'Address on invoices' })
+  @Column({ type: 'text', nullable: true })
+  sellerAddress: string | null;
+
   @Field(() => String, { nullable: true })
   @Column({ type: 'text', nullable: true })
   platformManagerSignature: string | null;
@@ -118,4 +150,61 @@ export class Setting {
   @Field(() => Int)
   @Column({ type: 'int', default: 24 })
   completionConfirmationGraceHours: number;
+
+  // BRD 4.3.17: contract defaults copied into new categories (all integers).
+  @Field(() => Int, { description: 'System commission (%) for new categories' })
+  @Column({ type: 'int', default: 0 })
+  defaultCommissionPercent: number;
+
+  @Field(() => Int, {
+    description: 'Minimum commission (SAR) for new categories',
+  })
+  @Column({ type: 'int', default: 0 })
+  defaultMinCommissionAmount: number;
+
+  @Field(() => Int, {
+    description: 'Max execution time (hours) for new categories',
+  })
+  @Column({ type: 'int', default: 0 })
+  defaultMaxExecutionHours: number;
+
+  @Field(() => Int, {
+    description: 'Termination limit (hours) for new categories',
+  })
+  @Column({ type: 'int', default: 0 })
+  defaultMaxTerminationHours: number;
+
+  @Field(() => Int, { description: 'Deposit (%) for new categories' })
+  @Column({ type: 'int', default: 0 })
+  defaultDepositPercent: number;
+
+  @Field(() => Int, {
+    description: 'Customer chat fee (SAR) for new categories',
+  })
+  @Column({ type: 'int', default: 0 })
+  defaultCustomerConversationFee: number;
+
+  @Field(() => Int, {
+    description: 'Provider chat fee (SAR) for new categories',
+  })
+  @Column({ type: 'int', default: 0 })
+  defaultProviderConversationFee: number;
+
+  // S4-10: Tabby/Tamara are offered only for amounts inside these bounds
+  // (SAR, inclusive); null means no bound.
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  tabbyMinAmount: number | null;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  tabbyMaxAmount: number | null;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  tamaraMinAmount: number | null;
+
+  @Field(() => Float, { nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  tamaraMaxAmount: number | null;
 }

@@ -16,7 +16,7 @@ import { TrackingModule } from '../tracking/tracking.module';
 import { SearchModule } from '../search/search.module';
 import { AdminPermission } from 'src/admin-permission/entities/admin-permission.entity';
 import { SettingModule } from '../setting/setting.module';
-import { PaymentModule } from '../payment/payment.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   imports: [
@@ -35,7 +35,7 @@ import { PaymentModule } from '../payment/payment.module';
     SearchModule,
     AdminPermissionGuardModule,
     SettingModule,
-    PaymentModule,
+    NotificationModule,
   ],
   controllers: [ListingController],
   providers: [ListingResolver, ListingService],

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
@@ -32,6 +32,8 @@ import { Otp } from './entities/otp.entity';
 import { OtpType } from './enums/otp-type.enum';
 import { AUTH_ERROR_MESSAGES } from './errors/auth.error-messages';
 
+import { AdminNotificationService } from '../notification/admin-notification.service';
+import { NotificationType } from '../notification/enums/notification-type.enum';
 @Injectable()
 export class AuthService {
   constructor(
@@ -43,6 +45,8 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly emailService: EmailService,
     private readonly smsService: SmsService,
+    @Optional()
+    private readonly adminNotifications?: AdminNotificationService,
   ) {}
 
   async register(
@@ -51,6 +55,19 @@ export class AuthService {
   ): Promise<User> {
     // Create user using UserService (handles validation and hashing)
     const savedUser = await this.userService.create(registerInput, language);
+    await this.adminNotifications?.notifyAdmins({
+      type: NotificationType.ADMIN_NEW_CUSTOMER,
+      ar: {
+        title: 'تسجيل طالب خدمة جديد',
+        message: `سجّل طالب خدمة جديد: ${savedUser.name ?? savedUser.phone}`,
+      },
+      en: {
+        title: 'New customer',
+        message: `A new customer registered: ${savedUser.name ?? savedUser.phone}`,
+      },
+      relatedEntityType: 'user',
+      relatedEntityId: savedUser.id,
+    });
 
     // Send verification OTPs
     await this.generateAndSendOtp(

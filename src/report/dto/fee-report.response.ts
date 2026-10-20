@@ -94,12 +94,22 @@ export class ContractFinancialReportRow {
   providerName: string | null;
   @Field(() => String, { nullable: true })
   deliveryCompanyName: string | null;
-  @Field(() => Float)
+  @Field(() => String, { nullable: true })
+  deliveryCompanyNameAr: string | null;
+  @Field(() => String, { nullable: true })
+  deliveryCompanyNameEn: string | null;
+  @Field(() => Float, { description: 'Agreed price minus commission' })
   providerNet: number;
   @Field(() => Float)
   vat: number;
   @Field(() => Float)
   commission: number;
+  @Field(() => Float, { description: 'Commission, or 0 on charity contracts' })
+  adminProfit: number;
+  @Field()
+  isCharity: boolean;
+  @Field(() => Float, { description: 'What the customer pays (incl. VAT)' })
+  contractTotal: number;
   @Field(() => Float)
   totalPaid: number;
   @Field(() => Float)
@@ -124,6 +134,12 @@ export class ContractFinancialReport {
   totalVat: number;
   @Field(() => Float)
   totalCommission: number;
+  @Field(() => Float)
+  totalAdminProfit: number;
+  @Field(() => Float)
+  totalCharity: number;
+  @Field(() => Float)
+  totalContractValue: number;
   @Field(() => Float)
   totalPaid: number;
   @Field(() => Float)

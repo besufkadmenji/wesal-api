@@ -7,6 +7,7 @@ import { AdminPermissionGuard } from '../admin/guards/admin-permission.guard';
 import { RequirePermission } from '../admin/decorators/require-permission.decorator';
 import { CategoryService } from './category.service';
 import { CategoryPaginationInput } from './dto/category-pagination.input';
+import { CategoryContractDefaults } from './dto/category-contract-defaults.response';
 import { CreateCategoryInput } from './dto/create-category.input';
 import { PaginatedCategoryResponse } from './dto/paginated-category.response';
 import { UpdateCategoryInput } from './dto/update-category.input';
@@ -25,8 +26,18 @@ export class CategoryResolver {
   @RequirePermission('category', 'create')
   async createCategory(
     @Args('input') createCategoryInput: CreateCategoryInput,
+    @GetLanguage() language: LanguageCode,
   ): Promise<Category> {
-    return this.categoryService.create(createCategoryInput);
+    return this.categoryService.create(createCategoryInput, language);
+  }
+
+  @Query(() => CategoryContractDefaults, {
+    description: 'Values and texts the add-category form starts with',
+  })
+  @UseGuards(JwtAuthGuard, AdminPermissionGuard)
+  @RequirePermission('category', 'create')
+  categoryContractDefaults(): Promise<CategoryContractDefaults> {
+    return this.categoryService.contractDefaults();
   }
 
   @Query(() => PaginatedCategoryResponse, { name: 'categories' })

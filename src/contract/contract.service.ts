@@ -1,6 +1,14 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { Interval } from '@nestjs/schedule';
+import {
+  DataSource,
+  EntityManager,
+  In,
+  IsNull,
+  Not,
+  Repository,
+} from 'typeorm';
 import {
   I18nNotFoundException,
   I18nBadRequestException,
@@ -15,6 +23,8 @@ import { InitializeContractInput } from './dto/initialize-contract.input';
 import { ContractPaginationInput } from './dto/contract-pagination.input';
 import { ContractQuoteInput } from './dto/contract-quote.input';
 import { ContractQuote } from './dto/contract-quote.response';
+import { CharitySummary } from './dto/charity-summary.response';
+import { renderUndertaking } from '../category/contract-text-defaults';
 import { AcceptContractInput } from './dto/accept-contract.input';
 import { CompleteContractInput } from './dto/complete-contract.input';
 import { RejectContractInput } from './dto/reject-contract.input';
@@ -36,6 +46,8 @@ import { CONTRACT_ERROR_MESSAGES } from './errors/contract.error-messages';
 import { CONTRACT_ERROR_CODES } from './errors/contract.error-codes';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { SettingService } from '../setting/setting.service';
+import { notificationTexts } from '../notification/notification-texts';
+import { statusesInGroup } from './contract-status-group';
 import {
   MessageAddedPayload,
   MessageService,
@@ -58,8 +70,25 @@ import { Payment } from '../payment/entities/payment.entity';
 import { PaymentPurpose } from '../payment/enums/payment-purpose.enum';
 import { PaymentStatus } from '../payment/enums/payment-status.enum';
 import { NotificationService } from '../notification/notification.service';
+import { AdminNotificationService } from '../notification/admin-notification.service';
 import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
 import { NotificationType } from '../notification/enums/notification-type.enum';
+import { Rating } from '../rating/entities/rating.entity';
+import { RatingStatus } from '../rating/enums/rating-status.enum';
+import { RatingService } from '../rating/rating.service';
+import { earlyCancellationSplit } from './cancellation-outcome';
+import {
+  claimContractNumber,
+  releaseContractNumbers,
+} from './contract-number-pool';
+import {
+  CUSTOMER_OVERDUE_SQL,
+  isCustomerOverdue,
+  isProviderOverdue,
+  overdueSince,
+  PROVIDER_OVERDUE_SQL,
+} from './contract-overdue';
+import { CategoryStatus } from '../category/enum/category.enum';
 
 const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
   [ContractStatus.DRAFT]: [ContractStatus.PENDING],
@@ -76,22 +105,29 @@ const ALLOWED_TRANSITIONS: Record<ContractStatus, ContractStatus[]> = {
     ContractStatus.COMPLETED,
     ContractStatus.CANCELLATION_REQUESTED,
     ContractStatus.DISPUTED,
+    ContractStatus.ADMIN_RESOLVED,
+    ContractStatus.CANCELLED,
   ],
   [ContractStatus.DELIVERY_IN_PROGRESS]: [
     ContractStatus.COMPLETED,
     ContractStatus.CANCELLATION_REQUESTED,
     ContractStatus.DISPUTED,
+    ContractStatus.ADMIN_RESOLVED,
+    ContractStatus.CANCELLED,
   ],
   [ContractStatus.CANCELLATION_REQUESTED]: [
     ContractStatus.CANCELLED,
     ContractStatus.DISPUTED,
   ],
+  // Only the customer's signature completes a contract (decision 2026-10-19);
+  // the administration closes disputes as ADMIN_RESOLVED or CANCELLED.
   [ContractStatus.DISPUTED]: [
-    ContractStatus.COMPLETED,
+    ContractStatus.ADMIN_RESOLVED,
     ContractStatus.CANCELLED,
   ],
   [ContractStatus.COMPLETED]: [],
   [ContractStatus.CANCELLED]: [],
+  [ContractStatus.ADMIN_RESOLVED]: [],
 };
 
 const CONTRACT_DETAIL_RELATIONS = [
@@ -129,6 +165,26 @@ interface ContractDetailsInput {
   customerLongitude?: number;
 }
 
+/** Money moved by a settlement, for the payout/refund notifications. */
+type SettlementMoney = { payout: number; refund: number };
+
+/** Never paid: cancelling one deletes it (BRD 4.1.18, D-13). */
+/**
+ * A checkout started this recently may still succeed at the gateway, so the
+ * contract can't be removed yet (S4-10).
+ */
+const PENDING_CHECKOUT_WINDOW_MS = 30 * 60 * 1000;
+
+const PRE_PAYMENT_STATUSES = [
+  ContractStatus.DRAFT,
+  ContractStatus.PENDING,
+  ContractStatus.ACCEPTED,
+];
+
+/** Stored on contracts the deal window cancelled (both languages, one field). */
+export const EXPIRED_CANCELLATION_REASON =
+  'انتهت مدة المحادثة قبل سداد التعاقد / The chat ended before the contract was paid';
+
 @Injectable()
 export class ContractService {
   private readonly logger = new Logger(ContractService.name);
@@ -147,6 +203,10 @@ export class ContractService {
     private readonly messageService: MessageService,
     @Optional()
     private readonly notificationService?: NotificationService,
+    @Optional()
+    private readonly adminNotifications?: AdminNotificationService,
+    @Optional()
+    private readonly ratingService?: RatingService,
   ) {}
 
   private error(
@@ -260,6 +320,7 @@ export class ContractService {
           ...this.contractValues(snapshot, conversation, {
             customerAddress: '',
           }),
+          ...(await this.reusedNumber(manager)),
           version: 1,
           pricingVersion: 2,
           supersedesContractId: null,
@@ -327,6 +388,7 @@ export class ContractService {
           )
         : repository.create({
             ...this.contractValues(snapshot, conversation, input),
+            ...(await this.reusedNumber(manager)),
             version: 1,
             pricingVersion: 2,
             supersedesContractId: null,
@@ -366,6 +428,7 @@ export class ContractService {
       NotificationRecipientType.PROVIDER,
       result.contract,
       language,
+      'created',
     );
     return result.contract;
   }
@@ -415,6 +478,7 @@ export class ContractService {
       );
       const contract = manager.getRepository(Contract).create({
         ...this.contractValues(snapshot, conversation, input),
+        ...(await this.reusedNumber(manager)),
         version: rejected.version + 1,
         pricingVersion: 2,
         supersedesContractId: rejected.id,
@@ -487,8 +551,8 @@ export class ContractService {
       }
       this.assertTransition(contract.status, ContractStatus.ACCEPTED, language);
       if (
-        contract.maxCompletionDays != null &&
-        input.deliveryTimeDays > contract.maxCompletionDays
+        contract.maxExecutionHours != null &&
+        input.executionHours > contract.maxExecutionHours
       ) {
         throw this.error('INVALID_DELIVERY_TIME', language);
       }
@@ -501,7 +565,7 @@ export class ContractService {
         manager,
         language,
       );
-      contract.deliveryTimeDays = input.deliveryTimeDays;
+      contract.executionHours = input.executionHours;
       contract.status = ContractStatus.ACCEPTED;
       contract.acceptedAt = new Date();
       const saved = await manager.getRepository(Contract).save(contract);
@@ -530,7 +594,9 @@ export class ContractService {
       result.contract,
       language,
     );
-    return result.contract;
+    // H-30: the row was read under lock without relations; return it with
+    // the details GraphQL needs (non-null provider, signatures, …).
+    return this.findOne(result.contract.id, principal, language);
   }
 
   async rejectContract(
@@ -595,7 +661,7 @@ export class ContractService {
       result.contract,
       language,
     );
-    return result.contract;
+    return this.findOne(result.contract.id, principal, language);
   }
 
   async completeContract(
@@ -614,7 +680,7 @@ export class ContractService {
       }
       await this.assertLatest(contract, manager, language);
       if (contract.status === ContractStatus.COMPLETED) {
-        return { contract, event: null };
+        return { contract, event: null, money: null };
       }
       if (
         contract.status !== ContractStatus.AWAITING_CUSTOMER_CONFIRMATION &&
@@ -638,11 +704,16 @@ export class ContractService {
         manager,
         language,
       );
+      this.assertCustomerSigned(contract, [signature], language);
       contract.status = ContractStatus.COMPLETED;
       contract.completedAt = new Date();
       const saved = await manager.getRepository(Contract).save(contract);
       saved.signatures = [...(saved.signatures ?? []), signature];
-      await this.settleCompleted(contract, manager, principal.sub);
+      const money = await this.settleCompleted(
+        contract,
+        manager,
+        principal.sub,
+      );
       await this.recordAudit(
         manager,
         contract,
@@ -658,7 +729,7 @@ export class ContractService {
         { contractId: contract.id, version: contract.version },
         manager,
       );
-      return { contract: saved, event };
+      return { contract: saved, event, money };
     });
     await this.publishSafely(result.event);
     await this.notifyContract(
@@ -667,6 +738,7 @@ export class ContractService {
       result.contract,
       language,
     );
+    await this.notifyMoney(result.contract, result.money);
     return this.findOne(input.contractId, principal, language);
   }
 
@@ -709,23 +781,18 @@ export class ContractService {
       const setting = await this.settingService.getSetting();
       const now = new Date();
       const usesDelivery = Boolean(contract.deliveryCompanyId);
-      if (usesDelivery && !input.deliveryEstimateDays) {
-        throw new I18nBadRequestException(
-          {
-            en: 'A delivery estimate is required for this contract',
-            ar: 'مدة التوصيل مطلوبة لهذا العقد',
-          },
-          language,
-        );
+      if (usesDelivery && !input.deliveryHours) {
+        throw this.error('DELIVERY_HOURS_REQUIRED', language);
       }
       contract.providerCompletedAt = now;
-      contract.deliveryEstimateDays = input.deliveryEstimateDays ?? null;
+      contract.deliveryHours = input.deliveryHours ?? null;
       contract.deliveryStartedAt = usesDelivery ? now : null;
       const graceHours = Math.max(
         1,
         Number(setting.completionConfirmationGraceHours ?? 24),
       );
-      const deliveryHours = (input.deliveryEstimateDays ?? 0) * 24;
+      // Delivery and grace are both in hours (PO 2026-10-18).
+      const deliveryHours = input.deliveryHours ?? 0;
       contract.confirmationDeadlineAt = new Date(
         now.getTime() + (deliveryHours + graceHours) * 3_600_000,
       );
@@ -746,7 +813,7 @@ export class ContractService {
         ContractStatus.IN_PROGRESS,
         contract.status,
         null,
-        { deliveryEstimateDays: input.deliveryEstimateDays ?? null },
+        { deliveryHours: input.deliveryHours ?? null },
       );
       const event = await this.messageService.persistSystemEvent(
         contract.conversationId,
@@ -806,6 +873,28 @@ export class ContractService {
         throw this.error('INVALID_STATUS_TRANSITION', language);
       }
       const reason = input.reason.trim();
+      // BRD 4.1.18: before payment the contract disappears entirely and its
+      // number returns to the cycle (D-13, decision 2026-10-19).
+      if (PRE_PAYMENT_STATUSES.includes(previousStatus)) {
+        if (await this.hasPendingCheckout(contract, manager)) {
+          throw this.error('CHECKOUT_PENDING', language);
+        }
+        const removed = {
+          ...contract,
+          status: ContractStatus.CANCELLED,
+          cancellationReason: reason,
+          cancelledAt: new Date(),
+        } as Contract;
+        const event = await this.deleteUnpaidChain(contract, manager, reason);
+        return {
+          contract: removed,
+          event,
+          money: null,
+          removed: true,
+          // The provider never saw a draft, so it isn't notified.
+          notify: previousStatus !== ContractStatus.DRAFT,
+        };
+      }
       contract.cancellationReason = reason;
       contract.cancellationRequestedAt = new Date();
       const early = [
@@ -817,10 +906,26 @@ export class ContractService {
       contract.status = early
         ? ContractStatus.CANCELLED
         : ContractStatus.DISPUTED;
+      let money: SettlementMoney | null = null;
+      // BRD 4.1.18: past the provider's execution time, the customer gets
+      // everything back, the provider nothing, and the contract counts 0★.
+      const providerOverdue = isProviderOverdue(
+        { ...contract, status: previousStatus },
+        new Date(),
+      );
       if (early) {
         contract.cancelledAt = new Date();
-        if (previousStatus === ContractStatus.IN_PROGRESS) {
-          await this.settleEarlyCancellation(
+        if (providerOverdue) {
+          money = await this.settleFullRefund(
+            contract,
+            manager,
+            principal.sub,
+            reason,
+            'PROVIDER_OVERDUE',
+          );
+          await this.recordOverduePenalty(contract, manager);
+        } else if (previousStatus === ContractStatus.IN_PROGRESS) {
+          money = await this.settleEarlyCancellation(
             contract,
             manager,
             principal.sub,
@@ -844,6 +949,7 @@ export class ContractService {
         previousStatus,
         contract.status,
         reason,
+        providerOverdue ? { providerOverdue: true } : null,
       );
       const event = await this.messageService.persistSystemEvent(
         contract.conversationId,
@@ -851,15 +957,24 @@ export class ContractService {
         { contractId: contract.id, reason },
         manager,
       );
-      return { contract: saved, event };
+      return { contract: saved, event, money, removed: false };
     });
     await this.publishSafely(result.event);
+    if ('removed' in result && result.removed) {
+      // The record is gone: tell the provider without linking to it, and
+      // answer with the final snapshot (the mutation's type is non-null).
+      if ('notify' in result && result.notify) {
+        await this.notifyRemoved(result.contract);
+      }
+      return result.contract;
+    }
     await this.notifyContract(
       result.contract.providerId,
       NotificationRecipientType.PROVIDER,
       result.contract,
       language,
     );
+    await this.notifyMoney(result.contract, result.money);
     return this.findOne(input.contractId, principal, language);
   }
 
@@ -882,11 +997,13 @@ export class ContractService {
         manager,
         language,
       );
+      // Paying the provider without the customer's signature closes the
+      // contract as ADMIN_RESOLVED, never COMPLETED (decision 2026-10-19).
       const complete =
         input.resolution === ContractResolution.RELEASE_PROVIDER ||
         input.resolution === ContractResolution.COMPLETE;
       if (
-        (complete && contract.status === ContractStatus.COMPLETED) ||
+        (complete && contract.status === ContractStatus.ADMIN_RESOLVED) ||
         (!complete && contract.status === ContractStatus.CANCELLED)
       ) {
         return { contract, event: null };
@@ -896,10 +1013,7 @@ export class ContractService {
       const isConfirmationPending =
         previousStatus === ContractStatus.AWAITING_CUSTOMER_CONFIRMATION ||
         previousStatus === ContractStatus.DELIVERY_IN_PROGRESS;
-      const isOverdue =
-        isConfirmationPending &&
-        contract.confirmationDeadlineAt != null &&
-        contract.confirmationDeadlineAt.getTime() <= Date.now();
+      const isOverdue = isConfirmationPending && isCustomerOverdue(contract);
       if (!isDisputed && !isOverdue) {
         throw this.error('INVALID_STATUS_TRANSITION', language);
       }
@@ -917,14 +1031,20 @@ export class ContractService {
         throw this.error('INVALID_STATUS_TRANSITION', language);
       }
       contract.status = complete
-        ? ContractStatus.COMPLETED
+        ? ContractStatus.ADMIN_RESOLVED
         : ContractStatus.CANCELLED;
+      let money: SettlementMoney;
       if (complete) {
-        contract.completedAt = new Date();
-        await this.settleCompleted(contract, manager, admin.sub);
+        contract.resolvedAt = new Date();
+        money = await this.settleCompleted(contract, manager, admin.sub);
       } else {
         contract.cancelledAt = new Date();
-        await this.settleFullRefund(contract, manager, admin.sub, input.reason);
+        money = await this.settleFullRefund(
+          contract,
+          manager,
+          admin.sub,
+          input.reason,
+        );
       }
       const saved = await manager.getRepository(Contract).save(contract);
       await this.recordAudit(
@@ -946,7 +1066,7 @@ export class ContractService {
       const event = await this.messageService.persistSystemEvent(
         contract.conversationId,
         complete
-          ? MessageKind.CONTRACT_COMPLETED
+          ? MessageKind.CONTRACT_ADMIN_RESOLVED
           : MessageKind.CONTRACT_CANCELLED,
         {
           contractId: contract.id,
@@ -955,7 +1075,7 @@ export class ContractService {
         },
         manager,
       );
-      return { contract: saved, event };
+      return { contract: saved, event, money };
     });
     await this.publishSafely(result.event);
     await Promise.all([
@@ -964,14 +1084,17 @@ export class ContractService {
         NotificationRecipientType.USER,
         result.contract,
         language,
+        null,
       ),
       this.notifyContract(
         result.contract.providerId,
         NotificationRecipientType.PROVIDER,
         result.contract,
         language,
+        null,
       ),
     ]);
+    await this.notifyMoney(result.contract, result.money);
     return this.findOneAdmin(input.contractId, language);
   }
 
@@ -984,7 +1107,9 @@ export class ContractService {
       limit = 10,
       conversationId,
       status,
+      statusGroup,
       categoryId,
+      isCharity,
       search,
       from,
       to,
@@ -1010,7 +1135,9 @@ export class ContractService {
           : 'contract.clientId = :principalId',
         { principalId: principal.sub },
       );
-      if (principal.type === 'provider') {
+      // Drafts are never listed for providers; customers only see their own
+      // drafts when a conversation's contracts are read (to resume one).
+      if (principal.type === 'provider' || !conversationId) {
         query.andWhere('contract.status != :draftStatus', {
           draftStatus: ContractStatus.DRAFT,
         });
@@ -1024,8 +1151,16 @@ export class ContractService {
     if (status) {
       query.andWhere('contract.status = :status', { status });
     }
+    if (statusGroup) {
+      query.andWhere('contract.status IN (:...groupStatuses)', {
+        groupStatuses: statusesInGroup(statusGroup),
+      });
+    }
     if (categoryId) {
       query.andWhere('contract.categoryId = :categoryId', { categoryId });
+    }
+    if (isCharity !== undefined) {
+      query.andWhere('contract.isCharity = :isCharity', { isCharity });
     }
     if (search?.trim()) {
       query.andWhere(
@@ -1063,6 +1198,39 @@ export class ContractService {
         hasNext: page < totalPages,
         hasPrevious: page > 1,
       },
+    };
+  }
+
+  /** Wesal Al-Khair totals for the admin; amounts count completed contracts only. */
+  async charitySummary(from?: Date, to?: Date): Promise<CharitySummary> {
+    const query = this.contractRepository
+      .createQueryBuilder('contract')
+      .select('COUNT(*)::int', 'contracts')
+      .addSelect(
+        'COUNT(*) FILTER (WHERE contract.status IN (:...settled))::int',
+        'completedContracts',
+      )
+      .addSelect(
+        'COALESCE(SUM(contract.charityAmount) FILTER (WHERE contract.status IN (:...settled)), 0)',
+        'totalAmount',
+      )
+      .where('contract.isCharity = true')
+      .setParameter('settled', [
+        ContractStatus.COMPLETED,
+        // Paid out by the administration: the commission was collected too.
+        ContractStatus.ADMIN_RESOLVED,
+      ]);
+    if (from) query.andWhere('contract.createdAt >= :from', { from });
+    if (to) query.andWhere('contract.createdAt <= :to', { to });
+    const row = await query.getRawOne<{
+      contracts: number;
+      completedContracts: number;
+      totalAmount: string;
+    }>();
+    return {
+      contracts: Number(row?.contracts ?? 0),
+      completedContracts: Number(row?.completedContracts ?? 0),
+      totalAmount: Number(row?.totalAmount ?? 0),
     };
   }
 
@@ -1116,6 +1284,10 @@ export class ContractService {
     contract.status = ContractStatus.IN_PROGRESS;
     contract.paidAt = contract.paidAt ?? new Date();
     const saved = await manager.getRepository(Contract).save(contract);
+    // BRD: once a deal is paid the chat stays open, so its timer stops.
+    await manager
+      .getRepository(Conversation)
+      .update(contract.conversationId, { expiresAt: null });
     await this.recordAudit(
       manager,
       saved,
@@ -1184,7 +1356,7 @@ export class ContractService {
     contract: Contract,
     manager: EntityManager,
     actorId: string,
-  ): Promise<void> {
+  ): Promise<SettlementMoney> {
     const payment = await this.paymentForContract(contract.id, manager);
     await this.addSettlement(
       manager,
@@ -1213,6 +1385,7 @@ export class ContractService {
       'COMPLETED',
       actorId,
     );
+    return { payout: Number(contract.providerNetAmount), refund: 0 };
   }
 
   private async settleEarlyCancellation(
@@ -1220,17 +1393,20 @@ export class ContractService {
     manager: EntityManager,
     actorId: string,
     reason: string,
-  ): Promise<void> {
+  ): Promise<SettlementMoney> {
     const payment = await this.paymentForContract(contract.id, manager);
     const paid = Number(payment.amount);
-    const deposit = Math.min(Number(contract.downPayment), paid);
-    const commission = Math.min(Number(contract.commissionAmount), deposit);
+    const split = earlyCancellationSplit(
+      paid,
+      Number(contract.downPayment),
+      Number(contract.commissionAmount),
+    );
     await this.addSettlement(
       manager,
       contract,
       payment,
       ContractSettlementType.CUSTOMER_REFUND,
-      paid - deposit,
+      split.refund,
       'EARLY_CANCEL',
       actorId,
       reason,
@@ -1240,7 +1416,7 @@ export class ContractService {
       contract,
       payment,
       ContractSettlementType.PROVIDER_RELEASE,
-      deposit - commission,
+      split.provider,
       'EARLY_CANCEL',
       actorId,
       reason,
@@ -1250,11 +1426,12 @@ export class ContractService {
       contract,
       payment,
       ContractSettlementType.PLATFORM_COMMISSION,
-      commission,
+      split.commission,
       'EARLY_CANCEL',
       actorId,
       reason,
     );
+    return { payout: split.provider, refund: split.refund };
   }
 
   private async holdDispute(
@@ -1281,7 +1458,8 @@ export class ContractService {
     manager: EntityManager,
     actorId: string,
     reason: string,
-  ): Promise<void> {
+    keySuffix = 'ADMIN_REFUND',
+  ): Promise<SettlementMoney> {
     const payment = await this.paymentForContract(contract.id, manager);
     await this.addSettlement(
       manager,
@@ -1289,10 +1467,365 @@ export class ContractService {
       payment,
       ContractSettlementType.CUSTOMER_REFUND,
       Number(payment.amount),
-      'ADMIN_REFUND',
+      keySuffix,
       actorId,
       reason,
     );
+    return { payout: 0, refund: Number(payment.amount) };
+  }
+
+  /**
+   * Decision 2026-10-19: "Completed" always means the customer signed
+   * completion (they receive the work). Call before setting COMPLETED.
+   */
+  private assertCustomerSigned(
+    contract: Contract,
+    added: ContractSignature[],
+    language: LanguageCode,
+  ): void {
+    const signed = [...(contract.signatures ?? []), ...added].some(
+      (signature) =>
+        signature.contractId === contract.id &&
+        signature.signatureType === ContractSignatureType.CUSTOMER_COMPLETION,
+    );
+    if (!signed) throw this.error('CUSTOMER_SIGNATURE_REQUIRED', language);
+  }
+
+  /** A number released by a pre-payment deletion, if any (BRD 4.1.18). */
+  private async reusedNumber(
+    manager: EntityManager,
+  ): Promise<{ publicId?: number }> {
+    const number = await claimContractNumber(manager);
+    return number ? { publicId: number } : {};
+  }
+
+  /** BRD 4.1.18: a provider-overdue cancellation counts as a 0★ rating. */
+  private async recordOverduePenalty(
+    contract: Contract,
+    manager: EntityManager,
+  ): Promise<void> {
+    const ratings = manager.getRepository(Rating);
+    const existing = await ratings.findOne({
+      where: { contractId: contract.id },
+    });
+    if (existing) return;
+    await ratings.save(
+      ratings.create({
+        userId: contract.clientId,
+        listingId: contract.listingId,
+        providerId: contract.providerId,
+        contractId: contract.id,
+        rating: 0,
+        comment: null,
+        status: RatingStatus.PUBLISHED,
+        isSystemGenerated: true,
+      }),
+    );
+    await this.ratingService?.recalculate(
+      manager,
+      contract.listingId,
+      contract.providerId,
+    );
+  }
+
+  /** S4-4: the principal's overdue contracts, oldest deadline first. */
+  async myOverdueContracts(principal: JwtPayload): Promise<Contract[]> {
+    if (principal.type !== 'user' && principal.type !== 'provider') return [];
+    const customer = principal.type === 'user';
+    const matches = await this.contractRepository
+      .createQueryBuilder('contract')
+      .select('contract.id', 'id')
+      .where(
+        customer ? 'contract.clientId = :id' : 'contract.providerId = :id',
+        { id: principal.sub },
+      )
+      .andWhere(customer ? CUSTOMER_OVERDUE_SQL : PROVIDER_OVERDUE_SQL, {
+        now: new Date(),
+      })
+      .getRawMany<{ id: string }>();
+    if (matches.length === 0) return [];
+    // Hydrated like contract details, so the web can reuse ContractFields.
+    const contracts = await this.contractRepository.find({
+      where: { id: In(matches.map((match) => match.id)) },
+      relations: CONTRACT_DETAIL_RELATIONS,
+    });
+    return contracts.sort(
+      (a, b) =>
+        (overdueSince(a)?.getTime() ?? 0) - (overdueSince(b)?.getTime() ?? 0),
+    );
+  }
+
+  /**
+   * S4-12: paid contracts whose provider hasn't seen the "contract paid,
+   * please execute" pop-up yet, oldest payment first.
+   */
+  async myPaidContractNotices(principal: JwtPayload): Promise<Contract[]> {
+    if (principal.type !== 'provider') return [];
+    const contracts = await this.contractRepository.find({
+      where: {
+        providerId: principal.sub,
+        status: ContractStatus.IN_PROGRESS,
+        paidAt: Not(IsNull()),
+        providerPaidNoticeAt: IsNull(),
+      },
+      relations: CONTRACT_DETAIL_RELATIONS,
+      order: { paidAt: 'ASC' },
+    });
+    return contracts;
+  }
+
+  async acknowledgeContractPaid(
+    contractId: string,
+    principal: JwtPayload,
+    language: LanguageCode = 'en',
+  ): Promise<boolean> {
+    const contract = await this.contractRepository.findOne({
+      where: { id: contractId },
+    });
+    if (!contract) throw this.notFound(language);
+    if (
+      principal.type !== 'provider' ||
+      principal.sub !== contract.providerId
+    ) {
+      throw this.unauthorized(language);
+    }
+    if (!contract.providerPaidNoticeAt) {
+      await this.contractRepository.update(
+        { id: contract.id, providerPaidNoticeAt: IsNull() },
+        { providerPaidNoticeAt: new Date() },
+      );
+    }
+    return true;
+  }
+
+  /**
+   * S4-2: flag newly overdue contracts once and tell the party; the web
+   * pop-up itself reads `myOverdueContracts`.
+   */
+  @Interval(60_000)
+  async flagOverdueContracts(): Promise<void> {
+    const now = new Date();
+    const sides = [
+      {
+        sql: PROVIDER_OVERDUE_SQL,
+        stamp: 'providerOverdueAt' as const,
+        recipient: (contract: Contract) => contract.providerId,
+        recipientType: NotificationRecipientType.PROVIDER,
+      },
+      {
+        sql: CUSTOMER_OVERDUE_SQL,
+        stamp: 'customerOverdueAt' as const,
+        recipient: (contract: Contract) => contract.clientId,
+        recipientType: NotificationRecipientType.USER,
+      },
+    ];
+    for (const side of sides) {
+      const due = await this.contractRepository
+        .createQueryBuilder('contract')
+        .where(side.sql, { now })
+        .andWhere(`contract.${side.stamp} IS NULL`)
+        .getMany();
+      for (const contract of due) {
+        const result = await this.contractRepository.update(
+          { id: contract.id, [side.stamp]: IsNull() },
+          { [side.stamp]: now },
+        );
+        if (result.affected !== 1 || !this.notificationService) continue;
+        await this.notificationService.notifyLocalized({
+          recipientId: side.recipient(contract),
+          recipientType: side.recipientType,
+          type: NotificationType.CONTRACT_OVERDUE,
+          text: notificationTexts.contractOverdue(
+            contract.publicId ?? contract.id,
+          ),
+          relatedEntityId: contract.id,
+          relatedEntityType: 'contract',
+        });
+      }
+    }
+  }
+
+  /**
+   * S4-2: when a chat's deal window runs out, its unpaid contracts are
+   * cancelled (kept for audit, D-13 default); the chat itself is closed by
+   * ConversationService and its fee becomes payable again on restart.
+   */
+  @Interval(60_000)
+  async cancelExpiredUnpaidContracts(): Promise<void> {
+    const unpaid = [
+      ContractStatus.DRAFT,
+      ContractStatus.PENDING,
+      ContractStatus.ACCEPTED,
+      ContractStatus.REJECTED,
+    ];
+    const expired = await this.contractRepository
+      .createQueryBuilder('contract')
+      .innerJoin('contract.conversation', 'conversation')
+      .where('contract.status IN (:...unpaid)', { unpaid })
+      .andWhere('conversation.expiresAt IS NOT NULL')
+      .andWhere('conversation.expiresAt <= :now', { now: new Date() })
+      .getMany();
+    for (const contract of expired) {
+      try {
+        await this.expireUnpaidContract(contract, unpaid);
+      } catch (error) {
+        this.logger.error(
+          `Could not expire contract ${contract.id}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+      }
+    }
+  }
+
+  private async expireUnpaidContract(
+    contract: Contract,
+    unpaid: ContractStatus[],
+  ): Promise<void> {
+    const reason = EXPIRED_CANCELLATION_REASON;
+    const event = await this.dataSource.transaction(async (manager) => {
+      // Re-read under lock: an earlier chain deletion may have removed it.
+      const current = await manager.getRepository(Contract).findOne({
+        where: { id: contract.id, status: In(unpaid) },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!current) return null;
+      if (await this.hasPendingCheckout(current, manager)) return null;
+      return this.deleteUnpaidChain(current, manager, reason, {
+        expired: true,
+      });
+    });
+    if (!event) return;
+    await this.publishSafely(event);
+    if (contract.status === ContractStatus.DRAFT) return;
+    if (!this.notificationService) return;
+    const text = notificationTexts.contractExpired(
+      contract.publicId ?? contract.id,
+    );
+    for (const [recipientId, recipientType] of [
+      [contract.clientId, NotificationRecipientType.USER],
+      [contract.providerId, NotificationRecipientType.PROVIDER],
+    ] as const) {
+      await this.notificationService.notifyLocalized({
+        recipientId,
+        recipientType,
+        type: NotificationType.CONTRACT_UPDATE,
+        text,
+      });
+    }
+  }
+
+  private async hasPendingCheckout(
+    contract: Contract,
+    manager: EntityManager,
+  ): Promise<boolean> {
+    // updatedAt is a database-clock timestamp, so compare on that clock.
+    const pending = await manager
+      .getRepository(Payment)
+      .createQueryBuilder('payment')
+      .where('payment.contractId = :id', { id: contract.id })
+      .andWhere('payment.status = :status', { status: PaymentStatus.PENDING })
+      .andWhere(`payment.updatedAt > now() - make_interval(secs => :seconds)`, {
+        seconds: PENDING_CHECKOUT_WINDOW_MS / 1000,
+      })
+      .getCount();
+    return pending > 0;
+  }
+
+  /**
+   * BRD 4.1.16 / 4.1.18 (D-13): a contract that was never paid is removed
+   * with its whole version chain; its numbers return to the pool. The chat
+   * keeps one event with the number and reason (no link), and complaints and
+   * notifications that pointed at it are unlinked. Runs in the caller's
+   * transaction.
+   */
+  private async deleteUnpaidChain(
+    contract: Contract,
+    manager: EntityManager,
+    reason: string,
+    metadata: Record<string, unknown> = {},
+  ): Promise<MessageAddedPayload> {
+    const repository = manager.getRepository(Contract);
+    const chain = [contract];
+    let previousId = contract.supersedesContractId;
+    while (previousId) {
+      const previous = await repository.findOne({ where: { id: previousId } });
+      if (!previous || previous.paidAt) break;
+      chain.push(previous);
+      previousId = previous.supersedesContractId;
+    }
+    if (chain.some((entry) => entry.paidAt)) {
+      throw new Error(`Contract ${contract.id} was paid; it cannot be removed`);
+    }
+    const ids = chain.map((entry) => entry.id);
+    const unsettled = In([
+      PaymentStatus.PENDING,
+      PaymentStatus.PROCESSING,
+      PaymentStatus.FAILED,
+      PaymentStatus.CANCELLED,
+    ]);
+    const [payments, ratings] = await Promise.all([
+      manager.getRepository(Payment).count({
+        where: { contractId: In(ids), status: Not(unsettled) },
+      }),
+      manager.getRepository(Rating).count({ where: { contractId: In(ids) } }),
+    ]);
+    if (payments || ratings) {
+      throw new Error(`Contract ${contract.id} has payments or ratings`);
+    }
+    // Abandoned or failed checkouts leave with the contract; a late gateway
+    // success for them is reported to admins as unmatched (S4-10).
+    await manager
+      .getRepository(Payment)
+      .delete({ contractId: In(ids), status: unsettled });
+    await manager.query(
+      'UPDATE "complaints" SET "contractId" = NULL WHERE "contractId" = ANY($1::uuid[])',
+      [ids],
+    );
+    await manager.query(
+      `UPDATE "notifications" SET "relatedEntityId" = NULL
+       WHERE "relatedEntityType" = 'contract' AND "relatedEntityId" = ANY($1::uuid[])`,
+      [ids],
+    );
+    const event = await this.messageService.persistSystemEvent(
+      contract.conversationId,
+      MessageKind.CONTRACT_CANCELLED,
+      {
+        contractNumber: contract.publicId,
+        reason,
+        removed: true,
+        ...metadata,
+      },
+      manager,
+    );
+    await repository.delete({ id: In(ids) });
+    await releaseContractNumbers(
+      manager,
+      chain.map((entry) => entry.publicId),
+    );
+    return event;
+  }
+
+  /** The provider learns of a pre-payment cancellation; no link to follow. */
+  private async notifyRemoved(contract: Contract): Promise<void> {
+    if (!this.notificationService) return;
+    const reference = contract.publicId ?? contract.id;
+    await this.notificationService.notifyLocalized({
+      recipientId: contract.providerId,
+      recipientType: NotificationRecipientType.PROVIDER,
+      type: NotificationType.CONTRACT_UPDATE,
+      text: notificationTexts.contractStatus(reference, {
+        ar: localizeEnum(
+          CONTRACT_STATUS_LABELS,
+          ContractStatus.CANCELLED,
+          'ar',
+        ),
+        en: localizeEnum(
+          CONTRACT_STATUS_LABELS,
+          ContractStatus.CANCELLED,
+          'en',
+        ),
+      }),
+    });
   }
 
   private async recordAudit(
@@ -1415,6 +1948,10 @@ export class ContractService {
     if (!category) {
       throw this.error('CATEGORY_NOT_FOUND', language);
     }
+    // S4-56: no new contract terms in an inactive category.
+    if (category.status === CategoryStatus.INACTIVE) {
+      throw this.error('CATEGORY_INACTIVE', language);
+    }
     let deliveryCompany: DeliveryCompany | null = null;
     if (deliveryCompanyId) {
       deliveryCompany = await manager
@@ -1446,10 +1983,17 @@ export class ContractService {
     const threshold = category.minCommissionEnabled
       ? Number(category.minCommissionAmount ?? 0)
       : 0;
-    const commissionApplies = threshold <= 0 || price >= threshold;
-    const commissionAmount = commissionApplies
-      ? this.round(price * (commissionPercent / 100))
-      : 0;
+    // PO 2026-10-18: a contract whose calculated commission is at or below
+    // the category minimum is charity (Wesal Al-Khair). The commission is
+    // still deducted from the provider's payout like any other, but it is
+    // set aside for donation through Ihsan instead of being platform revenue.
+    const calculatedCommission = this.round(price * (commissionPercent / 100));
+    const isCharity =
+      commissionPercent > 0 &&
+      threshold > 0 &&
+      calculatedCommission <= threshold;
+    const commissionAmount = calculatedCommission;
+    const charityAmount = isCharity ? calculatedCommission : 0;
     const vatRate = setting.vatEnabled ? Number(setting.vatRate ?? 0) : 0;
     const vatAmount = this.round(price * (vatRate / 100));
     return {
@@ -1461,11 +2005,20 @@ export class ContractService {
       deliveryCompanyNameAr: deliveryCompany?.nameAr ?? null,
       categoryRulesEn: category.rulesEn ?? '',
       categoryRulesAr: category.rulesAr ?? '',
+      // {commission} / {minimum} are filled with this contract's terms.
       undertakingTextAr: category.undertakingEnabled
-        ? (category.undertakingTextAr ?? '')
+        ? renderUndertaking(
+            category.undertakingTextAr ?? '',
+            commissionPercent,
+            threshold,
+          )
         : '',
       undertakingTextEn: category.undertakingEnabled
-        ? (category.undertakingTextEn ?? '')
+        ? renderUndertaking(
+            category.undertakingTextEn ?? '',
+            commissionPercent,
+            threshold,
+          )
         : '',
       refundPolicyAr: category.refundPolicyEnabled
         ? (category.refundPolicyAr ?? '')
@@ -1478,6 +2031,8 @@ export class ContractService {
       downPayment: this.round(price * (depositPercent / 100)),
       commissionPercent,
       commissionAmount,
+      isCharity,
+      charityAmount,
       vatRate,
       vatAmount,
       totalPayable: this.round(price + vatAmount),
@@ -1485,11 +2040,11 @@ export class ContractService {
       contractDocumentText: category.contractDocumentEnabled
         ? category.contractDocumentText
         : '',
-      maxCompletionDays: category.maxCompletionDaysEnabled
-        ? category.maxCompletionDays
+      maxExecutionHours: category.maxExecutionHoursEnabled
+        ? category.maxExecutionHours
         : null,
-      maxTerminationDays: category.maxTerminationDaysEnabled
-        ? category.maxTerminationDays
+      maxTerminationHours: category.maxTerminationHoursEnabled
+        ? category.maxTerminationHours
         : null,
     };
   }
@@ -1510,6 +2065,8 @@ export class ContractService {
       downPayment: snapshot.downPayment,
       commissionPercent: snapshot.commissionPercent,
       commissionAmount: snapshot.commissionAmount,
+      isCharity: snapshot.isCharity,
+      charityAmount: snapshot.charityAmount,
       vatRate: snapshot.vatRate,
       vatAmount: snapshot.vatAmount,
       totalPayable: snapshot.totalPayable,
@@ -1530,9 +2087,9 @@ export class ContractService {
       undertakingTextEn: snapshot.undertakingTextEn,
       refundPolicyAr: snapshot.refundPolicyAr,
       refundPolicyEn: snapshot.refundPolicyEn,
-      maxCompletionDays: snapshot.maxCompletionDays,
-      maxTerminationDays: snapshot.maxTerminationDays,
-      deliveryTimeDays: null,
+      maxExecutionHours: snapshot.maxExecutionHours,
+      maxTerminationHours: snapshot.maxTerminationHours,
+      executionHours: null,
       rejectionReason: null,
       acceptedAt: null,
       rejectedAt: null,
@@ -1546,13 +2103,19 @@ export class ContractService {
       downPayment: snapshot.downPayment,
       commissionPercent: snapshot.commissionPercent,
       commissionAmount: snapshot.commissionAmount,
+      isCharity: snapshot.isCharity,
+      charityAmount: snapshot.charityAmount,
       vatRate: snapshot.vatRate,
       vatAmount: snapshot.vatAmount,
       totalPayable: snapshot.totalPayable,
       providerNetAmount: snapshot.providerNetAmount,
       contractDocumentText: snapshot.contractDocumentText,
-      maxCompletionDays: snapshot.maxCompletionDays,
-      maxTerminationDays: snapshot.maxTerminationDays,
+      undertakingTextAr: snapshot.undertakingTextAr,
+      undertakingTextEn: snapshot.undertakingTextEn,
+      refundPolicyAr: snapshot.refundPolicyAr,
+      refundPolicyEn: snapshot.refundPolicyEn,
+      maxExecutionHours: snapshot.maxExecutionHours,
+      maxTerminationHours: snapshot.maxTerminationHours,
     };
   }
 
@@ -1614,36 +2177,117 @@ export class ContractService {
     return Number(value.toFixed(2));
   }
 
+  /** BRD 4.3.25: admins hear about new contracts and status changes, with names. */
+  private async notifyAdminsOfContract(
+    contract: Contract,
+    event: 'created' | 'status',
+  ): Promise<void> {
+    if (!this.adminNotifications) return;
+    try {
+      const loaded = await this.contractRepository.findOne({
+        where: { id: contract.id },
+        relations: ['client', 'provider'],
+      });
+      const reference = contract.publicId ?? contract.id;
+      const customer = loaded?.client?.name ?? '—';
+      const provider =
+        loaded?.provider?.commercialName ?? loaded?.provider?.name ?? '—';
+      const statusAr = localizeEnum(
+        CONTRACT_STATUS_LABELS,
+        contract.status,
+        'ar',
+      );
+      const statusEn = localizeEnum(
+        CONTRACT_STATUS_LABELS,
+        contract.status,
+        'en',
+      );
+      await this.adminNotifications.notifyAdmins(
+        event === 'created'
+          ? {
+              type: NotificationType.ADMIN_CONTRACT_CREATED,
+              ar: {
+                title: 'تعاقد جديد',
+                message: `تم إنشاء التعاقد رقم ${reference} بين ${customer} و${provider}`,
+              },
+              en: {
+                title: 'New contract',
+                message: `Contract ${reference} was created between ${customer} and ${provider}`,
+              },
+              relatedEntityType: 'contract',
+              relatedEntityId: contract.id,
+            }
+          : {
+              type: NotificationType.ADMIN_CONTRACT_STATUS,
+              ar: {
+                title: 'تحديث حالة تعاقد',
+                message: `التعاقد رقم ${reference} بين ${customer} و${provider} أصبح ${statusAr}`,
+              },
+              en: {
+                title: 'Contract status changed',
+                message: `Contract ${reference} between ${customer} and ${provider} is now ${statusEn}`,
+              },
+              relatedEntityType: 'contract',
+              relatedEntityId: contract.id,
+            },
+      );
+    } catch (error) {
+      this.logger.warn(`Admin contract notification failed: ${String(error)}`);
+    }
+  }
+
   private async notifyContract(
     recipientId: string,
     recipientType: NotificationRecipientType,
     contract: Contract,
     language: LanguageCode,
+    adminEvent: 'created' | 'status' | null = 'status',
   ): Promise<void> {
+    if (adminEvent) await this.notifyAdminsOfContract(contract, adminEvent);
     if (!this.notificationService) return;
     const reference = contract.publicId ?? contract.id;
-    const statusLabel = localizeEnum(
-      CONTRACT_STATUS_LABELS,
-      contract.status,
-      language,
-    );
-    try {
-      await this.notificationService.createForRecipient({
-        recipientId,
-        recipientType,
-        type: NotificationType.CONTRACT_UPDATE,
-        title: language === 'ar' ? 'تحديث التعاقد' : 'Contract update',
-        message:
-          language === 'ar'
-            ? `تم تحديث حالة التعاقد رقم ${reference} إلى ${statusLabel}`
-            : `Contract ${reference} is now ${statusLabel}`,
+    const status = {
+      ar: localizeEnum(CONTRACT_STATUS_LABELS, contract.status, 'ar'),
+      en: localizeEnum(CONTRACT_STATUS_LABELS, contract.status, 'en'),
+    };
+    // Both languages, so the recipient reads their own (D-11), whatever
+    // language the actor used.
+    await this.notificationService.notifyLocalized({
+      recipientId,
+      recipientType,
+      type: NotificationType.CONTRACT_UPDATE,
+      text: notificationTexts.contractStatus(reference, status),
+      relatedEntityId: contract.id,
+      relatedEntityType: 'contract',
+    });
+  }
+
+  /** S4-38: payout to the provider and refund to the customer, after commit. */
+  private async notifyMoney(
+    contract: Contract,
+    money: SettlementMoney | null | undefined,
+  ): Promise<void> {
+    if (!money || !this.notificationService) return;
+    const reference = contract.publicId ?? contract.id;
+    if (money.payout > 0) {
+      await this.notificationService.notifyLocalized({
+        recipientId: contract.providerId,
+        recipientType: NotificationRecipientType.PROVIDER,
+        type: NotificationType.PAYOUT_TRANSFERRED,
+        text: notificationTexts.payout(reference, money.payout),
         relatedEntityId: contract.id,
         relatedEntityType: 'contract',
       });
-    } catch (error) {
-      this.logger.warn(
-        `Contract transition persisted but notification failed: ${String(error)}`,
-      );
+    }
+    if (money.refund > 0) {
+      await this.notificationService.notifyLocalized({
+        recipientId: contract.clientId,
+        recipientType: NotificationRecipientType.USER,
+        type: NotificationType.REFUND_ISSUED,
+        text: notificationTexts.refund(reference, money.refund),
+        relatedEntityId: contract.id,
+        relatedEntityType: 'contract',
+      });
     }
   }
 
