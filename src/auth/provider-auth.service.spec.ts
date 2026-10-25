@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 import { ProviderAuthService } from './provider-auth.service';
-import { OtpCodeGenerator } from './otp-code-generator';
+import { MOCK_OTP_CODE, OtpCodeGenerator } from './otp-code-generator';
 
 describe('ProviderAuthService OTP generation', () => {
   it('uses an injectable generator without exposing the OTP in registration', async () => {
@@ -60,10 +60,8 @@ describe('ProviderAuthService OTP generation', () => {
 });
 
 describe('OtpCodeGenerator', () => {
-  it('generates exactly four decimal digits', () => {
-    const generator = new OtpCodeGenerator();
-    for (let index = 0; index < 100; index += 1) {
-      expect(generator.generate()).toMatch(/^\d{4}$/);
-    }
+  it('uses the shared fixed code while SMS is mocked', () => {
+    expect(new OtpCodeGenerator().generate()).toBe(MOCK_OTP_CODE);
+    expect(MOCK_OTP_CODE).toBe('1234');
   });
 });

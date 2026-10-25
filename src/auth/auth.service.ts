@@ -34,6 +34,7 @@ import { AUTH_ERROR_MESSAGES } from './errors/auth.error-messages';
 
 import { AdminNotificationService } from '../notification/admin-notification.service';
 import { NotificationType } from '../notification/enums/notification-type.enum';
+import { MOCK_OTP_CODE } from './otp-code-generator';
 @Injectable()
 export class AuthService {
   constructor(
@@ -920,9 +921,8 @@ export class AuthService {
     ipAddress?: string,
     language: LanguageCode = 'en',
   ): Promise<void> {
-    // Generate a cryptographically-safe 4-digit OTP (1000–9999)
-    // const code = Math.floor(1000 + Math.random() * 9000).toString();
-    const code = '1234';
+    // One fixed code for every account type until SMS is real.
+    const code = MOCK_OTP_CODE;
 
     // Create OTP with 10 minutes expiration
     const otp = this.otpRepository.create({
