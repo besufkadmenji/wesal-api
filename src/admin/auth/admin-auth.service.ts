@@ -19,6 +19,7 @@ import { VerifyAdminPasswordResetOtpResponse } from '../dto/verify-admin-passwor
 import { Admin } from '../entities/admin.entity';
 import { AdminStatus } from '../enums/admin-status.enum';
 import { ADMIN_ERROR_MESSAGES } from '../errors/admin.error-messages';
+import { MOCK_OTP_CODE } from '../../auth/otp-code-generator';
 
 @Injectable()
 export class AdminAuthService {
@@ -318,8 +319,8 @@ export class AdminAuthService {
     ipAddress?: string,
     language: LanguageCode = 'en',
   ): Promise<void> {
-    // Generate a cryptographically-safe 4-digit OTP (1000–9999)
-    const code = '1234';
+    // One fixed code for every account type until SMS is real.
+    const code = MOCK_OTP_CODE;
 
     // Create OTP with 10 minutes expiration
     const otp = this.adminOtpRepository.create({
