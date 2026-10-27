@@ -322,6 +322,13 @@ export class AdminAuthService {
     // One fixed code for every account type until SMS is real.
     const code = MOCK_OTP_CODE;
 
+    // ClickUp 869fmm77y: retire earlier unused codes for this target, so a
+    // lookup after a resend can't pick an older (possibly locked) code.
+    await this.adminOtpRepository.update(
+      { target, type, isUsed: false },
+      { isUsed: true },
+    );
+
     // Create OTP with 10 minutes expiration
     const otp = this.adminOtpRepository.create({
       adminId,

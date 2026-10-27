@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
@@ -306,11 +306,15 @@ export class ProviderAuthService {
     }
 
     // Generate and send new OTP
-    await this.generateAndSendOtp(
-      provider.id,
-      resendOtpInput.target,
-      resendOtpInput.type,
-      ipAddress,
+    this.ensureOtpSent(
+      await this.generateAndSendOtp(
+        provider.id,
+        resendOtpInput.target,
+        resendOtpInput.type,
+        ipAddress,
+        language,
+      ),
+      language,
     );
 
     return true;
@@ -318,6 +322,7 @@ export class ProviderAuthService {
 
   async forgotPassword(
     forgotPasswordInput: ForgotPasswordInput,
+    language: LanguageCode = 'en',
   ): Promise<boolean> {
     // Find provider by email or phone
     const provider = await this.providerRepository
@@ -337,7 +342,16 @@ export class ProviderAuthService {
     const target = isEmail ? provider.email : provider.phone;
 
     // Generate and send OTP
-    await this.generateAndSendOtp(provider.id, target, OtpType.PASSWORD_RESET);
+    this.ensureOtpSent(
+      await this.generateAndSendOtp(
+        provider.id,
+        target,
+        OtpType.PASSWORD_RESET,
+        undefined,
+        language,
+      ),
+      language,
+    );
 
     return true;
   }
@@ -502,10 +516,15 @@ export class ProviderAuthService {
     }
 
     // Generate and send OTP to new email
-    await this.generateAndSendOtp(
-      providerId,
-      changeEmailInput.newEmail,
-      OtpType.EMAIL_VERIFICATION,
+    this.ensureOtpSent(
+      await this.generateAndSendOtp(
+        providerId,
+        changeEmailInput.newEmail,
+        OtpType.EMAIL_VERIFICATION,
+        undefined,
+        language,
+      ),
+      language,
     );
 
     // Issue a temporary change token
@@ -552,10 +571,15 @@ export class ProviderAuthService {
     }
 
     // Generate and send OTP to new phone
-    await this.generateAndSendOtp(
-      providerId,
-      changePhoneInput.newPhone,
-      OtpType.PHONE_VERIFICATION,
+    this.ensureOtpSent(
+      await this.generateAndSendOtp(
+        providerId,
+        changePhoneInput.newPhone,
+        OtpType.PHONE_VERIFICATION,
+        undefined,
+        language,
+      ),
+      language,
     );
 
     // Issue a temporary change token
@@ -871,8 +895,16 @@ export class ProviderAuthService {
     target: string,
     type: OtpType,
     ipAddress?: string,
-  ): Promise<void> {
+    language: LanguageCode = 'en',
+  ): Promise<boolean> {
     const code = this.otpCodeGenerator.generate();
+
+    // ClickUp 869fmm77y: retire earlier unused codes for this target, so a
+    // lookup after a resend can't pick an older (possibly locked) code.
+    await this.otpRepository.update(
+      { target, type, isUsed: false },
+      { isUsed: true },
+    );
 
     // Create OTP with 10 minutes expiration
     const otp = this.otpRepository.create({
@@ -887,18 +919,32 @@ export class ProviderAuthService {
     });
     await this.otpRepository.save(otp);
 
-    // Send OTP based on type
+    // Send OTP based on type (in the provider's language); returns whether
+    // it went out.
     if (type === OtpType.EMAIL_VERIFICATION) {
-      await this.emailService.sendVerificationEmail(target, code);
+      return this.emailService.sendVerificationEmail(target, code, language);
     } else if (type === OtpType.PHONE_VERIFICATION) {
-      await this.smsService.sendVerificationSms(target, code);
+      return this.smsService.sendVerificationSms(target, code);
     } else if (type === OtpType.PASSWORD_RESET) {
       if (target.includes('@')) {
-        await this.emailService.sendPasswordResetEmail(target, code);
-      } else {
-        await this.smsService.sendPasswordResetSms(target, code);
+        return this.emailService.sendPasswordResetEmail(target, code, language);
       }
+      return this.smsService.sendPasswordResetSms(target, code);
     }
+    return true;
+  }
+
+  /**
+   * ClickUp 869fkvqgf: a code the user asked for must actually go out. When
+   * the email or SMS fails, say so instead of answering "sent".
+   */
+  private ensureOtpSent(sent: boolean, language: LanguageCode): void {
+    if (sent) return;
+    const message = I18nService.translate(
+      AUTH_ERROR_MESSAGES['OTP_SEND_FAILED'],
+      language,
+    );
+    throw new ServiceUnavailableException({ statusCode: 503, message });
   }
 
   async cleanupExpiredOtps(): Promise<void> {

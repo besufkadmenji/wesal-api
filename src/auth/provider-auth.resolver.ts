@@ -97,8 +97,12 @@ export class ProviderAuthResolver {
   })
   async forgotProviderPassword(
     @Args('input') forgotPasswordInput: ForgotPasswordInput,
+    @GetLanguage() language: LanguageCode,
   ): Promise<boolean> {
-    return this.providerAuthService.forgotPassword(forgotPasswordInput);
+    return this.providerAuthService.forgotPassword(
+      forgotPasswordInput,
+      language,
+    );
   }
 
   @Mutation(() => VerifyPasswordResetOtpResponse, {

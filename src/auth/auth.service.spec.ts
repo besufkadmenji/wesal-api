@@ -36,6 +36,7 @@ describe('AuthService', () => {
 
   const mockOtpRepository = {
     findOne: jest.fn(),
+    update: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
     delete: jest.fn(),

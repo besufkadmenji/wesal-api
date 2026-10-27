@@ -11,6 +11,7 @@ describe('ProviderAuthService OTP generation', () => {
       commercialName: 'Provider',
     };
     const otpRepository = {
+      update: jest.fn().mockResolvedValue(undefined),
       create: jest.fn((value) => value),
       save: jest.fn().mockImplementation((value) => Promise.resolve(value)),
     };
@@ -48,9 +49,15 @@ describe('ProviderAuthService OTP generation', () => {
     expect(otpRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ code: '9876' }),
     );
+    // ClickUp 869fmm77y: older unused codes are retired before a new one.
+    expect(otpRepository.update).toHaveBeenCalledWith(
+      { target: provider.phone, type: 'PHONE_VERIFICATION', isUsed: false },
+      { isUsed: true },
+    );
     expect(emailService.sendVerificationEmail).toHaveBeenCalledWith(
       provider.email,
       '9876',
+      'en',
     );
     expect(smsService.sendVerificationSms).toHaveBeenCalledWith(
       provider.phone,
@@ -63,5 +70,46 @@ describe('OtpCodeGenerator', () => {
   it('uses the shared fixed code while SMS is mocked', () => {
     expect(new OtpCodeGenerator().generate()).toBe(MOCK_OTP_CODE);
     expect(MOCK_OTP_CODE).toBe('1234');
+  });
+});
+
+/** ClickUp 869fkvqgf: a resend answered "sent" when the email failed. */
+describe('ProviderAuthService resendOtp delivery', () => {
+  const build = (emailSent: boolean) => {
+    const provider = { id: 'provider-id', email: 'p@example.com' };
+    const service = new ProviderAuthService(
+      { findOne: jest.fn().mockResolvedValue(provider) } as never,
+      {
+        findOne: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockResolvedValue(undefined),
+        create: jest.fn((value: object) => value),
+        save: jest.fn((value: object) => Promise.resolve(value)),
+      } as never,
+      {} as never,
+      {} as never,
+      {
+        sendVerificationEmail: jest.fn().mockResolvedValue(emailSent),
+      } as never,
+      {} as never,
+      { generate: () => '1234' } as never,
+    );
+    return service;
+  };
+  const input = {
+    target: 'p@example.com',
+    type: 'EMAIL_VERIFICATION',
+  } as never;
+
+  it('says so, in Arabic, when the email could not be sent', async () => {
+    await expect(build(false).resendOtp(input, 'ar')).rejects.toMatchObject({
+      response: {
+        statusCode: 503,
+        message: 'تعذر إرسال رمز التحقق. يرجى المحاولة مرة أخرى بعد قليل.',
+      },
+    });
+  });
+
+  it('answers true when the email went out', async () => {
+    await expect(build(true).resendOtp(input, 'ar')).resolves.toBe(true);
   });
 });
