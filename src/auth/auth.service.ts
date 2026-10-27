@@ -1,4 +1,8 @@
-import { Injectable, Optional } from '@nestjs/common';
+import {
+  Injectable,
+  Optional,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
@@ -294,11 +298,14 @@ export class AuthService {
     }
 
     // Generate and send new OTP
-    await this.generateAndSendOtp(
-      user.id,
-      resendOtpInput.target,
-      resendOtpInput.type,
-      ipAddress,
+    this.ensureOtpSent(
+      await this.generateAndSendOtp(
+        user.id,
+        resendOtpInput.target,
+        resendOtpInput.type,
+        ipAddress,
+        language,
+      ),
       language,
     );
 
@@ -331,11 +338,14 @@ export class AuthService {
     const target = isEmail ? user.email : user.phone;
 
     // Generate and send OTP
-    await this.generateAndSendOtp(
-      user.id,
-      target,
-      OtpType.PASSWORD_RESET,
-      ipAddress,
+    this.ensureOtpSent(
+      await this.generateAndSendOtp(
+        user.id,
+        target,
+        OtpType.PASSWORD_RESET,
+        ipAddress,
+        language,
+      ),
       language,
     );
 
@@ -549,11 +559,14 @@ export class AuthService {
     }
 
     // Generate and send OTP to new email
-    await this.generateAndSendOtp(
-      userId,
-      changeEmailInput.newEmail,
-      OtpType.EMAIL_VERIFICATION,
-      undefined,
+    this.ensureOtpSent(
+      await this.generateAndSendOtp(
+        userId,
+        changeEmailInput.newEmail,
+        OtpType.EMAIL_VERIFICATION,
+        undefined,
+        language,
+      ),
       language,
     );
 
@@ -602,11 +615,14 @@ export class AuthService {
     }
 
     // Generate and send OTP to new phone
-    await this.generateAndSendOtp(
-      userId,
-      changePhoneInput.newPhone,
-      OtpType.PHONE_VERIFICATION,
-      undefined,
+    this.ensureOtpSent(
+      await this.generateAndSendOtp(
+        userId,
+        changePhoneInput.newPhone,
+        OtpType.PHONE_VERIFICATION,
+        undefined,
+        language,
+      ),
       language,
     );
 
@@ -920,9 +936,16 @@ export class AuthService {
     type: OtpType,
     ipAddress?: string,
     language: LanguageCode = 'en',
-  ): Promise<void> {
+  ): Promise<boolean> {
     // One fixed code for every account type until SMS is real.
     const code = MOCK_OTP_CODE;
+
+    // ClickUp 869fmm77y: retire earlier unused codes for this target, so a
+    // lookup after a resend can't pick an older (possibly locked) code.
+    await this.otpRepository.update(
+      { target, type, isUsed: false },
+      { isUsed: true },
+    );
 
     // Create OTP with 10 minutes expiration
     const otp = this.otpRepository.create({
@@ -937,19 +960,32 @@ export class AuthService {
     });
     await this.otpRepository.save(otp);
 
-    // Send OTP based on type
+    // Send OTP based on type; returns whether it went out.
     if (type === OtpType.EMAIL_VERIFICATION) {
-      await this.emailService.sendVerificationEmail(target, code, language);
+      return this.emailService.sendVerificationEmail(target, code, language);
     } else if (type === OtpType.PHONE_VERIFICATION) {
-      await this.smsService.sendVerificationSms(target, code);
+      return this.smsService.sendVerificationSms(target, code);
     } else if (type === OtpType.PASSWORD_RESET) {
       // Determine if target is email or phone
       if (target.includes('@')) {
-        await this.emailService.sendPasswordResetEmail(target, code, language);
-      } else {
-        await this.smsService.sendPasswordResetSms(target, code);
+        return this.emailService.sendPasswordResetEmail(target, code, language);
       }
+      return this.smsService.sendPasswordResetSms(target, code);
     }
+    return true;
+  }
+
+  /**
+   * ClickUp 869fkvqgf: a code the user asked for must actually go out. When
+   * the email or SMS fails, say so instead of answering "sent".
+   */
+  private ensureOtpSent(sent: boolean, language: LanguageCode): void {
+    if (sent) return;
+    const message = I18nService.translate(
+      AUTH_ERROR_MESSAGES['OTP_SEND_FAILED'],
+      language,
+    );
+    throw new ServiceUnavailableException({ statusCode: 503, message });
   }
 
   async cleanupExpiredOtps(): Promise<void> {

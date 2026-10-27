@@ -1,3 +1,4 @@
+import { errorMessageRegistry } from 'lib/errors/error-message.registry';
 import { TranslatedError } from 'lib/i18n/i18n.service';
 import { AUTH_ERROR_CODES } from './auth.error-codes';
 
@@ -67,8 +68,8 @@ export const AUTH_ERROR_MESSAGES: Record<string, TranslatedError> = {
     ar: 'فشل التحقق من رمز التحقق. عدم تطابق عنوان IP',
   },
   [AUTH_ERROR_CODES.WEAK_PASSWORD]: {
-    en: 'Password must be at least 8 characters long',
-    ar: 'يجب أن تكون كلمة المرور 8 أحرف على الأقل',
+    en: 'Password must be at least 8 characters and contain uppercase, lowercase, numbers, and special characters',
+    ar: 'يجب أن تكون كلمة المرور 8 أحرف على الأقل وتحتوي على أحرف كبيرة وصغيرة وأرقام وأحرف خاصة',
   },
   [AUTH_ERROR_CODES.INVALID_TOKEN]: {
     en: 'Invalid or expired token',
@@ -90,4 +91,36 @@ export const AUTH_ERROR_MESSAGES: Record<string, TranslatedError> = {
     en: 'Please wait until your join request is approved by the administration.',
     ar: 'يرجى الانتظار حتى يتم قبول طلب انضمامك من الإدارة.',
   },
+  [AUTH_ERROR_CODES.OTP_CODE_FORMAT]: {
+    en: 'The verification code must be 4 digits',
+    ar: 'رمز التحقق يجب أن يتكون من 4 أرقام',
+  },
+  [AUTH_ERROR_CODES.OTP_SEND_FAILED]: {
+    en: "We couldn't send the verification code. Please try again in a few minutes.",
+    ar: 'تعذر إرسال رمز التحقق. يرجى المحاولة مرة أخرى بعد قليل.',
+  },
+  [AUTH_ERROR_CODES.EMAIL_OR_PHONE_REQUIRED]: {
+    en: 'Enter your email or phone number',
+    ar: 'يرجى إدخال البريد الإلكتروني أو رقم الجوال',
+  },
+  [AUTH_ERROR_CODES.PASSWORD_REQUIRED]: {
+    en: 'Enter your password',
+    ar: 'يرجى إدخال كلمة المرور',
+  },
 };
+
+// Validation messages used by DTOs go through the shared registry, which the
+// validation filter translates (ClickUp 869fmm77y, 869fmm9x1: shown in
+// English before). Only these codes: other auth codes share names with other
+// modules' registry entries.
+const DTO_MESSAGE_CODES = [
+  AUTH_ERROR_CODES.OTP_CODE_FORMAT,
+  AUTH_ERROR_CODES.EMAIL_OR_PHONE_REQUIRED,
+  AUTH_ERROR_CODES.PASSWORD_REQUIRED,
+  AUTH_ERROR_CODES.WEAK_PASSWORD,
+];
+errorMessageRegistry.register(
+  Object.fromEntries(
+    DTO_MESSAGE_CODES.map((code) => [code, AUTH_ERROR_MESSAGES[code]]),
+  ),
+);
