@@ -252,12 +252,23 @@ export class ProviderAuthService {
     });
 
     if (provider) {
+      const wasVerified = provider.emailVerified && provider.phoneVerified;
       if (verifyOtpInput.type === OtpType.EMAIL_VERIFICATION) {
         provider.emailVerified = true;
       } else if (verifyOtpInput.type === OtpType.PHONE_VERIFICATION) {
         provider.phoneVerified = true;
       }
       await this.providerRepository.save(provider);
+      // The sign-up becomes a join request once both are verified
+      // (ClickUp 869fkvr7t): notify admins exactly then.
+      if (
+        !wasVerified &&
+        provider.emailVerified &&
+        provider.phoneVerified &&
+        provider.status === ProviderStatus.PENDING_APPROVAL
+      ) {
+        await this.providerService.notifyJoinRequest(provider);
+      }
     }
 
     return true;

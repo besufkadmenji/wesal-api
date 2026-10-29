@@ -178,8 +178,11 @@ export class DashboardInsightsService {
     ] = await Promise.all([
       providers
         ? count(
+            // Same rule as the Provider Requests list: only verified
+            // sign-ups are requests (ClickUp 869fmuk7y).
             `SELECT COUNT(*) AS "count" FROM "providers"
-            WHERE "status" = $1 AND "deletedAt" IS NULL`,
+            WHERE "status" = $1 AND "deletedAt" IS NULL
+              AND "emailVerified" = true AND "phoneVerified" = true`,
             [ProviderStatus.PENDING_APPROVAL],
           )
         : null,

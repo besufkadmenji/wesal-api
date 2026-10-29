@@ -125,6 +125,12 @@ describe('DashboardInsightsService', () => {
       terminationRequests: 0,
     });
     expect(permissionCount).not.toHaveBeenCalled();
+    // ClickUp 869fmuk7y: only verified sign-ups, like the requests list.
+    const providerSql = (query.mock.calls as [string, unknown[]][]).find(
+      ([, params]) => params[0] === ProviderStatus.PENDING_APPROVAL,
+    )![0];
+    expect(providerSql).toContain('"emailVerified" = true');
+    expect(providerSql).toContain('"phoneVerified" = true');
   });
 
   it('returns null for modules a custom admin cannot read', async () => {
