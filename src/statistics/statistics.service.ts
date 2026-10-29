@@ -8,7 +8,7 @@ import { Cron, Interval } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { PubSub } from 'graphql-subscriptions';
 import { PUB_SUB } from 'lib/pubsub/pubsub.module';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { Contract } from '../contract/entities/contract.entity';
 import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { Message } from '../conversation/entities/message.entity';
@@ -16,9 +16,9 @@ import { ConversationSenderType } from '../conversation/enums/sender-type.enum';
 import { Listing } from '../listing/entities/listing.entity';
 import { ListingStatus, ListingType } from '../listing/enums/listing.enum';
 import { Provider } from '../provider/entities/provider.entity';
-import { ProviderStatus } from '../provider/enums/provider-status.enum';
+import { LISTED_PROVIDER_STATUSES } from '../provider/enums/provider-status.enum';
 import { User } from '../user/entities/user.entity';
-import { UserStatus } from '../user/enums/user-status.enum';
+import { LISTED_USER_STATUSES } from '../user/enums/user-status.enum';
 import { AdminDashboardStats } from './dto/admin-dashboard-stats.response';
 import { PlatformStats } from './dto/platform-stats.response';
 import {
@@ -144,17 +144,21 @@ export class StatisticsService implements OnApplicationShutdown {
       featuredListings,
       freeListings,
     ] = await Promise.all([
+      // The same accounts the admin Users and Providers lists show, so each
+      // card equals its list's total (ClickUp 869fn0tyd).
       this.userRepository.count({
         where: {
-          status: UserStatus.ACTIVE,
-          isActive: true,
+          status: In(LISTED_USER_STATUSES),
+          emailVerified: true,
+          phoneVerified: true,
           deletedAt: IsNull(),
         },
       }),
       this.providerRepository.count({
         where: {
-          status: ProviderStatus.ACTIVE,
-          isActive: true,
+          status: In(LISTED_PROVIDER_STATUSES),
+          emailVerified: true,
+          phoneVerified: true,
           deletedAt: IsNull(),
         },
       }),

@@ -16,7 +16,7 @@ import { CreateUserInput } from './dto/create-user.input';
 import { UpdateUserInput } from './dto/update-user.input';
 import { UserPaginationInput } from './dto/user-pagination.input';
 import { User } from './entities/user.entity';
-import { UserStatus } from './enums/user-status.enum';
+import { LISTED_USER_STATUSES, UserStatus } from './enums/user-status.enum';
 import { USER_ERROR_CODES } from './errors/user.error-codes';
 import { USER_ERROR_MESSAGES } from './errors/user.error-messages';
 
@@ -99,7 +99,7 @@ export class UserService {
       .andWhere('user.status IN (:...statuses)', {
         statuses: paginationInput.status
           ? [paginationInput.status]
-          : [UserStatus.ACTIVE, UserStatus.INACTIVE, UserStatus.SUSPENDED],
+          : LISTED_USER_STATUSES,
       });
 
     // Add search filter if provided

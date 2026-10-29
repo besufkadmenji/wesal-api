@@ -15,7 +15,10 @@ import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Admin } from '../admin/entities/admin.entity';
 import { Category } from '../category/entities/category.entity';
 import { Provider } from '../provider/entities/provider.entity';
-import { ProviderStatus } from '../provider/enums/provider-status.enum';
+import {
+  LISTED_PROVIDER_STATUSES,
+  ProviderStatus,
+} from '../provider/enums/provider-status.enum';
 import {
   PROVIDER_ERROR_CODES,
   type ProviderErrorCode,
@@ -167,13 +170,7 @@ export class ProviderService {
       .where('provider.emailVerified = true')
       .andWhere('provider.phoneVerified = true')
       .andWhere('provider.status IN (:...statuses)', {
-        statuses: status
-          ? [status]
-          : [
-              ProviderStatus.ACTIVE,
-              ProviderStatus.INACTIVE,
-              ProviderStatus.SUSPENDED,
-            ],
+        statuses: status ? [status] : LISTED_PROVIDER_STATUSES,
       });
 
     if (search) {

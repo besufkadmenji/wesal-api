@@ -1,5 +1,5 @@
 import { PubSub } from 'graphql-subscriptions';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { Contract } from '../contract/entities/contract.entity';
 import { ContractStatus } from '../contract/enums/contract-status.enum';
 import { CategoryStatus } from '../category/enum/category.enum';
@@ -84,7 +84,8 @@ describe('StatisticsService', () => {
     jest.useRealTimers();
   });
 
-  it('counts only active, non-deleted customers and providers', async () => {
+  // ClickUp 869fn0tyd: the same accounts the admin Users/Providers lists show.
+  it('counts verified, listed, non-deleted customers and providers', async () => {
     await expect(service.platformStats()).resolves.toEqual({
       customers: 7,
       providers: 3,
@@ -92,12 +93,26 @@ describe('StatisticsService', () => {
     });
 
     expect(userCount).toHaveBeenCalledWith({
-      where: { status: UserStatus.ACTIVE, isActive: true, deletedAt: IsNull() },
+      where: {
+        status: In([
+          UserStatus.ACTIVE,
+          UserStatus.INACTIVE,
+          UserStatus.SUSPENDED,
+        ]),
+        emailVerified: true,
+        phoneVerified: true,
+        deletedAt: IsNull(),
+      },
     });
     expect(providerCount).toHaveBeenCalledWith({
       where: {
-        status: ProviderStatus.ACTIVE,
-        isActive: true,
+        status: In([
+          ProviderStatus.ACTIVE,
+          ProviderStatus.INACTIVE,
+          ProviderStatus.SUSPENDED,
+        ]),
+        emailVerified: true,
+        phoneVerified: true,
         deletedAt: IsNull(),
       },
     });
