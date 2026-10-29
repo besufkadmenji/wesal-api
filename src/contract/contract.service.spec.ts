@@ -904,9 +904,16 @@ describe('ContractService', () => {
         supersedesContractId: 'contract-v1',
         paidAt: null,
       };
+      const detailed = {
+        ...pending,
+        client: { id: conversation.userId },
+        provider: { id: conversation.providerId },
+        conversation: { id: conversation.id },
+      };
       contractRepository.findOne
         .mockResolvedValueOnce(pending) // lock
         .mockResolvedValueOnce(pending) // latest version
+        .mockResolvedValueOnce(detailed) // snapshot for the answer
         .mockResolvedValueOnce(older); // chain walk
 
       const result = await service.requestCancellation(
@@ -915,6 +922,17 @@ describe('ContractService', () => {
       );
 
       expect(result.status).toBe(ContractStatus.CANCELLED);
+      // ClickUp 869fmw01a: the answer carries the non-null relations GraphQL
+      // resolves; the bare locked row failed the mutation after the delete.
+      expect(result.client).toEqual({ id: conversation.userId });
+      expect(result.provider).toEqual({ id: conversation.providerId });
+      expect(result.conversation).toEqual({ id: conversation.id });
+      const [snapshotRead] = contractRepository.findOne.mock
+        .calls[2] as unknown as [{ where: object; relations: string[] }];
+      expect(snapshotRead.where).toEqual({ id: pending.id });
+      expect(snapshotRead.relations).toEqual(
+        expect.arrayContaining(['client', 'provider', 'conversation']),
+      );
       const [deleted] = contractRepository.delete.mock.calls[0] as unknown as [
         { id: { _value: string[] } },
       ];

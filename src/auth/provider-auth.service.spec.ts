@@ -113,3 +113,67 @@ describe('ProviderAuthService resendOtp delivery', () => {
     await expect(build(true).resendOtp(input, 'ar')).resolves.toBe(true);
   });
 });
+
+/** ClickUp 869fkvr7t: admins hear about a join request once it's verified. */
+describe('ProviderAuthService verifyOtp join-request notification', () => {
+  const build = (provider: Record<string, unknown>) => {
+    const otp = { providerId: 'provider-id', attemptCount: 0, code: '1234' };
+    const providerService = { notifyJoinRequest: jest.fn() };
+    const service = new ProviderAuthService(
+      {
+        findOne: jest.fn().mockResolvedValue(provider),
+        save: jest.fn((value: object) => Promise.resolve(value)),
+      } as never,
+      {
+        findOne: jest.fn().mockResolvedValue(otp),
+        save: jest.fn((value: object) => Promise.resolve(value)),
+      } as never,
+      providerService as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+    return { service, providerService };
+  };
+  const verify = (service: ProviderAuthService, type: string) =>
+    service.verifyOtp({ target: 't', code: '1234', type } as never);
+
+  it('waits while only one channel is verified', async () => {
+    const { service, providerService } = build({
+      status: 'PENDING_APPROVAL',
+      emailVerified: false,
+      phoneVerified: false,
+    });
+    await verify(service, 'EMAIL_VERIFICATION');
+    expect(providerService.notifyJoinRequest).not.toHaveBeenCalled();
+  });
+
+  it('notifies once the second channel is verified', async () => {
+    const provider = {
+      id: 'provider-id',
+      status: 'PENDING_APPROVAL',
+      emailVerified: true,
+      phoneVerified: false,
+    };
+    const { service, providerService } = build(provider);
+    await verify(service, 'PHONE_VERIFICATION');
+    expect(providerService.notifyJoinRequest).toHaveBeenCalledTimes(1);
+    expect(providerService.notifyJoinRequest).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'provider-id', phoneVerified: true }),
+    );
+  });
+
+  it.each([
+    ['already verified', 'PENDING_APPROVAL', true],
+    ['an approved provider', 'ACTIVE', false],
+  ])('stays quiet for %s', async (_label, status, phoneVerified) => {
+    const { service, providerService } = build({
+      status,
+      emailVerified: true,
+      phoneVerified,
+    });
+    await verify(service, 'PHONE_VERIFICATION');
+    expect(providerService.notifyJoinRequest).not.toHaveBeenCalled();
+  });
+});

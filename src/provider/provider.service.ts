@@ -15,7 +15,10 @@ import type { LanguageCode } from '../../lib/i18n/language.types';
 import { Admin } from '../admin/entities/admin.entity';
 import { Category } from '../category/entities/category.entity';
 import { Provider } from '../provider/entities/provider.entity';
-import { ProviderStatus } from '../provider/enums/provider-status.enum';
+import {
+  LISTED_PROVIDER_STATUSES,
+  ProviderStatus,
+} from '../provider/enums/provider-status.enum';
 import {
   PROVIDER_ERROR_CODES,
   type ProviderErrorCode,
@@ -119,8 +122,18 @@ export class ProviderService {
       status: ProviderStatus.PENDING_APPROVAL,
     });
 
-    const saved = await this.providerRepository.save(provider);
-    const name = saved.commercialName ?? saved.name ?? saved.phone;
+    // Admins hear about the request once the provider has verified email
+    // and phone (ProviderAuthService.verifyOtp → notifyJoinRequest).
+    return this.providerRepository.save(provider);
+  }
+
+  /**
+   * Tells admins about a new join request. Sent when the provider finishes
+   * verifying, not at sign-up: an unverified sign-up isn't a request yet and
+   * may be replaced by a re-registration (ClickUp 869fkvr7t).
+   */
+  async notifyJoinRequest(provider: Provider): Promise<void> {
+    const name = provider.commercialName ?? provider.name ?? provider.phone;
     await this.adminNotifications?.notifyAdmins({
       type: NotificationType.ADMIN_PROVIDER_REQUEST,
       ar: {
@@ -132,9 +145,8 @@ export class ProviderService {
         message: `New join request from ${name}`,
       },
       relatedEntityType: 'provider_request',
-      relatedEntityId: saved.id,
+      relatedEntityId: provider.id,
     });
-    return saved;
   }
 
   async findAll(
@@ -158,13 +170,7 @@ export class ProviderService {
       .where('provider.emailVerified = true')
       .andWhere('provider.phoneVerified = true')
       .andWhere('provider.status IN (:...statuses)', {
-        statuses: status
-          ? [status]
-          : [
-              ProviderStatus.ACTIVE,
-              ProviderStatus.INACTIVE,
-              ProviderStatus.SUSPENDED,
-            ],
+        statuses: status ? [status] : LISTED_PROVIDER_STATUSES,
       });
 
     if (search) {

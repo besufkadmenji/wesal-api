@@ -8,6 +8,16 @@ export enum UserStatus {
   DELETED = 'DELETED',
 }
 
+/**
+ * Statuses the admin Users list shows by default; the dashboard's customer
+ * total counts the same accounts (ClickUp 869fn0tyd).
+ */
+export const LISTED_USER_STATUSES = [
+  UserStatus.ACTIVE,
+  UserStatus.INACTIVE,
+  UserStatus.SUSPENDED,
+];
+
 registerEnumType(UserStatus, {
   name: 'UserStatus',
   description: 'User account status',

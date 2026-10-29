@@ -1,5 +1,13 @@
-import { Field, InputType, registerEnumType } from '@nestjs/graphql';
-import { IsEnum, IsIn, IsInt, IsOptional, IsString } from 'class-validator';
+import { Field, InputType, Int, registerEnumType } from '@nestjs/graphql';
+import {
+  IsEnum,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { PaginationInput } from 'lib/common/dto/pagination.input';
 import { ListingStatus, ListingType } from '../enums/listing.enum';
 
@@ -72,4 +80,12 @@ export class ListingPaginationInput extends PaginationInput {
   @IsOptional()
   @IsInt()
   maxPrice?: number;
+
+  /** Only ads rated this many stars or more (ClickUp 869fmut30). */
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(5)
+  minRating?: number;
 }

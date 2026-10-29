@@ -173,13 +173,16 @@ export class ListingService {
       cityId,
       minPrice,
       maxPrice,
+      minRating,
     } = paginationInput;
 
     let items: Listing[];
     let total: number;
 
-    // Use Elasticsearch when a search term is present
-    if (search && search.trim() && this.searchService.isEnabled) {
+    // Use Elasticsearch when a search term is present. The index has no
+    // ratings (they're recomputed in SQL), so a rating filter uses Postgres,
+    // where listings.ratingAverage is always current (ClickUp 869fmut30).
+    if (search && search.trim() && this.searchService.isEnabled && !minRating) {
       const esResult = await this.searchService.searchListings(
         search.trim(),
         page,
@@ -236,6 +239,12 @@ export class ListingService {
 
       if (maxPrice) {
         query = query.andWhere('listing.price <= :maxPrice', { maxPrice });
+      }
+
+      if (minRating) {
+        query = query.andWhere('listing.ratingAverage >= :minRating', {
+          minRating,
+        });
       }
 
       query = query
