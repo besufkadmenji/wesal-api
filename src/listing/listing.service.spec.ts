@@ -264,6 +264,45 @@ describe('ListingService provider finalization', () => {
     expect(result.items[1].type).toBe(ListingType.FREE);
   });
 
+  it('filters by minimum rating in Postgres, even with search text (ClickUp 869fmut30)', async () => {
+    const andWhere = jest.fn().mockReturnThis();
+    const qb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere,
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      setParameter: jest.fn().mockReturnThis(),
+      setParameters: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+    listingRepository.createQueryBuilder.mockReturnValue(qb);
+    // Elasticsearch is on, but its index has no ratings.
+    const searchListings = jest.fn();
+    Object.assign(searchService, { isEnabled: true, searchListings });
+
+    try {
+      await service.findAll({
+        page: 1,
+        limit: 10,
+        categoryId: 'category-id',
+        search: 'pipe',
+        minRating: 4,
+      });
+    } finally {
+      Object.assign(searchService, { isEnabled: false });
+    }
+
+    expect(searchListings).not.toHaveBeenCalled();
+    expect(andWhere).toHaveBeenCalledWith(
+      'listing.ratingAverage >= :minRating',
+      { minRating: 4 },
+    );
+  });
+
   it('returns one trusted ad per Trust-badge provider in query order', async () => {
     listingRepository.query.mockResolvedValue([{ id: 'b' }, { id: 'a' }]);
     listingRepository.find.mockResolvedValue([{ id: 'a' }, { id: 'b' }]);
