@@ -879,8 +879,17 @@ export class ContractService {
         if (await this.hasPendingCheckout(contract, manager)) {
           throw this.error('CHECKOUT_PENDING', language);
         }
+        // The answer is a snapshot of a row about to be deleted; read it
+        // with the details GraphQL needs first (non-null client, provider,
+        // conversation), as after accept/reject (H-30). The bare locked row
+        // made the mutation fail after the delete (ClickUp 869fmw01a).
+        const detailed =
+          (await manager.getRepository(Contract).findOne({
+            where: { id: contract.id },
+            relations: CONTRACT_DETAIL_RELATIONS,
+          })) ?? contract;
         const removed = {
-          ...contract,
+          ...detailed,
           status: ContractStatus.CANCELLED,
           cancellationReason: reason,
           cancelledAt: new Date(),
