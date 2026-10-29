@@ -1,3 +1,4 @@
+import { errorMessageRegistry } from '../../../lib/errors/error-message.registry';
 import { ADMIN_ERROR_CODES } from './admin.error-codes';
 import { LanguageCode } from 'lib/i18n/language.types';
 
@@ -89,4 +90,15 @@ export const ADMIN_ERROR_MESSAGES: Record<
     en: 'Super admin cannot be deactivated',
     ar: 'لا يمكن تعطيل المسؤول الفائق',
   },
+  INVALID_SAUDI_MOBILE: {
+    en: 'Enter a Saudi mobile number: 05 followed by 8 digits (e.g. 0512345678).',
+    ar: 'أدخل رقم جوال سعودي يبدأ بـ 05 ويتكون من 10 أرقام (مثال: 0512345678).',
+  },
 } as const;
+
+// The admin DTOs' phone check returns this code; the validation filter
+// translates it (ClickUp 869fmnnb3: the message was English-only).
+errorMessageRegistry.register({
+  [ADMIN_ERROR_CODES.INVALID_SAUDI_MOBILE]:
+    ADMIN_ERROR_MESSAGES.INVALID_SAUDI_MOBILE,
+});

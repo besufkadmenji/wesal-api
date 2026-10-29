@@ -8,6 +8,7 @@ import {
   Matches,
   MinLength,
 } from 'class-validator';
+import { ADMIN_ERROR_CODES } from '../errors/admin.error-codes';
 import { AdminPermissionType } from '../enums/admin-permission-type.enum';
 import { AdminStatus } from '../enums/admin-status.enum';
 import { AdminUserType } from '../enums/admin-user-type.enum';
@@ -31,8 +32,7 @@ export class CreateAdminInput {
   @IsOptional()
   @IsString()
   @Matches(/^05\d{8}$/, {
-    message:
-      'phoneNumber must be a valid Saudi mobile number starting with 05 and containing 10 digits',
+    message: ADMIN_ERROR_CODES.INVALID_SAUDI_MOBILE,
   })
   phoneNumber: string;
 
