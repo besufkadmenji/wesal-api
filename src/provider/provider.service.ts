@@ -167,7 +167,10 @@ export class ProviderService {
       .leftJoinAndSelect('provider.city', 'city')
       .leftJoinAndSelect('provider.categories', 'categories')
       .leftJoinAndSelect('provider.signedContract', 'signedContract')
-      .where('provider.emailVerified = true')
+      // Deleted accounts stay out, as on the Users list; older deletions
+      // kept a listed status (ClickUp 869fn0tyd: 28 listed vs 25 counted).
+      .where('provider.deletedAt IS NULL')
+      .andWhere('provider.emailVerified = true')
       .andWhere('provider.phoneVerified = true')
       .andWhere('provider.status IN (:...statuses)', {
         statuses: status ? [status] : LISTED_PROVIDER_STATUSES,
