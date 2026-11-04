@@ -90,10 +90,13 @@ describe('PaymentCheckoutService', () => {
       premiumAdDurationDays: 30,
     });
     process.env.WEB_APP_URL = 'https://web.example.test';
+    // The hosted Pay / Fail page; auto-success has its own block below.
+    process.env.PAYMENT_MOCK_AUTO_SUCCESS = 'false';
   });
 
   afterAll(() => {
     delete process.env.WEB_APP_URL;
+    delete process.env.PAYMENT_MOCK_AUTO_SUCCESS;
   });
 
   describe('startCheckout', () => {
@@ -126,6 +129,7 @@ describe('PaymentCheckoutService', () => {
         redirectUrl: expect.stringContaining(
           `/payments/mock/checkout/${saved.checkoutReference}`,
         ),
+        completed: false,
       });
     });
 
@@ -301,6 +305,86 @@ describe('PaymentCheckoutService', () => {
           promotionCycle: 1,
         }),
       });
+    });
+  });
+
+  describe('startCheckout with mock auto-success (no gateway yet)', () => {
+    beforeEach(() => {
+      delete process.env.PAYMENT_MOCK_AUTO_SUCCESS;
+      // The saved row is found again when the result is applied.
+      paymentRepository.findOne.mockImplementation(async ({ where }) =>
+        where.checkoutReference
+          ? {
+              ...paymentRepository.save.mock.calls[0][0],
+              id: 'payment-id',
+            }
+          : null,
+      );
+    });
+
+    it('pays a featured ad at once and returns the web return page', async () => {
+      listingRepository.findOne.mockResolvedValue({
+        id: 'listing-id',
+        name: 'Ad',
+        providerId: 'provider-id',
+        categoryId: 'category-id',
+        promotionStatus: PromotionStatus.PENDING_PAYMENT,
+        promotionCycle: 0,
+      });
+      const createCheckout = jest.spyOn(gateway, 'createCheckout');
+
+      const checkout = await service.startCheckout(
+        {
+          purpose: CheckoutPurpose.PREMIUM_AD,
+          targetId: 'listing-id',
+          method: PaymentMethod.ELECTRONIC,
+        },
+        provider,
+        'ar',
+      );
+
+      expect(checkout).toEqual({
+        paymentId: 'payment-id',
+        redirectUrl:
+          'https://web.example.test/ar/payments/return?paymentId=payment-id',
+        completed: true,
+      });
+      expect(createCheckout).not.toHaveBeenCalled();
+      expect(paymentRepository.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: PaymentStatus.COMPLETED,
+          amount: 75,
+          paidAt: expect.any(Date),
+        }),
+      );
+      expect(paymentService.fulfil).toHaveBeenCalledTimes(1);
+      expect(paymentService.fulfil).toHaveBeenCalledWith(
+        expect.objectContaining({ purpose: PaymentPurpose.PREMIUM_AD }),
+        manager,
+        'ar',
+      );
+      expect(after).toHaveBeenCalled();
+    });
+
+    it('pays contracts the same way', async () => {
+      const checkout = await service.startCheckout(
+        {
+          purpose: CheckoutPurpose.CONTRACT,
+          targetId: 'contract-id',
+          method: PaymentMethod.ELECTRONIC,
+        },
+        customer,
+      );
+
+      expect(checkout.completed).toBe(true);
+      expect(paymentService.fulfil).toHaveBeenCalledWith(
+        expect.objectContaining({
+          purpose: PaymentPurpose.CONTRACT,
+          status: PaymentStatus.COMPLETED,
+        }),
+        manager,
+        'en',
+      );
     });
   });
 

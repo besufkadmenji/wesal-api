@@ -21,6 +21,18 @@ export const paymentGatewayConfig = {
   get isMock(): boolean {
     return paymentGatewayConfig.gateway === 'mock';
   },
+  /**
+   * Temporary, until a real gateway is integrated: the mock settles every
+   * checkout as paid at once instead of showing its Pay / Fail page. Set
+   * PAYMENT_MOCK_AUTO_SUCCESS=false to get the page back (e.g. to test a
+   * failed payment).
+   */
+  get mockAutoSuccess(): boolean {
+    return (
+      (process.env.PAYMENT_MOCK_AUTO_SUCCESS ?? 'true').toLowerCase() !==
+      'false'
+    );
+  },
 };
 
 function trimSlash(url: string): string {
