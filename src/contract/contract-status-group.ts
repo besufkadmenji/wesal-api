@@ -2,7 +2,8 @@ import { registerEnumType } from '@nestjs/graphql';
 import { ContractStatus } from './enums/contract-status.enum';
 
 /**
- * S4-1: the 7 My Contracts tabs from the BRD/Figma ("All" is no filter).
+ * S4-1: the My Contracts tabs from the BRD/Figma ("All" is no filter), plus
+ * Rejected (ClickUp 869fnv1ud).
  * Every API status belongs to one tab; DRAFT is never listed.
  */
 export enum ContractStatusGroup {
@@ -12,6 +13,7 @@ export enum ContractStatusGroup {
   IN_DELIVERY = 'IN_DELIVERY',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED',
+  REJECTED = 'REJECTED',
 }
 
 registerEnumType(ContractStatusGroup, {
@@ -25,8 +27,8 @@ export const CONTRACT_STATUS_GROUPS: Record<
 > = {
   [ContractStatus.DRAFT]: null,
   [ContractStatus.PENDING]: ContractStatusGroup.PENDING_ACCEPTANCE,
-  // The customer can edit and resend, so it stays with pending acceptance.
-  [ContractStatus.REJECTED]: ContractStatusGroup.PENDING_ACCEPTANCE,
+  // Its own tab so providers can filter by it (ClickUp 869fnv1ud).
+  [ContractStatus.REJECTED]: ContractStatusGroup.REJECTED,
   [ContractStatus.ACCEPTED]: ContractStatusGroup.PENDING_PAYMENT,
   [ContractStatus.IN_PROGRESS]: ContractStatusGroup.IN_PROGRESS,
   [ContractStatus.AWAITING_CUSTOMER_CONFIRMATION]:
