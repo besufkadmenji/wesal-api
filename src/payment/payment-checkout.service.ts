@@ -156,6 +156,22 @@ export class PaymentCheckoutService {
       },
     );
 
+    // Temporary until a real gateway is integrated: settle the mock checkout
+    // as paid straight away and send the payer to the return page.
+    if (gateway.name === 'MOCK' && paymentGatewayConfig.mockAutoSuccess) {
+      await this.applyGatewayResult({
+        reference: payment.checkoutReference!,
+        outcome: 'SUCCEEDED',
+        failureReason: null,
+        raw: { gateway: 'mock', auto: true },
+      });
+      return {
+        paymentId: payment.id,
+        redirectUrl: this.returnUrl(payment.id, language),
+        completed: true,
+      };
+    }
+
     try {
       const { redirectUrl } = await gateway.createCheckout({
         reference: payment.checkoutReference!,
@@ -166,7 +182,7 @@ export class PaymentCheckoutService {
         returnUrl: this.returnUrl(payment.id, language),
         language,
       });
-      return { paymentId: payment.id, redirectUrl };
+      return { paymentId: payment.id, redirectUrl, completed: false };
     } catch (error) {
       this.logger.error(
         `Gateway ${gateway.name} refused checkout ${payment.id}`,

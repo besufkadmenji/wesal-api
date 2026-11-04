@@ -7,6 +7,8 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
 } from '@aws-sdk/client-s3';
+import { createReadStream } from 'fs';
+import { mkdir, readFile, stat, unlink, writeFile } from 'fs/promises';
 import * as path from 'path';
 
 export interface FileUploadResult {
@@ -22,8 +24,21 @@ export class FileUploadService {
   private bucket: string;
   private region: string;
   private endpoint?: string;
+  /**
+   * Temporary, for local development: with no S3 credentials configured,
+   * files are kept on disk under `uploads/` instead of failing every upload.
+   */
+  private localDir: string | null;
 
   constructor(private configService: ConfigService) {
+    this.localDir = this.configService.get<string>('S3_ACCESS_KEY')
+      ? null
+      : path.resolve(
+          this.configService.get<string>(
+            'UPLOAD_DIR',
+            path.join(process.cwd(), 'uploads'),
+          ),
+        );
     this.bucket = this.configService.get<string>('S3_BUCKET', 'wesal');
     this.region = this.configService.get<string>('S3_REGION', 'auto');
     this.endpoint = this.configService.get<string>('S3_ENDPOINT');
@@ -49,6 +64,18 @@ export class FileUploadService {
 
     // Build S3 key with optional subfolder
     const s3Key = subfolder ? `${subfolder}/${uniqueFilename}` : uniqueFilename;
+
+    if (this.localDir) {
+      const target = this.localPath(s3Key);
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, buffer);
+      return {
+        filename: uniqueFilename,
+        path: s3Key,
+        url: `/files/${s3Key}`,
+        size: buffer.length,
+      };
+    }
 
     // Upload to S3
     const putCommand = new PutObjectCommand({
@@ -77,6 +104,7 @@ export class FileUploadService {
   }
 
   async getFile(s3Key: string): Promise<Buffer> {
+    if (this.localDir) return this.readLocal(s3Key);
     const getCommand = new GetObjectCommand({
       Bucket: this.bucket,
       Key: s3Key,
@@ -102,6 +130,10 @@ export class FileUploadService {
   }
 
   deleteFile(s3Key: string): boolean {
+    if (this.localDir) {
+      unlink(this.localPath(s3Key)).catch(() => undefined);
+      return true;
+    }
     try {
       const deleteCommand = new DeleteObjectCommand({
         Bucket: this.bucket,
@@ -120,6 +152,7 @@ export class FileUploadService {
   async getFileWithMetadata(
     s3Key: string,
   ): Promise<{ buffer: Buffer; contentType?: string }> {
+    if (this.localDir) return { buffer: await this.readLocal(s3Key) };
     const getCommand = new GetObjectCommand({
       Bucket: this.bucket,
       Key: s3Key,
@@ -160,6 +193,17 @@ export class FileUploadService {
     contentLength: number;
     contentRange?: string;
   }> {
+    if (this.localDir) {
+      const target = this.localPath(s3Key);
+      const { size } = await this.statLocal(target);
+      return {
+        stream: createReadStream(target, range),
+        contentLength: range ? range.end - range.start + 1 : size,
+        contentRange: range
+          ? `bytes ${range.start}-${range.end}/${size}`
+          : undefined,
+      };
+    }
     const getCommand = new GetObjectCommand({
       Bucket: this.bucket,
       Key: s3Key,
@@ -188,6 +232,10 @@ export class FileUploadService {
   async getFileMetadata(
     s3Key: string,
   ): Promise<{ contentType?: string; contentLength: number }> {
+    if (this.localDir) {
+      const { size } = await this.statLocal(this.localPath(s3Key));
+      return { contentLength: size };
+    }
     const getCommand = new GetObjectCommand({
       Bucket: this.bucket,
       Key: s3Key,
@@ -207,6 +255,33 @@ export class FileUploadService {
   }
 
   getUploadDir(): string {
-    return `s3://${this.bucket}`;
+    return this.localDir ?? `s3://${this.bucket}`;
+  }
+
+  /** Keys stay inside the upload folder (no `../` escapes). */
+  private localPath(key: string): string {
+    const root = this.localDir!;
+    const target = path.resolve(root, key);
+    if (target !== root && !target.startsWith(root + path.sep)) {
+      throw new Error('NoSuchKey: invalid file path');
+    }
+    return target;
+  }
+
+  private async readLocal(key: string): Promise<Buffer> {
+    try {
+      return await readFile(this.localPath(key));
+    } catch {
+      // Same wording as S3 so callers answer 404.
+      throw new Error(`NoSuchKey: ${key}`);
+    }
+  }
+
+  private async statLocal(target: string) {
+    try {
+      return await stat(target);
+    } catch {
+      throw new Error(`NoSuchKey: ${path.basename(target)}`);
+    }
   }
 }

@@ -7,4 +7,10 @@ export class PaymentCheckout {
 
   @Field({ description: 'Send the customer here to pay' })
   redirectUrl: string;
+
+  @Field({
+    description:
+      'Already paid (temporary mock auto-success); redirectUrl is the web return page',
+  })
+  completed: boolean;
 }

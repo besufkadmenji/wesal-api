@@ -85,6 +85,8 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     process.env.ELASTIC_ENABLED = 'false';
     process.env.JWT_SECRET = 'sprint-3-e2e-secret';
     process.env.PAYMENT_GATEWAY = 'mock';
+    // These flows drive the mock Pay / Fail page themselves.
+    process.env.PAYMENT_MOCK_AUTO_SUCCESS = 'false';
     process.env.WEB_APP_URL = 'https://web.e2e.test';
 
     const client = new Client({
