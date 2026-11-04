@@ -22,9 +22,13 @@ describe('contract status groups (S4-1)', () => {
         ContractStatus.IN_PROGRESS,
       ].sort(),
     );
-    expect(statusesInGroup(ContractStatusGroup.PENDING_ACCEPTANCE)).toEqual(
-      expect.arrayContaining([ContractStatus.PENDING, ContractStatus.REJECTED]),
-    );
+    expect(statusesInGroup(ContractStatusGroup.PENDING_ACCEPTANCE)).toEqual([
+      ContractStatus.PENDING,
+    ]);
+    // ClickUp 869fnv1ud: rejected contracts have their own tab.
+    expect(statusesInGroup(ContractStatusGroup.REJECTED)).toEqual([
+      ContractStatus.REJECTED,
+    ]);
     expect(statusesInGroup(ContractStatusGroup.IN_DELIVERY)).toEqual([
       ContractStatus.DELIVERY_IN_PROGRESS,
     ]);
