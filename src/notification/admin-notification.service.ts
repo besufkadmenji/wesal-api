@@ -6,6 +6,7 @@ import { I18nNotFoundException } from '../../lib/errors';
 import type { IPaginatedType } from '../../lib/common/dto/paginated-response';
 import { I18nService } from '../../lib/i18n/i18n.service';
 import type { LanguageCode } from '../../lib/i18n/language.types';
+import { PushService } from '../push/push.service';
 import { PUB_SUB } from '../../lib/pubsub/pubsub.module';
 import { Admin } from '../admin/entities/admin.entity';
 import { AdminStatus } from '../admin/enums/admin-status.enum';
@@ -45,6 +46,7 @@ export class AdminNotificationService {
     @InjectRepository(Admin)
     private readonly adminRepository: Repository<Admin>,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
+    private readonly pushService: PushService,
   ) {}
 
   /**
@@ -78,6 +80,8 @@ export class AdminNotificationService {
         await this.pubSub.publish(ADMIN_NOTIFICATION_ADDED_EVENT, {
           adminNotificationAdded: notification,
         } satisfies AdminNotificationAddedPayload);
+        // ClickUp 869fp1jmt: also reach admins whose panel is closed.
+        void this.pushService.sendForNotification(notification);
       }
     } catch (error) {
       this.logger.warn(

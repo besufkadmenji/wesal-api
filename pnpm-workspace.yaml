@@ -1,5 +1,6 @@
 allowBuilds:
   '@apollo/protobufjs': true
+  '@firebase/util': false
   '@nestjs/core': true
   '@parcel/watcher': false
   '@scarf/scarf': true
