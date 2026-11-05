@@ -13,6 +13,7 @@ import { Category } from '../category/entities/category.entity';
 import { NotificationModule } from '../notification/notification.module';
 import { SettingModule } from '../setting/setting.module';
 import { AdminPermissionGuardModule } from '../../lib/common/admin-permission-guard.module';
+import { PushModule } from '../push/push.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { AdminPermissionGuardModule } from '../../lib/common/admin-permission-gu
     ]),
     SettingModule,
     NotificationModule,
+    PushModule,
     AdminPermissionGuardModule,
   ],
   providers: [

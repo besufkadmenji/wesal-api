@@ -25,6 +25,8 @@ import { MessageKind } from './enums/message-kind.enum';
 import { ConversationService } from './conversation.service';
 import { ConversationStatus } from './enums/conversation-status.enum';
 import { redactContactDetails } from '../../lib/security/contact-redaction';
+import { PushService } from '../push/push.service';
+import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
 
 export const MESSAGE_ADDED_EVENT = 'messageAdded';
 
@@ -52,6 +54,7 @@ export class MessageService {
     private readonly providerRepository: Repository<Provider>,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
     private readonly conversationService: ConversationService,
+    private readonly pushService: PushService,
   ) {}
 
   /** True when the principal is the customer or the provider of a conversation. */
@@ -169,8 +172,45 @@ export class MessageService {
       participants: this.participants(conversation),
     };
     await this.pubSub.publish(MESSAGE_ADDED_EVENT, payload);
+    // Reach the other side even when they don't have the site open.
+    void this.pushToCounterparty(conversation, populated, senderType);
 
     return populated;
+  }
+
+  /** FCM push of a new chat message to the other participant; never throws. */
+  private async pushToCounterparty(
+    conversation: Conversation,
+    message: Message,
+    senderType: ConversationSenderType,
+  ): Promise<void> {
+    try {
+      const fromProvider = senderType === ConversationSenderType.PROVIDER;
+      const sender = await this.resolveSender(message);
+      const commercialName =
+        sender && 'commercialName' in sender ? sender.commercialName : null;
+      const senderName =
+        commercialName?.trim() || sender?.name?.trim() || 'Wesal';
+      await this.pushService.sendForChatMessage({
+        recipient: fromProvider
+          ? {
+              recipientId: conversation.userId,
+              recipientType: NotificationRecipientType.USER,
+            }
+          : {
+              recipientId: conversation.providerId,
+              recipientType: NotificationRecipientType.PROVIDER,
+            },
+        conversationId: conversation.id,
+        senderName,
+        content: message.content ?? '',
+        hasPhoto: Boolean(
+          (message.metadata as { attachment?: unknown } | null)?.attachment,
+        ),
+      });
+    } catch {
+      // Push is best-effort; the message is already saved and delivered live.
+    }
   }
 
   async assertSubscriptionAccess(
