@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
 } from 'class-validator';
@@ -88,4 +89,10 @@ export class ListingPaginationInput extends PaginationInput {
   @Min(1)
   @Max(5)
   minRating?: number;
+
+  /** Only this provider's ads (provider page, ClickUp 869fnvz70). */
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsUUID()
+  providerId?: string;
 }

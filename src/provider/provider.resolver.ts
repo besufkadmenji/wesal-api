@@ -3,6 +3,7 @@ import {
   Args,
   Context,
   ID,
+  Int,
   Mutation,
   Parent,
   Query,
@@ -331,5 +332,21 @@ export class ProviderResolver {
   })
   isNewlyAdded(@Parent() provider: Provider): boolean {
     return isNewlyAddedProvider(provider);
+  }
+
+  @ResolveField(() => Int, {
+    nullable: true,
+    description: 'Published ads, for the public provider page',
+  })
+  listingsCount(@Parent() provider: Provider): Promise<number> {
+    return this.providerService.countActiveListings(provider.id);
+  }
+
+  @ResolveField(() => Int, {
+    nullable: true,
+    description: 'Completed contracts, for the public provider page',
+  })
+  contractsCount(@Parent() provider: Provider): Promise<number> {
+    return this.providerService.countCompletedContracts(provider.id);
   }
 }

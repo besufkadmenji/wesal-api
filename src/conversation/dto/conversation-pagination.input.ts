@@ -1,5 +1,12 @@
 import { InputType, Field, registerEnumType } from '@nestjs/graphql';
-import { IsOptional, IsUUID, IsIn, IsEnum, IsString, IsDate } from 'class-validator';
+import {
+  IsOptional,
+  IsUUID,
+  IsIn,
+  IsEnum,
+  IsString,
+  IsDate,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { PaginationInput } from '../../../lib/common/dto/pagination.input';
 import { ConversationStatus } from '../enums/conversation-status.enum';
