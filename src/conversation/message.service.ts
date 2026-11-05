@@ -202,6 +202,7 @@ export class MessageService {
               recipientType: NotificationRecipientType.PROVIDER,
             },
         conversationId: conversation.id,
+        messageId: message.id,
         senderName,
         content: message.content ?? '',
         hasPhoto: Boolean(

@@ -130,12 +130,15 @@ export class PushService {
   }
 
   /**
-   * A chat message for someone who may not have the site open. One push per
-   * chat: a newer message replaces the previous one instead of stacking.
+   * A chat message for someone who may not have the site open. Each message
+   * gets its own tag (reusing one per chat made Chrome on macOS show its
+   * "updated in the background" notice); `group` lets the service worker
+   * close the older ones for the same chat.
    */
   async sendForChatMessage(input: {
     recipient: PushOwner;
     conversationId: string;
+    messageId: string;
     senderName: string;
     content: string;
     hasPhoto: boolean;
@@ -144,9 +147,9 @@ export class PushService {
     await this.sendToOwner(
       input.recipient,
       {
-        tag: `chat-${input.conversationId}`,
+        tag: `chat-${input.messageId}`,
+        group: `chat-${input.conversationId}`,
         link: `/conversations/${input.conversationId}`,
-        renotify: true,
         text: (language) => ({
           title: input.senderName,
           body:
@@ -164,7 +167,7 @@ export class PushService {
     message: {
       tag: string;
       link: string;
-      renotify?: boolean;
+      group?: string;
       text: (language: 'ar' | 'en') => { title: string; body: string };
     },
     logLabel: string,
@@ -193,7 +196,7 @@ export class PushService {
               body,
               link: message.link,
               lang: language,
-              ...(message.renotify ? { renotify: '1' } : {}),
+              ...(message.group ? { group: message.group } : {}),
             },
             webpush: { headers: { Urgency: 'high', TTL: '86400' } },
           });

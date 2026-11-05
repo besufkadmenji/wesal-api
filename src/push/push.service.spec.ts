@@ -228,7 +228,7 @@ describe('PushService (ClickUp 869fp1jmt)', () => {
     );
   });
 
-  it('sends a chat message as one replaceable push per chat', async () => {
+  it('sends a chat message as its own push, grouped by chat', async () => {
     const repository = makeRepository();
     repository.find.mockResolvedValue([
       { token: 'ar-token', language: 'ar' },
@@ -243,6 +243,7 @@ describe('PushService (ClickUp 869fp1jmt)', () => {
         recipientType: NotificationRecipientType.PROVIDER,
       },
       conversationId: 'c1',
+      messageId: 'm9',
       senderName: 'Sara',
       content: '',
       hasPhoto: true,
@@ -253,11 +254,11 @@ describe('PushService (ClickUp 869fp1jmt)', () => {
     );
     expect(messages).toEqual([
       expect.objectContaining({
-        notificationId: 'chat-c1',
+        notificationId: 'chat-m9',
+        group: 'chat-c1',
         title: 'Sara',
         body: 'صورة',
         link: '/conversations/c1',
-        renotify: '1',
       }),
       expect.objectContaining({ body: 'Photo', lang: 'en' }),
     ]);
