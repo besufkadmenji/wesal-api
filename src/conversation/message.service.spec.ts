@@ -111,6 +111,7 @@ describe('MessageService.create with photos', () => {
       expect(pushService.sendForChatMessage).toHaveBeenCalledWith({
         recipient: { recipientId: 'p1', recipientType: 'PROVIDER' },
         conversationId: 'c1',
+        messageId: 'm1',
         senderName: 'Sara',
         content: 'Are you free tomorrow?',
         hasPhoto: false,
