@@ -13,6 +13,7 @@ describe('AdminNotificationService', () => {
   let saved: Array<Partial<Notification>>;
   let adminFind: jest.Mock;
   let publish: jest.Mock;
+  let sendPush: jest.Mock;
   let update: jest.Mock;
   let findOne: jest.Mock;
   let save: jest.Mock;
@@ -22,6 +23,7 @@ describe('AdminNotificationService', () => {
     saved = [];
     adminFind = jest.fn(() => Promise.resolve([{ id: 'a1' }, { id: 'a2' }]));
     publish = jest.fn(() => Promise.resolve());
+    sendPush = jest.fn(() => Promise.resolve());
     update = jest.fn(() => Promise.resolve());
     findOne = jest.fn();
     save = jest.fn((value: Partial<Notification> | Partial<Notification>[]) => {
@@ -42,6 +44,7 @@ describe('AdminNotificationService', () => {
       } as unknown as Repository<Notification>,
       { find: adminFind } as unknown as Repository<Admin>,
       { publish } as unknown as PubSub,
+      { sendForNotification: sendPush } as never,
     );
   });
 
@@ -78,6 +81,8 @@ describe('AdminNotificationService', () => {
         recipientId: 'a2',
       }) as Notification,
     });
+    // ClickUp 869fp1jmt: each admin's copy also goes out through FCM.
+    expect(sendPush).toHaveBeenCalledTimes(2);
   });
 
   it('never throws, so the business action that triggered it still succeeds', async () => {

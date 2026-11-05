@@ -14,9 +14,11 @@ import { BroadcastResolver } from './broadcast.resolver';
 import { Admin } from '../admin/entities/admin.entity';
 import { AdminNotificationService } from './admin-notification.service';
 import { AdminNotificationResolver } from './admin-notification.resolver';
+import { PushModule } from '../push/push.module';
 
 @Module({
   imports: [
+    PushModule,
     TypeOrmModule.forFeature([
       Notification,
       NotificationBroadcast,

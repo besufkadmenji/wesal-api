@@ -20,6 +20,7 @@ import { NOTIFICATION_ERROR_MESSAGES } from './errors/notification.error-message
 import { NotificationRecipientType } from './enums/notification-recipient-type.enum';
 import type { BilingualText } from './notification-texts';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { PushService } from '../push/push.service';
 
 export const NOTIFICATION_ADDED_EVENT = 'notificationAdded';
 
@@ -37,6 +38,7 @@ export class NotificationService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
+    private readonly pushService: PushService,
   ) {}
 
   async create(
@@ -351,8 +353,13 @@ export class NotificationService {
     };
   }
 
-  /** Pushes a saved notification to its recipient; never throws. */
+  /**
+   * Pushes a saved notification to its recipient: live to an open site, and
+   * through FCM to their browsers (ClickUp 869fp1jmt). Never throws.
+   */
   async publishSafely(notification: Notification): Promise<void> {
+    // FCM is slower than the socket; don't hold up the caller for it.
+    void this.pushService.sendForNotification(notification);
     try {
       await this.pubSub.publish(NOTIFICATION_ADDED_EVENT, {
         notificationAdded: notification,

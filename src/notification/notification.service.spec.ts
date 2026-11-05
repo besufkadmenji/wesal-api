@@ -21,10 +21,12 @@ describe('NotificationService realtime publishing', () => {
   };
   const userRepository = { findOne: jest.fn() };
   const pubSub = { publish: jest.fn() };
+  const pushService = { sendForNotification: jest.fn(() => Promise.resolve()) };
   const service = new NotificationService(
     repository as never,
     userRepository as never,
     pubSub as never,
+    pushService as never,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -45,6 +47,8 @@ describe('NotificationService realtime publishing', () => {
     expect(pubSub.publish).toHaveBeenCalledWith(NOTIFICATION_ADDED_EVENT, {
       notificationAdded: saved,
     });
+    // ClickUp 869fp1jmt: the same notification also goes out through FCM.
+    expect(pushService.sendForNotification).toHaveBeenCalledWith(saved);
   });
 
   it('does not fail the persisted operation when realtime publishing fails', async () => {
