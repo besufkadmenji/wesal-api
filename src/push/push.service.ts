@@ -21,6 +21,8 @@ const DEAD_TOKEN_ERRORS = new Set([
   'messaging/invalid-registration-token',
 ]);
 
+const PHOTO_LABEL = { ar: 'صورة', en: 'Photo' } as const;
+
 /** Who a browser belongs to: a customer, a provider or an admin. */
 export type PushOwner = {
   recipientId: string;
@@ -104,47 +106,94 @@ export class PushService {
   }
 
   async sendForNotification(notification: Notification): Promise<void> {
+    // Admin notifications open the admin panel, the rest the website.
+    const link = (
+      notification.recipientType === NotificationRecipientType.ADMIN
+        ? adminPushLink
+        : pushLink
+    )(notification.relatedEntityType, notification.relatedEntityId);
+    await this.sendToOwner(
+      {
+        recipientId: notification.recipientId,
+        recipientType: notification.recipientType,
+      },
+      {
+        tag: notification.id,
+        link,
+        text: (language) => ({
+          title: localizedNotificationField(notification, 'title', language),
+          body: localizedNotificationField(notification, 'message', language),
+        }),
+      },
+      `notification ${notification.id}`,
+    );
+  }
+
+  /**
+   * A chat message for someone who may not have the site open. One push per
+   * chat: a newer message replaces the previous one instead of stacking.
+   */
+  async sendForChatMessage(input: {
+    recipient: PushOwner;
+    conversationId: string;
+    senderName: string;
+    content: string;
+    hasPhoto: boolean;
+  }): Promise<void> {
+    const preview = input.content.trim();
+    await this.sendToOwner(
+      input.recipient,
+      {
+        tag: `chat-${input.conversationId}`,
+        link: `/conversations/${input.conversationId}`,
+        renotify: true,
+        text: (language) => ({
+          title: input.senderName,
+          body:
+            (preview.length > 140 ? `${preview.slice(0, 137)}...` : preview) ||
+            (input.hasPhoto ? PHOTO_LABEL[language] : ''),
+        }),
+      },
+      `chat ${input.conversationId}`,
+    );
+  }
+
+  /** Sends one push to every browser of `owner`, in each one's language. */
+  private async sendToOwner(
+    owner: PushOwner,
+    message: {
+      tag: string;
+      link: string;
+      renotify?: boolean;
+      text: (language: 'ar' | 'en') => { title: string; body: string };
+    },
+    logLabel: string,
+  ): Promise<void> {
     try {
       const messaging = this.getMessagingClient();
       if (!messaging) return;
-      const devices = await this.deviceRepository.find({
-        where: {
-          recipientId: notification.recipientId,
-          recipientType: notification.recipientType,
-        },
-      });
+      const devices = await this.deviceRepository.find({ where: owner });
       if (devices.length === 0) return;
 
-      // Admin notifications open the admin panel, the rest the website.
-      const link = (
-        notification.recipientType === NotificationRecipientType.ADMIN
-          ? adminPushLink
-          : pushLink
-      )(notification.relatedEntityType, notification.relatedEntityId);
       const dead: string[] = [];
       for (const language of ['ar', 'en'] as const) {
         const tokens = devices
           .filter((device) => (device.language ?? 'ar') === language)
           .map((device) => device.token);
+        if (tokens.length === 0) continue;
+        const { title, body } = message.text(language);
         for (let i = 0; i < tokens.length; i += MULTICAST_LIMIT) {
           const batch = tokens.slice(i, i + MULTICAST_LIMIT);
           // Data-only: the site's service worker decides how to show it.
           const result = await messaging.sendEachForMulticast({
             tokens: batch,
             data: {
-              notificationId: notification.id,
-              title: localizedNotificationField(
-                notification,
-                'title',
-                language,
-              ),
-              body: localizedNotificationField(
-                notification,
-                'message',
-                language,
-              ),
-              link,
+              notificationId: message.tag,
+              title,
+              body,
+              link: message.link,
               lang: language,
+              ...(message.renotify ? { renotify: '1' } : {}),
             },
             webpush: { headers: { Urgency: 'high', TTL: '86400' } },
           });
@@ -163,9 +212,7 @@ export class PushService {
         await this.deviceRepository.delete({ token: In(dead) });
       }
     } catch (error) {
-      this.logger.warn(
-        `Push for notification ${notification.id} failed: ${String(error)}`,
-      );
+      this.logger.warn(`Push for ${logLabel} failed: ${String(error)}`);
     }
   }
 }

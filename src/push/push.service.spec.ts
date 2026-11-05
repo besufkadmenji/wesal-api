@@ -227,4 +227,39 @@ describe('PushService (ClickUp 869fp1jmt)', () => {
       }),
     );
   });
+
+  it('sends a chat message as one replaceable push per chat', async () => {
+    const repository = makeRepository();
+    repository.find.mockResolvedValue([
+      { token: 'ar-token', language: 'ar' },
+      { token: 'en-token', language: 'en' },
+    ]);
+    sendEachForMulticast.mockResolvedValue({ responses: [{ success: true }] });
+    const service = new PushService(repository as never);
+
+    await service.sendForChatMessage({
+      recipient: {
+        recipientId: 'p1',
+        recipientType: NotificationRecipientType.PROVIDER,
+      },
+      conversationId: 'c1',
+      senderName: 'Sara',
+      content: '',
+      hasPhoto: true,
+    });
+
+    const messages = sendEachForMulticast.mock.calls.map(
+      ([message]: [{ data: Record<string, string> }]) => message.data,
+    );
+    expect(messages).toEqual([
+      expect.objectContaining({
+        notificationId: 'chat-c1',
+        title: 'Sara',
+        body: 'صورة',
+        link: '/conversations/c1',
+        renotify: '1',
+      }),
+      expect.objectContaining({ body: 'Photo', lang: 'en' }),
+    ]);
+  });
 });
