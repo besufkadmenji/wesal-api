@@ -117,6 +117,18 @@ export class MessageService {
         language,
       );
     }
+    const content = (createMessageInput.content ?? '').trim();
+    const attachment = createMessageInput.attachment;
+    if (!content && !attachment) {
+      const translated = I18nService.translate(
+        MESSAGE_ERROR_MESSAGES[MESSAGE_ERROR_CODES.EMPTY_MESSAGE_CONTENT],
+        language,
+      );
+      throw new I18nBadRequestException(
+        { en: translated, ar: translated },
+        language,
+      );
+    }
     const senderType =
       principal.type === 'provider'
         ? ConversationSenderType.PROVIDER
@@ -129,9 +141,18 @@ export class MessageService {
           conversationId: createMessageInput.conversationId,
           senderId: principal.sub,
           senderType,
-          content: redactContactDetails(createMessageInput.content),
+          content: redactContactDetails(content),
           kind: MessageKind.TEXT,
-          metadata: null,
+          // ClickUp 869fnwhm3: a photo rides on the text message's metadata.
+          metadata: attachment
+            ? {
+                attachment: {
+                  filename: attachment.filename,
+                  originalFilename: attachment.originalFilename,
+                  size: attachment.size,
+                },
+              }
+            : null,
         });
         const savedMessage = await repository.save(message);
         await manager.getRepository(Conversation).update(conversation.id, {

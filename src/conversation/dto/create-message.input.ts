@@ -1,5 +1,14 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsNotEmpty, IsUUID, IsString, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  ValidateNested,
+} from 'class-validator';
+import { MessageAttachmentInput } from './message-attachment.input';
 
 @InputType()
 export class CreateMessageInput {
@@ -9,9 +18,16 @@ export class CreateMessageInput {
   conversationId: string;
 
   // The sender is taken from the authenticated token, never from the client.
-  @Field()
-  @IsNotEmpty()
+  // Text may be empty when a photo is sent; the service refuses both empty.
+  @Field({ defaultValue: '' })
+  @IsOptional()
   @IsString()
-  @MinLength(1)
+  @MaxLength(2000)
   content: string;
+
+  @Field(() => MessageAttachmentInput, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => MessageAttachmentInput)
+  attachment?: MessageAttachmentInput;
 }
