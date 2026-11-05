@@ -303,6 +303,43 @@ describe('ListingService provider finalization', () => {
     );
   });
 
+  it("lists only one provider's ads for the provider page (ClickUp 869fnvz70)", async () => {
+    const andWhere = jest.fn().mockReturnThis();
+    const qb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere,
+      leftJoinAndSelect: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      setParameter: jest.fn().mockReturnThis(),
+      setParameters: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      skip: jest.fn().mockReturnThis(),
+      take: jest.fn().mockReturnThis(),
+      getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+    };
+    listingRepository.createQueryBuilder.mockReturnValue(qb);
+    // The search index has no provider filter, so Postgres answers.
+    const searchListings = jest.fn();
+    Object.assign(searchService, { isEnabled: true, searchListings });
+
+    try {
+      await service.findAll({
+        page: 1,
+        limit: 10,
+        search: 'pipe',
+        providerId: 'provider-id',
+      });
+    } finally {
+      Object.assign(searchService, { isEnabled: false });
+    }
+
+    expect(searchListings).not.toHaveBeenCalled();
+    expect(andWhere).toHaveBeenCalledWith('listing.providerId = :providerId', {
+      providerId: 'provider-id',
+    });
+  });
+
   it('returns one trusted ad per Trust-badge provider in query order', async () => {
     listingRepository.query.mockResolvedValue([{ id: 'b' }, { id: 'a' }]);
     listingRepository.find.mockResolvedValue([{ id: 'a' }, { id: 'b' }]);

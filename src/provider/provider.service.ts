@@ -41,6 +41,8 @@ import { NotificationService } from '../notification/notification.service';
 import { providerHasUnfinishedContracts } from '../contract/unfinished-contracts';
 import { Listing } from '../listing/entities/listing.entity';
 import { ListingStatus } from '../listing/enums/listing.enum';
+import { Contract } from '../contract/entities/contract.entity';
+import { ContractStatus } from '../contract/enums/contract-status.enum';
 
 @Injectable()
 export class ProviderService {
@@ -970,5 +972,19 @@ export class ProviderService {
     await this.findOne(id, language);
     await this.providerRepository.update(id, { avatarFilename: null });
     return true;
+  }
+
+  /** Published ads shown on the public provider page (ClickUp 869fnvz70). */
+  countActiveListings(providerId: string): Promise<number> {
+    return this.providerRepository.manager.count(Listing, {
+      where: { providerId, status: ListingStatus.ACTIVE },
+    });
+  }
+
+  /** Completed contracts shown on the public provider page. */
+  countCompletedContracts(providerId: string): Promise<number> {
+    return this.providerRepository.manager.count(Contract, {
+      where: { providerId, status: ContractStatus.COMPLETED },
+    });
   }
 }
