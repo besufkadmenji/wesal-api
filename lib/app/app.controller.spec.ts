@@ -70,7 +70,10 @@ describe('AppController', () => {
         .spyOn(fileUploadService, 'saveFile')
         .mockResolvedValue(mockResult);
 
-      const result = await appController.uploadFile(mockFile, undefined);
+      const result = await appController.uploadFile(
+        mockFile as never,
+        undefined,
+      );
 
       expect(result).toEqual({
         filename: mockResult.filename,
@@ -86,8 +89,70 @@ describe('AppController', () => {
 
     it('should throw error if no file provided', async () => {
       await expect(
-        appController.uploadFile(undefined, undefined),
+        appController.uploadFile(undefined as never, undefined),
       ).rejects.toThrow();
+    });
+  });
+
+  describe('uploadRegistrationFile (sign-up, no account yet)', () => {
+    const file = {
+      buffer: Buffer.from('%PDF-1.4'),
+      originalname: 'commercial-registration.pdf',
+      mimetype: 'application/pdf',
+      size: 8,
+    };
+    const request = (ip: string) =>
+      ({ headers: { 'x-forwarded-for': ip } }) as never;
+
+    it('needs no login token', () => {
+      /* eslint-disable @typescript-eslint/unbound-method -- reading decorator metadata */
+      const guards = Reflect.getMetadata(
+        '__guards__',
+        AppController.prototype.uploadRegistrationFile,
+      ) as unknown[] | undefined;
+      expect(guards ?? []).toHaveLength(0);
+      expect(
+        Reflect.getMetadata('__guards__', AppController.prototype.uploadFile),
+      ).toHaveLength(1);
+      /* eslint-enable @typescript-eslint/unbound-method */
+    });
+
+    it('stores the file like a normal upload', async () => {
+      jest.spyOn(fileUploadService, 'saveFile').mockResolvedValue({
+        filename: 'abc.pdf',
+        path: 'abc.pdf',
+        url: '',
+        size: 8,
+      });
+      await expect(
+        appController.uploadRegistrationFile(file, request('203.0.113.1')),
+      ).resolves.toEqual({
+        filename: 'abc.pdf',
+        url: '/files/abc.pdf',
+        size: 8,
+      });
+    });
+
+    it('refuses an IP after 10 uploads in an hour', async () => {
+      jest.spyOn(fileUploadService, 'saveFile').mockResolvedValue({
+        filename: 'abc.pdf',
+        path: 'abc.pdf',
+        url: '',
+        size: 8,
+      });
+      for (let i = 0; i < 10; i += 1) {
+        await appController.uploadRegistrationFile(
+          file,
+          request('203.0.113.9'),
+        );
+      }
+      await expect(
+        appController.uploadRegistrationFile(file, request('203.0.113.9')),
+      ).rejects.toMatchObject({ status: 429 });
+      // Other visitors are unaffected.
+      await expect(
+        appController.uploadRegistrationFile(file, request('203.0.113.10')),
+      ).resolves.toBeDefined();
     });
   });
 
