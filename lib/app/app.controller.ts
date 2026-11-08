@@ -2,16 +2,19 @@ import {
   BadRequestException,
   Controller,
   Get,
+  HttpException,
+  HttpStatus,
   NotFoundException,
   Post,
   Query,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
   Param,
   Res,
 } from '@nestjs/common';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
@@ -26,6 +29,46 @@ import { FileUploadService } from '../file-upload';
 import { AppService } from './app.service';
 import { JwtAuthGuard } from '../../src/auth/guards/jwt-auth.guard';
 import { AdminExport } from '../../src/admin/decorators/admin-export.decorator';
+import { clientIp, UploadRateLimiter } from '../security/upload-rate-limit';
+
+type UploadedBlob = {
+  buffer: Buffer;
+  originalname: string;
+  mimetype: string;
+  size: number;
+};
+
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+/** Signed-in uploads: photos (incl. WebP chat photos), videos and PDFs. */
+const UPLOAD_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'video/mp4',
+  'application/pdf',
+]);
+/** Sign-up uploads: profile photo or commercial registration document. */
+const REGISTRATION_UPLOAD_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+]);
+const typeFilter =
+  (allowed: Set<string>) =>
+  (
+    _request: unknown,
+    file: { mimetype: string },
+    callback: (error: Error | null, accept: boolean) => void,
+  ) =>
+    callback(
+      allowed.has(file.mimetype)
+        ? null
+        : new BadRequestException('Unsupported file type'),
+      allowed.has(file.mimetype),
+    );
+// Sign-up uploads happen before an account (and token) exists.
+const registrationUploads = new UploadRateLimiter(10, 60 * 60 * 1000);
 
 @ApiTags('General', 'File Management')
 @Controller()
@@ -228,16 +271,8 @@ export class AppController {
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 10 * 1024 * 1024 },
-      fileFilter: (_request, file, callback) => {
-        const allowed = new Set(['image/jpeg', 'image/png', 'video/mp4']);
-        callback(
-          allowed.has(file.mimetype)
-            ? null
-            : new BadRequestException('Unsupported file type'),
-          allowed.has(file.mimetype),
-        );
-      },
+      limits: { fileSize: MAX_UPLOAD_BYTES },
+      fileFilter: typeFilter(UPLOAD_TYPES),
     }),
   )
   @ApiOperation({ summary: 'Upload a file' })
@@ -274,15 +309,46 @@ export class AppController {
   })
   @ApiResponse({ status: 400, description: 'Bad request - Invalid file' })
   async uploadFile(
-    @UploadedFile()
-    file: {
-      buffer: Buffer;
-      originalname: string;
-      mimetype: string;
-      size: number;
-    },
+    @UploadedFile() file: UploadedBlob,
     @Query('subfolder') subfolder?: string,
   ) {
+    return this.storeUpload(file, subfolder);
+  }
+
+  @Post('upload/registration')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_UPLOAD_BYTES },
+      fileFilter: typeFilter(REGISTRATION_UPLOAD_TYPES),
+    }),
+  )
+  @ApiOperation({
+    summary:
+      'Upload a sign-up file (profile photo or commercial registration) before an account exists',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiResponse({ status: 200, description: 'File uploaded successfully' })
+  @ApiResponse({ status: 429, description: 'Too many uploads from this IP' })
+  async uploadRegistrationFile(
+    @UploadedFile() file: UploadedBlob,
+    @Req() request: Request,
+  ) {
+    if (!registrationUploads.tryConsume(clientIp(request))) {
+      throw new HttpException(
+        'Too many uploads, please try again later',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    return this.storeUpload(file);
+  }
+
+  private async storeUpload(file: UploadedBlob, subfolder?: string) {
     if (!file) {
       throw new BadRequestException('No file provided');
     }
