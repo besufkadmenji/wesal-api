@@ -1048,14 +1048,22 @@ describe('ContractService', () => {
       status: ContractStatus.REJECTED,
       version: 1,
     };
+    let savedResend: Record<string, unknown> | undefined;
     contractRepository.findOne
       .mockResolvedValueOnce(rejected)
       .mockResolvedValueOnce(null)
-      .mockResolvedValueOnce(rejected);
-    contractRepository.save.mockImplementation(async (value) => ({
-      id: 'resent-contract-id',
-      ...value,
-    }));
+      .mockResolvedValueOnce(rejected)
+      // ClickUp 869fpe5d6: the answer is re-read with its relations.
+      .mockImplementationOnce(async () => ({
+        ...savedResend,
+        provider: { id: conversation.providerId },
+      }));
+    contractRepository.save.mockImplementation(
+      async (value: Record<string, unknown>) => {
+        savedResend = { id: 'resent-contract-id', ...value };
+        return savedResend;
+      },
+    );
 
     const resent = await service.resendContract(
       {
@@ -1075,6 +1083,7 @@ describe('ContractService', () => {
       version: 2,
       supersedesContractId: rejected.id,
       status: ContractStatus.PENDING,
+      provider: { id: conversation.providerId },
     });
     expect(rejected.status).toBe(ContractStatus.REJECTED);
     expect(signatureRepository.save).toHaveBeenCalledWith(
