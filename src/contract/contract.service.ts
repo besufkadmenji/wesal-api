@@ -525,7 +525,9 @@ export class ContractService {
       result.contract,
       language,
     );
-    return result.contract;
+    // Like H-30: the saved row has no relations, and GraphQL needs the
+    // non-null provider (ClickUp 869fpe5d6).
+    return this.findOne(result.contract.id, principal, language);
   }
 
   async acceptContract(

@@ -2461,6 +2461,76 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     });
   });
 
+  it('answers resend with the full contract over GraphQL (ClickUp 869fpe5d6)', async () => {
+    const contracts = app.get(DataSource).getRepository(Contract);
+    const template = await contracts.findOneByOrFail({
+      id: transactionContractId,
+    });
+    const latest = await contracts.findOneOrFail({
+      where: { conversationId: template.conversationId },
+      order: { version: 'DESC' },
+    });
+    const { id: _id, publicId: _number, ...fields } = template;
+    void _id;
+    void _number;
+    const rejected = await contracts.save(
+      contracts.create({
+        ...fields,
+        status: ContractStatus.REJECTED,
+        paidAt: null,
+        acceptedAt: null,
+        completedAt: null,
+        resolvedAt: null,
+        supersedesContractId: null,
+        version: latest.version + 1,
+      }),
+    );
+    const token = jwt.sign(transactionCustomer, process.env.JWT_SECRET!, {
+      expiresIn: '5m',
+    });
+    const resend = async () => {
+      const response = await request(app.getHttpServer())
+        .post('/graphql')
+        .set({ Authorization: `Bearer ${token}` })
+        .send({
+          query: `mutation ($input: ResendContractInput!) { resendContract(input: $input) { id status version supersedesContractId provider { id } client { id } signatures { signatureType } } }`,
+          variables: {
+            input: {
+              rejectedContractId: rejected.id,
+              agreedPrice: 3500,
+              customerAddress: 'Riyadh',
+              signatureData: 'customer-signature-869fpe5d6',
+            },
+          },
+        });
+      return response.body as {
+        data?: { resendContract: Record<string, unknown> };
+        errors?: Array<{ message: string }>;
+      };
+    };
+
+    const first = await resend();
+    expect(first.errors).toBeUndefined();
+    expect(first.data?.resendContract).toMatchObject({
+      status: ContractStatus.PENDING,
+      version: rejected.version + 1,
+      supersedesContractId: rejected.id,
+      provider: { id: transactionProvider.sub },
+      client: { id: transactionCustomer.sub },
+    });
+    expect(first.data?.resendContract.signatures).toContainEqual({
+      signatureType: 'CUSTOMER_ACCEPTANCE',
+    });
+
+    // A double submit answers with the same new contract, also in full.
+    const again = await resend();
+    expect(again.errors).toBeUndefined();
+    expect(again.data?.resendContract).toMatchObject({
+      id: first.data?.resendContract.id,
+      provider: { id: transactionProvider.sub },
+    });
+  });
+
   it('hides an inactive category and blocks new activity in it (S4-56)', async () => {
     const dataSource = app.get(DataSource);
     const country = await dataSource.getRepository(Country).save({
