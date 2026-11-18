@@ -109,7 +109,9 @@ export class StatisticsService implements OnApplicationShutdown {
   }
 
   private async current(): Promise<AdminDashboardStats> {
-    if (this.refreshing) return this.refreshing;
+    // A recount already in flight may have started before the latest write;
+    // wait for it, then count again if a write landed meanwhile (H-49).
+    if (this.refreshing) await this.refreshing;
     if (!this.snapshot || this.dirty) return this.refresh();
     return this.snapshot;
   }

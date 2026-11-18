@@ -196,6 +196,9 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       phone: '+966500000101',
       email: 'customer-e2e@example.com',
       password: '',
+      // The statistics count verified accounts only (ClickUp 869fn0tyd).
+      emailVerified: true,
+      phoneVerified: true,
       status: UserStatus.ACTIVE,
       cityId: city.id,
       countryId: country.id,
@@ -859,24 +862,27 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     const dashboardBaseline = dashboard.data!.adminDashboardStats;
     expect(dashboardBaseline).toMatchObject(baseline);
 
-    // Only active accounts count.
+    // Unverified sign-ups don't count; the cards match the admin lists,
+    // which show verified accounts in any listed status (ClickUp 869fn0tyd).
     const existing = await dataSource
       .getRepository(User)
       .findOneByOrFail({ id: transactionCustomer.sub });
     await dataSource.getRepository(User).save({
-      name: 'Inactive Stats Customer',
+      name: 'Unverified Stats Customer',
       phone: '+966500000901',
-      email: 'stats-inactive@example.com',
+      email: 'stats-unverified@example.com',
       password: '',
-      status: UserStatus.INACTIVE,
+      emailVerified: false,
+      phoneVerified: false,
+      status: UserStatus.ACTIVE,
       cityId: existing.cityId,
       countryId: existing.countryId,
       address: 'Stats address',
     });
-    const afterInactive = await graphql<{ platformStats: Platform }>(
+    const afterUnverified = await graphql<{ platformStats: Platform }>(
       platformQuery,
     );
-    expect(afterInactive.data!.platformStats.customers).toBe(
+    expect(afterUnverified.data!.platformStats.customers).toBe(
       baseline.customers,
     );
 
@@ -906,6 +912,9 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       phone: '+966500000902',
       email: 'stats-active@example.com',
       password: '',
+      // The statistics count verified accounts only (ClickUp 869fn0tyd).
+      emailVerified: true,
+      phoneVerified: true,
       status: UserStatus.ACTIVE,
       cityId: existing.cityId,
       countryId: existing.countryId,
