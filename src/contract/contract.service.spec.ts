@@ -536,6 +536,39 @@ describe('ContractService', () => {
     );
   });
 
+  it('closes the chat the configured hours after completion (S4-67)', async () => {
+    settingService.getSetting.mockResolvedValue({
+      vatEnabled: true,
+      vatRate: 15,
+      chatCloseAfterCompletionHours: 6,
+    });
+    const contract = {
+      id: 'contract-id',
+      conversationId: conversation.id,
+      providerId: conversation.providerId,
+      clientId: conversation.userId,
+      status: ContractStatus.AWAITING_CUSTOMER_CONFIRMATION,
+      version: 1,
+    };
+    contractRepository.findOne
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce(contract)
+      .mockResolvedValueOnce({ ...contract, signatures: [] });
+
+    await service.completeContract(
+      { contractId: contract.id },
+      { sub: conversation.userId, email: 'c@example.com', type: 'user' },
+    );
+
+    const call = conversationRepository.update.mock.calls.find(
+      ([, values]) => (values as { closesAt?: Date }).closesAt,
+    ) as [string, { closesAt: Date }];
+    expect(call[0]).toBe(conversation.id);
+    const hours = (call[1].closesAt.getTime() - Date.now()) / 3_600_000;
+    expect(hours).toBeGreaterThan(5.9);
+    expect(hours).toBeLessThanOrEqual(6);
+  });
+
   it('records a one-time provider completion and customer deadline', async () => {
     const contract = {
       id: 'contract-id',

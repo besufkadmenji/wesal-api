@@ -28,8 +28,14 @@ import { SettingService } from '../setting/setting.service';
 import { NotificationService } from '../notification/notification.service';
 import { NotificationType } from '../notification/enums/notification-type.enum';
 import { NotificationRecipientType } from '../notification/enums/notification-recipient-type.enum';
-import { notificationTexts } from '../notification/notification-texts';
+import {
+  notificationTexts,
+  type BilingualText,
+} from '../notification/notification-texts';
 import { isCategoryActive } from '../category/category-active';
+
+/** S4-67: closed after its contract was completed; can't be restarted. */
+export const CONTRACT_COMPLETED_CLOSE_REASON = 'CONTRACT_COMPLETED';
 
 @Injectable()
 export class ConversationService {
@@ -363,6 +369,7 @@ export class ConversationService {
         conversation.status === ConversationStatus.ACTIVE &&
         (!feeRequired || Boolean(paidAt)),
       expiresAt: conversation.expiresAt,
+      closesAt: conversation.closesAt ?? null,
       feeCycle: conversation.feeCycle,
     };
   }
@@ -438,6 +445,21 @@ export class ConversationService {
       await this.notifyEnded([closed]);
       return closed;
     }
+    if (
+      conversation.status === ConversationStatus.ACTIVE &&
+      conversation.closesAt &&
+      conversation.closesAt.getTime() <= Date.now()
+    ) {
+      conversation.status = ConversationStatus.CLOSED;
+      conversation.closedAt = new Date();
+      conversation.closeReason = CONTRACT_COMPLETED_CLOSE_REASON;
+      const closed = await this.conversationRepository.save(conversation);
+      await this.notifyEnded(
+        [closed],
+        notificationTexts.chatClosedAfterCompletion,
+      );
+      return closed;
+    }
     return conversation;
   }
 
@@ -461,6 +483,34 @@ export class ConversationService {
       },
     );
     await this.notifyEnded(expiring);
+  }
+
+  /**
+   * S4-67: a chat closes for good the configured hours after its contract
+   * was completed. Its reason isn't EXPIRED, so it can't be restarted.
+   */
+  @Interval(60_000)
+  async closeCompletedConversations(): Promise<void> {
+    const due = await this.conversationRepository.find({
+      where: {
+        status: ConversationStatus.ACTIVE,
+        closesAt: LessThanOrEqual(new Date()),
+      },
+      select: { id: true, userId: true, providerId: true, listingId: true },
+    });
+    if (due.length === 0) return;
+    await this.conversationRepository.update(
+      {
+        id: In(due.map((conversation) => conversation.id)),
+        status: ConversationStatus.ACTIVE,
+      },
+      {
+        status: ConversationStatus.CLOSED,
+        closedAt: new Date(),
+        closeReason: CONTRACT_COMPLETED_CLOSE_REASON,
+      },
+    );
+    await this.notifyEnded(due, notificationTexts.chatClosedAfterCompletion);
   }
 
   /** S4-38: the provider learns a customer opened (or reopened) a chat. */
@@ -488,11 +538,12 @@ export class ConversationService {
     });
   }
 
-  /** S4-38: both participants learn an expired chat has ended. */
+  /** S4-38: both participants learn a chat has ended (expired or S4-67). */
   private async notifyEnded(
     conversations: Array<
       Pick<Conversation, 'id' | 'userId' | 'providerId' | 'listingId'>
     >,
+    texts: (listingName: string) => BilingualText = notificationTexts.chatEnded,
   ): Promise<void> {
     if (!this.notifications) return;
     try {
@@ -502,9 +553,7 @@ export class ConversationService {
       });
       const names = new Map(listings.map((l) => [l.id, l.name]));
       for (const conversation of conversations) {
-        const text = notificationTexts.chatEnded(
-          names.get(conversation.listingId) ?? '',
-        );
+        const text = texts(names.get(conversation.listingId) ?? '');
         for (const [recipientId, recipientType] of [
           [conversation.userId, NotificationRecipientType.USER],
           [conversation.providerId, NotificationRecipientType.PROVIDER],

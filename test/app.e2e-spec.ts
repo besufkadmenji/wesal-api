@@ -25,6 +25,7 @@ import { ContractStatus } from '../src/contract/enums/contract-status.enum';
 import { ContractResolution } from '../src/contract/dto/admin-resolve-contract.input';
 import { claimContractNumber } from '../src/contract/contract-number-pool';
 import { ConversationService } from '../src/conversation/conversation.service';
+import { ConversationStatus } from '../src/conversation/enums/conversation-status.enum';
 import { Message } from '../src/conversation/entities/message.entity';
 import { MessageKind } from '../src/conversation/enums/message-kind.enum';
 import { MessageService } from '../src/conversation/message.service';
@@ -656,6 +657,52 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       { contractId: transactionContractId },
       transactionCustomer,
     );
+
+    // S4-66 / S4-67: links are hidden, and the chat closes for good the
+    // configured hours (default 24) after completion.
+    const linkMessage = await app.get(MessageService).create(
+      {
+        conversationId: transactionConversationId,
+        content: 'see wa.me/966501234567 or www.example.com, price 350.50',
+      },
+      transactionCustomer,
+    );
+    expect(linkMessage.content).toBe(
+      'see [contact hidden] or [contact hidden] price 350.50',
+    );
+    const conversations = app.get(DataSource).getRepository(Conversation);
+    const completedChat = await conversations.findOneByOrFail({
+      id: transactionConversationId,
+    });
+    const hoursLeft =
+      (completedChat.closesAt!.getTime() - Date.now()) / 3_600_000;
+    expect(hoursLeft).toBeGreaterThan(23.9);
+    expect(hoursLeft).toBeLessThanOrEqual(24);
+    await conversations.update(transactionConversationId, {
+      closesAt: new Date(Date.now() - 1_000),
+    });
+    await app.get(ConversationService).closeCompletedConversations();
+    await expect(
+      app.get(MessageService).create(
+        {
+          conversationId: transactionConversationId,
+          content: 'still there?',
+        },
+        transactionCustomer,
+      ),
+    ).rejects.toThrow('This conversation is closed');
+    await expect(
+      app
+        .get(ConversationService)
+        .restart(transactionConversationId, transactionCustomer),
+    ).rejects.toThrow();
+    // Later tests keep using this conversation.
+    await conversations.update(transactionConversationId, {
+      status: ConversationStatus.ACTIVE,
+      closesAt: null,
+      closedAt: null,
+      closeReason: null,
+    });
 
     const anonymous = await graphql(rate, { input });
     expect(anonymous.errors?.[0]).toBeDefined();

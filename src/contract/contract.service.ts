@@ -711,6 +711,20 @@ export class ContractService {
       contract.completedAt = new Date();
       const saved = await manager.getRepository(Contract).save(contract);
       saved.signatures = [...(saved.signatures ?? []), signature];
+      // S4-67: the chat stays open for the configured hours after completion
+      // (PO 2026-11-17, #9 and #10), then closes for good.
+      const closeAfterHours = Number(
+        (await this.settingService.getSetting())
+          .chatCloseAfterCompletionHours ?? 24,
+      );
+      await manager
+        .getRepository(Conversation)
+        .update(contract.conversationId, {
+          closesAt: new Date(
+            contract.completedAt.getTime() +
+              Math.max(1, closeAfterHours) * 3_600_000,
+          ),
+        });
       const money = await this.settleCompleted(
         contract,
         manager,

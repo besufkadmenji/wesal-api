@@ -158,6 +158,13 @@ export class Setting {
   @Column({ type: 'int', default: 24 })
   completionConfirmationGraceHours: number;
 
+  @Field(() => Int, {
+    description:
+      'S4-67: hours after a contract is completed before its chat closes',
+  })
+  @Column({ type: 'int', default: 24 })
+  chatCloseAfterCompletionHours: number;
+
   // BRD 4.3.17: contract defaults copied into new categories (all integers).
   @Field(() => Int, { description: 'System commission (%) for new categories' })
   @Column({ type: 'int', default: 0 })

@@ -76,6 +76,14 @@ export class Conversation {
   @Column({ type: 'timestamptz', nullable: true })
   closedAt: Date | null;
 
+  @Field(() => Date, {
+    nullable: true,
+    description:
+      'S4-67: when the chat closes after its contract was completed (settings.chatCloseAfterCompletionHours).',
+  })
+  @Column({ type: 'timestamptz', nullable: true })
+  closesAt: Date | null;
+
   @Field(() => String, { nullable: true })
   @Column({ type: 'varchar', length: 100, nullable: true })
   closeReason: string | null;

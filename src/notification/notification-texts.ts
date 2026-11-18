@@ -126,6 +126,16 @@ export const notificationTexts = {
       message: `The conversation about "${listingName}" has ended.`,
     },
   }),
+  chatClosedAfterCompletion: (listingName: string): BilingualText => ({
+    ar: {
+      title: 'أُغلقت المحادثة',
+      message: `أُغلقت المحادثة الخاصة بإعلان "${listingName}" بعد اكتمال التعاقد.`,
+    },
+    en: {
+      title: 'Conversation closed',
+      message: `The conversation about "${listingName}" was closed after the contract was completed.`,
+    },
+  }),
   listingFeatured: (listingName: string): BilingualText => ({
     ar: {
       title: 'تم تمييز إعلانك',

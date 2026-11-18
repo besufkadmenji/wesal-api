@@ -5,6 +5,8 @@ import { ConversationStatus } from './enums/conversation-status.enum';
 describe('ConversationService', () => {
   const conversationRepository = {
     findOne: jest.fn(),
+    find: jest.fn(),
+    update: jest.fn(),
     create: jest.fn((value) => value),
     save: jest.fn(async (value) => value),
     createQueryBuilder: jest.fn(),
@@ -53,6 +55,71 @@ describe('ConversationService', () => {
     });
     expect(result.closedAt).toBeInstanceOf(Date);
     expect(conversationRepository.save).toHaveBeenCalledWith(expired);
+  });
+
+  describe('closing after the contract was completed (S4-67)', () => {
+    const due = {
+      id: '5fa17f3e-5eb4-4b87-958a-85859b83656d',
+      listingId: '16f43bf8-42a7-424c-8f62-0aa74422669b',
+      userId: '24f67fef-b430-474a-8849-a8dca645f3de',
+      providerId: '7842b840-fcb2-4ebf-8de4-64af766a1333',
+    };
+
+    it('closes due chats for good and tells both sides why', async () => {
+      const notifyLocalized = jest.fn();
+      (service as unknown as { notifications: unknown }).notifications = {
+        notifyLocalized,
+      };
+      listingRepository.find = jest
+        .fn()
+        .mockResolvedValue([{ id: due.listingId, name: 'Plumbing' }]);
+      conversationRepository.find.mockResolvedValue([due]);
+
+      await service.closeCompletedConversations();
+
+      expect(conversationRepository.update).toHaveBeenCalledWith(
+        expect.objectContaining({ status: ConversationStatus.ACTIVE }),
+        expect.objectContaining({
+          status: ConversationStatus.CLOSED,
+          closeReason: 'CONTRACT_COMPLETED',
+        }),
+      );
+      expect(notifyLocalized).toHaveBeenCalledTimes(2);
+      const [first] = notifyLocalized.mock.calls[0] as [
+        { type: string; text: { en: { message: string } } },
+      ];
+      expect(first.type).toBe('CHAT_ENDED');
+      expect(first.text.en.message).toContain(
+        'after the contract was completed',
+      );
+      (service as unknown as { notifications: unknown }).notifications =
+        undefined;
+    });
+
+    it('closes a due chat lazily on read, and it cannot be restarted', async () => {
+      const open = {
+        ...due,
+        status: ConversationStatus.ACTIVE,
+        expiresAt: null,
+        closesAt: new Date(Date.now() - 1_000),
+        feeCycle: 1,
+      };
+      conversationRepository.findOne.mockResolvedValue(open);
+      const principal = {
+        sub: due.userId,
+        email: 'user@example.com',
+        type: 'user' as const,
+      };
+
+      const result = await service.findOne(due.id, principal);
+      expect(result).toMatchObject({
+        status: ConversationStatus.CLOSED,
+        closeReason: 'CONTRACT_COMPLETED',
+      });
+
+      conversationRepository.findOne.mockResolvedValue(result);
+      await expect(service.restart(due.id, principal)).rejects.toThrow();
+    });
   });
 
   it('restarts an expired conversation with a fresh fee cycle', async () => {
