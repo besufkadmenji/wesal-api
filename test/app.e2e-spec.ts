@@ -545,6 +545,66 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       status: ListingStatus.ACTIVE,
       promotionStatus: PromotionStatus.EXPIRED,
     });
+    // S4-59 → S4-62: no free expiry while featured; the free period starts
+    // when it ends; once due the ad is hidden, then re-published and
+    // featured again through checkout.
+    expect(listing.expiresAt).toBeNull();
+    expect(expired.expiresAt!.getTime()).toBeGreaterThan(Date.now());
+
+    const listings = app.get(ListingService);
+    expired.expiresAt = new Date(Date.now() - 1_000);
+    await dataSource.getRepository(Listing).save(expired);
+    await listings.expireFreeListings();
+    expect(
+      await dataSource.getRepository(Listing).findOneByOrFail({
+        id: listing.id,
+      }),
+    ).toMatchObject({ status: ListingStatus.EXPIRED });
+    await expect(listings.findOne(listing.id)).rejects.toThrow();
+    const visible = await listings.findAll({
+      page: 1,
+      limit: 50,
+      status: ListingStatus.EXPIRED,
+    });
+    expect(visible.items.map((item) => item.id)).not.toContain(listing.id);
+    const forAdmin = await listings.findAll(
+      { page: 1, limit: 50, status: ListingStatus.EXPIRED },
+      undefined,
+      { isAdmin: true },
+    );
+    expect(forAdmin.items.map((item) => item.id)).toContain(listing.id);
+
+    const republished = await listings.republish(listing.id, provider.id, true);
+    expect(republished).toMatchObject({
+      status: ListingStatus.ACTIVE,
+      promotionStatus: PromotionStatus.PENDING_PAYMENT,
+    });
+    await expect(listings.findOne(listing.id)).resolves.toMatchObject({
+      id: listing.id,
+    });
+    const again = await app.get(PaymentCheckoutService).startCheckout(
+      {
+        purpose: CheckoutPurpose.PREMIUM_AD,
+        targetId: listing.id,
+        method: PaymentMethod.ELECTRONIC,
+      },
+      providerPrincipal,
+    );
+    await request(app.getHttpServer())
+      .post(new URL(again.redirectUrl).pathname)
+      .type('form')
+      .send({ outcome: 'SUCCEEDED' })
+      .expect(303);
+    expect(
+      await dataSource.getRepository(Listing).findOneByOrFail({
+        id: listing.id,
+      }),
+    ).toMatchObject({
+      type: ListingType.FEATURED,
+      promotionStatus: PromotionStatus.ACTIVE,
+      promotionCycle: 2,
+      expiresAt: null,
+    });
   });
 
   it('lets only the customer rate a completed contract once and keeps averages in sync with moderation', async () => {

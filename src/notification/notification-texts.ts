@@ -146,6 +146,16 @@ export const notificationTexts = {
       message: `The featured period for "${listingName}" has ended.`,
     },
   }),
+  listingExpired: (listingName: string): BilingualText => ({
+    ar: {
+      title: 'انتهت صلاحية الإعلان',
+      message: `انتهت مدة نشر إعلان "${listingName}" ولم يعد ظاهراً. يمكنك إعادة نشره من إعلاناتي.`,
+    },
+    en: {
+      title: 'Ad expired',
+      message: `"${listingName}" has expired and is no longer shown. You can re-publish it from My Ads.`,
+    },
+  }),
   newRating: (reference: string | number, rating: number): BilingualText => ({
     ar: {
       title: 'تقييم جديد',

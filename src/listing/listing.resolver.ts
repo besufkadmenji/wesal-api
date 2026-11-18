@@ -10,6 +10,7 @@ import { RequirePermission } from '../admin/decorators/require-permission.decora
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import type { AdminJwtPayload } from '../admin/types/admin-jwt-payload.type';
 import { CreateListingInput } from './dto/create-listing.input';
 import { ListingPaginationInput } from './dto/listing-pagination.input';
 import { PaginatedListingResponse } from './dto/paginated-listings.response';
@@ -41,8 +42,11 @@ export class ListingResolver {
   async findAll(
     @Args('paginationInput') paginationInput: ListingPaginationInput,
     @CurrentUser() user?: JwtPayload,
+    @CurrentAdmin() admin?: AdminJwtPayload,
   ) {
-    return this.listingService.findAll(paginationInput, user?.sub);
+    return this.listingService.findAll(paginationInput, user?.sub, {
+      isAdmin: Boolean(admin && 'permissionType' in admin),
+    });
   }
 
   @Query(() => [Listing], {
@@ -104,6 +108,34 @@ export class ListingResolver {
       provider.sub,
       language,
     );
+  }
+
+  @Mutation(() => Listing, {
+    description:
+      'S4-62: re-publish an expired ad for a new free period; featured=true then needs the PREMIUM_AD checkout',
+  })
+  @UseGuards(JwtAuthGuard)
+  async republishListing(
+    @Args('id', { type: () => ID }) id: string,
+    @Args('featured', { type: () => Boolean, defaultValue: false })
+    featured: boolean,
+    @CurrentProvider() provider: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Listing> {
+    return this.listingService.republish(id, provider.sub, featured, language);
+  }
+
+  @Mutation(() => Listing, {
+    description:
+      'S4-PAY-REFEATURE: ask to feature an active free ad; then pay through the PREMIUM_AD checkout',
+  })
+  @UseGuards(JwtAuthGuard)
+  async featureListing(
+    @Args('id', { type: () => ID }) id: string,
+    @CurrentProvider() provider: JwtPayload,
+    @GetLanguage() language: LanguageCode,
+  ): Promise<Listing> {
+    return this.listingService.requestFeature(id, provider.sub, language);
   }
 
   @Mutation(() => RemoveListingResponse)

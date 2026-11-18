@@ -100,6 +100,14 @@ export class Listing {
   @Column({ type: 'timestamptz', nullable: true })
   featuredEndsAt: Date | null;
 
+  @Field(() => Date, {
+    nullable: true,
+    description:
+      'When a free ad expires (S4-59). Null: featured, a Trust provider, or not active.',
+  })
+  @Column({ type: 'timestamptz', nullable: true })
+  expiresAt: Date | null;
+
   @Field(() => ListingMedia, { nullable: true })
   @Column('jsonb', { nullable: true })
   story: ListingMedia | null;

@@ -535,6 +535,9 @@ export class PaymentService {
       promotionCycle: cycle,
       featuredStartsAt: now,
       featuredEndsAt: new Date(now.getTime() + durationDays * 86_400_000),
+      // S4-59: no free-ad expiry while featured; S4-61 sets a fresh one
+      // when the featured period ends.
+      expiresAt: null,
     });
     const saved = await repository.save(listing);
     return {

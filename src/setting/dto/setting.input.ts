@@ -168,6 +168,12 @@ export class SettingInput {
   @IsOptional()
   @IsInt()
   @Min(1)
+  freeAdValidityDays?: number;
+
+  @Field(() => Int, { nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
   completionConfirmationGraceHours?: number;
   @Field(() => Int, { nullable: true })
   @IsOptional()

@@ -147,6 +147,13 @@ export class Setting {
   @Column({ type: 'int', default: 30 })
   premiumAdDurationDays: number;
 
+  @Field(() => Int, {
+    description:
+      'Days a free ad stays published before it expires (S4-60). Applies to new and re-published ads.',
+  })
+  @Column({ type: 'int', default: 30 })
+  freeAdValidityDays: number;
+
   @Field(() => Int)
   @Column({ type: 'int', default: 24 })
   completionConfirmationGraceHours: number;
