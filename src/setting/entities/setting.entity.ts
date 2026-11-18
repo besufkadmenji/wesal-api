@@ -173,7 +173,8 @@ export class Setting {
   @Field(() => Int, {
     description: 'Minimum commission (SAR) for new categories',
   })
-  @Column({ type: 'int', default: 0 })
+  // S4-64: Wesal Al-Khair threshold, 100 SAR by default (PO 2026-11-17).
+  @Column({ type: 'int', default: 100 })
   defaultMinCommissionAmount: number;
 
   @Field(() => Int, {

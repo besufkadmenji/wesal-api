@@ -96,6 +96,8 @@ describe('CategoryService contract controls', () => {
     expect(saved).toMatchObject({
       commissionPercent: 2,
       minCommissionAmount: 10,
+      // S4-64: a default minimum is switched on.
+      minCommissionEnabled: true,
       maxExecutionHours: 72,
       maxTerminationHours: 120,
       depositPercent: 20,
@@ -105,6 +107,14 @@ describe('CategoryService contract controls', () => {
       refundPolicyAr: DEFAULT_REFUND_POLICY_AR,
     });
     expect(saved?.contractDocumentText).toContain('payment gateway');
+  });
+
+  it('keeps the minimum off when the caller turns it off (S4-64)', async () => {
+    await service.create({ ...base, minCommissionEnabled: false }, 'en');
+    expect(saved).toMatchObject({
+      minCommissionAmount: 10,
+      minCommissionEnabled: false,
+    });
   });
 
   it('rejects an enabled value that is missing or below 1', async () => {

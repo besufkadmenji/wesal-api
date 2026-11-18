@@ -435,6 +435,11 @@ export class CategoryService {
       commissionPercent: input.commissionPercent ?? defaults.commissionPercent,
       minCommissionAmount:
         input.minCommissionAmount ?? defaults.minCommissionAmount,
+      // S4-64: the default minimum is on unless the caller says otherwise,
+      // as the admin form already does.
+      minCommissionEnabled:
+        input.minCommissionEnabled ??
+        (input.minCommissionAmount ?? defaults.minCommissionAmount) > 0,
       depositPercent: input.depositPercent ?? defaults.depositPercent,
       maxExecutionHours: input.maxExecutionHours ?? defaults.maxExecutionHours,
       maxTerminationHours:

@@ -416,6 +416,17 @@ describe('ContractService', () => {
         customer,
       ),
     ).resolves.toMatchObject({ isCharity: true, charityAmount: 100 });
+    // S4-64: one riyal above the 100 SAR threshold is platform revenue.
+    await expect(
+      service.quote(
+        { conversationId: conversation.id, agreedPrice: 5050 },
+        customer,
+      ),
+    ).resolves.toMatchObject({
+      isCharity: false,
+      charityAmount: 0,
+      commissionAmount: 101,
+    });
   });
 
   it('never makes a contract charity without a minimum or a commission', async () => {
