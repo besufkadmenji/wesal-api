@@ -162,6 +162,27 @@ describe('StatisticsService', () => {
     expect(userCount).toHaveBeenCalledTimes(2);
   });
 
+  it('counts again when a write lands during a recount (H-49)', async () => {
+    await service.platformStats();
+    // A recount starts, then a contract completes before it returns.
+    let release: () => void = () => undefined;
+    const before = counts.completedContracts;
+    contractCount.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve(before);
+        }),
+    );
+    const inFlight = service.refresh();
+    counts.completedContracts = 5;
+    service.markDirty();
+
+    const read = service.platformStats();
+    release();
+    await inFlight;
+    await expect(read).resolves.toMatchObject({ completedContracts: 5 });
+  });
+
   it('does not publish the first snapshot or an unchanged recount', async () => {
     await service.refresh();
     await service.refresh();

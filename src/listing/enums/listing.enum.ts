@@ -4,6 +4,7 @@ export enum ListingStatus {
   ACTIVE = 'ACTIVE',
   INACTIVE = 'INACTIVE',
   PENDING_PAYMENT = 'PENDING_PAYMENT',
+  EXPIRED = 'EXPIRED',
 }
 
 registerEnumType(ListingStatus, {

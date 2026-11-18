@@ -151,7 +151,10 @@ export class MessageService {
             ? {
                 attachment: {
                   filename: attachment.filename,
-                  originalFilename: attachment.originalFilename,
+                  // S4-66: a file name can't carry a link or number either.
+                  originalFilename: redactContactDetails(
+                    attachment.originalFilename,
+                  ),
                   size: attachment.size,
                 },
               }

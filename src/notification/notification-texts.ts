@@ -126,6 +126,16 @@ export const notificationTexts = {
       message: `The conversation about "${listingName}" has ended.`,
     },
   }),
+  chatClosedAfterCompletion: (listingName: string): BilingualText => ({
+    ar: {
+      title: 'أُغلقت المحادثة',
+      message: `أُغلقت المحادثة الخاصة بإعلان "${listingName}" بعد اكتمال التعاقد.`,
+    },
+    en: {
+      title: 'Conversation closed',
+      message: `The conversation about "${listingName}" was closed after the contract was completed.`,
+    },
+  }),
   listingFeatured: (listingName: string): BilingualText => ({
     ar: {
       title: 'تم تمييز إعلانك',
@@ -144,6 +154,16 @@ export const notificationTexts = {
     en: {
       title: 'Featured period ended',
       message: `The featured period for "${listingName}" has ended.`,
+    },
+  }),
+  listingExpired: (listingName: string): BilingualText => ({
+    ar: {
+      title: 'انتهت صلاحية الإعلان',
+      message: `انتهت مدة نشر إعلان "${listingName}" ولم يعد ظاهراً. يمكنك إعادة نشره من إعلاناتي.`,
+    },
+    en: {
+      title: 'Ad expired',
+      message: `"${listingName}" has expired and is no longer shown. You can re-publish it from My Ads.`,
     },
   }),
   newRating: (reference: string | number, rating: number): BilingualText => ({

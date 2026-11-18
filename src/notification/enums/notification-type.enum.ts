@@ -38,6 +38,8 @@ export enum NotificationType {
   // S4-58: appended by 2026102000200-EContractTerminationRequest.
   ADMIN_ECONTRACT_TERMINATION_REQUESTED = 'ADMIN_ECONTRACT_TERMINATION_REQUESTED',
   ECONTRACT_TERMINATION_REJECTED = 'ECONTRACT_TERMINATION_REJECTED',
+  // S4-59: appended by 2026111800100-ListingExpiryEnums.
+  LISTING_EXPIRED = 'LISTING_EXPIRED',
 }
 
 registerEnumType(NotificationType, {

@@ -14,6 +14,7 @@ import { AdminNotificationService } from '../notification/admin-notification.ser
 import { Provider } from '../provider/entities/provider.entity';
 import { ProviderStatus } from '../provider/enums/provider-status.enum';
 import { ProviderService } from '../provider/provider.service';
+import { ListingService } from '../listing/listing.service';
 import {
   TIER_ORDER,
   TierRule,
@@ -71,6 +72,8 @@ export class BadgeService {
     private readonly providerService: ProviderService,
     @Optional()
     private readonly adminNotifications?: AdminNotificationService,
+    @Optional()
+    private readonly listingService?: ListingService,
   ) {}
 
   /** All three tiers, highest first; missing rows read as unset and disabled. */
@@ -224,6 +227,14 @@ export class BadgeService {
           underImprovementSince:
             tier === BadgeTier.UNDER_IMPROVEMENT ? startedAt : null,
         });
+        // S4-63: Trust Badge ads never expire; losing the badge starts the
+        // normal free period that day.
+        if (tier === BadgeTier.TRUST || provider.badge === BadgeTier.TRUST) {
+          await this.listingService?.applyTrustBadgeChange(
+            provider.id,
+            tier === BadgeTier.TRUST,
+          );
+        }
         if (tier && tier !== BadgeTier.UNDER_IMPROVEMENT) {
           await this.notify(provider, NotificationType.BADGE_CHANGED, tier);
         }

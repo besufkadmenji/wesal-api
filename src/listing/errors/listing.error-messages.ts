@@ -71,4 +71,16 @@ export const LISTING_ERROR_MESSAGES: Record<ListingErrorCode, TranslatedError> =
       en: 'This section is currently unavailable',
       ar: 'هذا القسم غير متاح حالياً',
     },
+    [LISTING_ERROR_CODES.LISTING_NOT_EXPIRED]: {
+      en: 'Only an expired ad can be re-published',
+      ar: 'يمكن إعادة نشر الإعلان المنتهي فقط',
+    },
+    [LISTING_ERROR_CODES.LISTING_CANNOT_BE_FEATURED]: {
+      en: 'This ad is already featured or awaiting payment',
+      ar: 'هذا الإعلان مميز بالفعل أو بانتظار الدفع',
+    },
+    [LISTING_ERROR_CODES.FEATURED_ADS_DISABLED]: {
+      en: 'Featured advertisements are disabled',
+      ar: 'الإعلانات المميزة معطلة',
+    },
   };

@@ -6,6 +6,7 @@ import { Contract } from '../contract/entities/contract.entity';
 import { NotificationModule } from '../notification/notification.module';
 import { Provider } from '../provider/entities/provider.entity';
 import { ProviderModule } from '../provider/provider.module';
+import { ListingModule } from '../listing/listing.module';
 import { BadgeResolver } from './badge.resolver';
 import { BadgeService } from './badge.service';
 import { BadgeRun } from './entities/badge-run.entity';
@@ -23,6 +24,7 @@ import { BadgeSetting } from './entities/badge-setting.entity';
     AdminPermissionGuardModule,
     NotificationModule,
     ProviderModule,
+    ListingModule,
   ],
   providers: [BadgeService, BadgeResolver],
   exports: [BadgeService],

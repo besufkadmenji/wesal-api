@@ -147,9 +147,23 @@ export class Setting {
   @Column({ type: 'int', default: 30 })
   premiumAdDurationDays: number;
 
+  @Field(() => Int, {
+    description:
+      'Days a free ad stays published before it expires (S4-60). Applies to new and re-published ads.',
+  })
+  @Column({ type: 'int', default: 30 })
+  freeAdValidityDays: number;
+
   @Field(() => Int)
   @Column({ type: 'int', default: 24 })
   completionConfirmationGraceHours: number;
+
+  @Field(() => Int, {
+    description:
+      'S4-67: hours after a contract is completed before its chat closes',
+  })
+  @Column({ type: 'int', default: 24 })
+  chatCloseAfterCompletionHours: number;
 
   // BRD 4.3.17: contract defaults copied into new categories (all integers).
   @Field(() => Int, { description: 'System commission (%) for new categories' })
@@ -159,7 +173,8 @@ export class Setting {
   @Field(() => Int, {
     description: 'Minimum commission (SAR) for new categories',
   })
-  @Column({ type: 'int', default: 0 })
+  // S4-64: Wesal Al-Khair threshold, 100 SAR by default (PO 2026-11-17).
+  @Column({ type: 'int', default: 100 })
   defaultMinCommissionAmount: number;
 
   @Field(() => Int, {

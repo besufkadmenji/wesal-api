@@ -1,6 +1,6 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, LessThanOrEqual, Repository } from 'typeorm';
+import { In, IsNull, LessThanOrEqual, Repository } from 'typeorm';
 import { Interval } from '@nestjs/schedule';
 import {
   I18nBadRequestException,
@@ -114,21 +114,7 @@ export class ListingService {
     }
     const setting = await this.settingService.getSetting();
     const isFeatured = createListingInput.type === ListingType.FEATURED;
-    if (isFeatured) {
-      if (
-        !setting.premiumAdEnabled ||
-        Number(setting.premiumAdFee) <= 0 ||
-        setting.premiumAdDurationDays < 1
-      ) {
-        throw new I18nBadRequestException(
-          {
-            en: 'Featured advertisements are disabled',
-            ar: 'الإعلانات المميزة معطلة',
-          },
-          language,
-        );
-      }
-    }
+    if (isFeatured) this.assertFeaturedEnabled(setting, language);
     // S4-10: a featured ad is published as a normal one and becomes featured
     // once its premium fee is paid through checkout.
     const listing = this.listingRepository.create({
@@ -142,6 +128,9 @@ export class ListingService {
       promotionCycle: 0,
       featuredStartsAt: null,
       featuredEndsAt: null,
+      // S4-59: published as free until the feature fee is paid, so the free
+      // period runs from now (cleared when it becomes featured).
+      expiresAt: await this.freeExpiryFor(providerId, setting),
       story: createListingInput.story ?? null,
       photos: createListingInput.photos,
       tags: '',
@@ -158,13 +147,13 @@ export class ListingService {
   async findAll(
     paginationInput: ListingPaginationInput,
     userId?: string,
-    { includeInactiveCategories = false } = {},
+    { includeInactiveCategories = false, isAdmin = false } = {},
   ): Promise<PaginatedListingResponse> {
     const page = paginationInput.page ?? 1;
     const limit = paginationInput.limit ?? 10;
     const skip = (page - 1) * limit;
     const {
-      status = ListingStatus.ACTIVE,
+      status: requestedStatus,
       type,
       sortBy = 'createdAt',
       sortOrder = 'DESC',
@@ -176,6 +165,12 @@ export class ListingService {
       minRating,
       providerId,
     } = paginationInput;
+
+    // S4-59: only admins may list ads that aren't published (expired,
+    // inactive); everyone else sees active ads whatever they ask for.
+    const status = isAdmin
+      ? (requestedStatus ?? ListingStatus.ACTIVE)
+      : ListingStatus.ACTIVE;
 
     let items: Listing[];
     let total: number;
@@ -468,18 +463,22 @@ export class ListingService {
       },
     });
     for (const listing of expired) {
+      // S4-61: back to a free ad, which then runs the free period.
+      const expiresAt = await this.freeExpiryFor(listing.providerId);
       const result = await this.listingRepository.update(
         { id: listing.id, promotionStatus: PromotionStatus.ACTIVE },
         {
           type: ListingType.FREE,
           status: ListingStatus.ACTIVE,
           promotionStatus: PromotionStatus.EXPIRED,
+          expiresAt,
         },
       );
       if (result.affected === 1) {
         listing.type = ListingType.FREE;
         listing.status = ListingStatus.ACTIVE;
         listing.promotionStatus = PromotionStatus.EXPIRED;
+        listing.expiresAt = expiresAt;
         void this.searchService.indexListing(listing).catch(() => undefined);
         await this.notifications?.notifyLocalized({
           recipientId: listing.providerId,
@@ -742,6 +741,14 @@ export class ListingService {
     }
 
     listing.status = ListingStatus.ACTIVE;
+    // S4-59: re-activating an expired (or long-inactive) free ad gives it a
+    // fresh period, or the expiry job would hide it again within a minute.
+    if (
+      listing.type === ListingType.FREE &&
+      (!listing.expiresAt || listing.expiresAt.getTime() <= Date.now())
+    ) {
+      listing.expiresAt = await this.freeExpiryFor(listing.providerId);
+    }
     const saved = await this.listingRepository.save(listing);
     // Reflect status change in Elasticsearch
     this.searchService
@@ -794,6 +801,180 @@ export class ListingService {
         console.error('Failed to update listing status in ES', err),
       );
     return saved;
+  }
+
+  /**
+   * S4-59: hides free ads whose period has run out. Trust Badge providers'
+   * ads never expire (S4-63); they normally have no expiry date, and the
+   * badge check is a safety net.
+   */
+  @Interval(60_000)
+  async expireFreeListings(): Promise<void> {
+    const due = await this.listingRepository
+      .createQueryBuilder('listing')
+      .innerJoin('listing.provider', 'provider')
+      .where('listing.status = :status', { status: ListingStatus.ACTIVE })
+      .andWhere('listing.type = :type', { type: ListingType.FREE })
+      .andWhere('listing.expiresAt <= :now', { now: new Date() })
+      .andWhere('provider.badge IS DISTINCT FROM :trust', {
+        trust: BadgeTier.TRUST,
+      })
+      .getMany();
+    for (const listing of due) {
+      const result = await this.listingRepository.update(
+        { id: listing.id, status: ListingStatus.ACTIVE },
+        { status: ListingStatus.EXPIRED },
+      );
+      if (result.affected !== 1) continue;
+      listing.status = ListingStatus.EXPIRED;
+      void this.searchService.indexListing(listing).catch(() => undefined);
+      await this.notifications?.notifyLocalized({
+        recipientId: listing.providerId,
+        recipientType: NotificationRecipientType.PROVIDER,
+        type: NotificationType.LISTING_EXPIRED,
+        text: notificationTexts.listingExpired(listing.name),
+        relatedEntityId: listing.id,
+        relatedEntityType: 'listing',
+      });
+    }
+  }
+
+  /**
+   * S4-62: the owner re-publishes an expired ad for a new free period, and
+   * optionally asks to feature it (then pays through checkout, as at
+   * creation). No limit and no admin approval (PO 2026-11-17, #3).
+   */
+  async republish(
+    id: string,
+    providerId: string,
+    featured: boolean,
+    language: LanguageCode = 'en',
+  ): Promise<Listing> {
+    const listing = await this.findOwnedOne(id, providerId, language);
+    if (listing.status !== ListingStatus.EXPIRED) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_NOT_EXPIRED],
+        language,
+      );
+    }
+    await this.assertProviderCanPublish(providerId, language);
+    if (
+      !(await isCategoryActive(this.categoryRepository, listing.categoryId))
+    ) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.CATEGORY_INACTIVE],
+        language,
+      );
+    }
+    const setting = await this.settingService.getSetting();
+    if (featured) this.assertFeaturedEnabled(setting, language);
+
+    listing.status = ListingStatus.ACTIVE;
+    listing.type = ListingType.FREE;
+    listing.expiresAt = await this.freeExpiryFor(providerId, setting);
+    if (featured) listing.promotionStatus = PromotionStatus.PENDING_PAYMENT;
+    const saved = await this.listingRepository.save(listing);
+    void this.searchService.indexListing(saved).catch(() => undefined);
+    return saved;
+  }
+
+  /**
+   * S4-PAY-REFEATURE: the owner asks to feature an active free ad that was
+   * never featured or whose featured period ended; payment then goes
+   * through checkout (PREMIUM_AD), which requires PENDING_PAYMENT.
+   */
+  async requestFeature(
+    id: string,
+    providerId: string,
+    language: LanguageCode = 'en',
+  ): Promise<Listing> {
+    const listing = await this.findOwnedOne(id, providerId, language);
+    if (
+      listing.status !== ListingStatus.ACTIVE ||
+      listing.type !== ListingType.FREE ||
+      ![PromotionStatus.NONE, PromotionStatus.EXPIRED].includes(
+        listing.promotionStatus,
+      )
+    ) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.LISTING_CANNOT_BE_FEATURED],
+        language,
+      );
+    }
+    this.assertFeaturedEnabled(
+      await this.settingService.getSetting(),
+      language,
+    );
+    listing.promotionStatus = PromotionStatus.PENDING_PAYMENT;
+    return this.listingRepository.save(listing);
+  }
+
+  /**
+   * S4-63: called by the monthly badge run when a provider gains or loses
+   * the Trust Badge. Gaining it makes their active ads permanent; losing it
+   * starts a normal free period that day (PO 2026-11-17, #5).
+   */
+  async applyTrustBadgeChange(
+    providerId: string,
+    hasTrust: boolean,
+  ): Promise<void> {
+    if (hasTrust) {
+      await this.listingRepository.update(
+        { providerId, status: ListingStatus.ACTIVE },
+        { expiresAt: null },
+      );
+      return;
+    }
+    const setting = await this.settingService.getSetting();
+    await this.listingRepository.update(
+      {
+        providerId,
+        status: ListingStatus.ACTIVE,
+        type: ListingType.FREE,
+        expiresAt: IsNull(),
+      },
+      { expiresAt: this.freeExpiryFrom(setting) },
+    );
+  }
+
+  /** S4-59: when a free ad published now expires; null for Trust providers. */
+  private async freeExpiryFor(
+    providerId: string,
+    setting?: { freeAdValidityDays: number },
+  ): Promise<Date | null> {
+    const provider = await this.providerRepository.findOne({
+      where: { id: providerId },
+      select: { id: true, badge: true },
+    });
+    if (provider?.badge === BadgeTier.TRUST) return null;
+    return this.freeExpiryFrom(
+      setting ?? (await this.settingService.getSetting()),
+    );
+  }
+
+  private freeExpiryFrom(setting: { freeAdValidityDays: number }): Date {
+    const days = Math.max(1, Number(setting.freeAdValidityDays) || 30);
+    return new Date(Date.now() + days * 86_400_000);
+  }
+
+  private assertFeaturedEnabled(
+    setting: {
+      premiumAdEnabled: boolean;
+      premiumAdFee: number;
+      premiumAdDurationDays: number;
+    },
+    language: LanguageCode,
+  ): void {
+    if (
+      !setting.premiumAdEnabled ||
+      Number(setting.premiumAdFee) <= 0 ||
+      setting.premiumAdDurationDays < 1
+    ) {
+      throw new I18nBadRequestException(
+        LISTING_ERROR_MESSAGES[LISTING_ERROR_CODES.FEATURED_ADS_DISABLED],
+        language,
+      );
+    }
   }
 
   private async assertProviderCanPublish(

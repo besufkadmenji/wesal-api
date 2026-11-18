@@ -288,6 +288,7 @@ export class PaymentService {
             paidAt,
             canSend: conversation.status === ConversationStatus.ACTIVE,
             expiresAt: conversation.expiresAt,
+            closesAt: conversation.closesAt ?? null,
             feeCycle: conversation.feeCycle,
           },
           event: null as MessageAddedPayload | null,
@@ -373,6 +374,7 @@ export class PaymentService {
           paidAt: now,
           canSend: savedConversation.status === ConversationStatus.ACTIVE,
           expiresAt: savedConversation.expiresAt,
+          closesAt: savedConversation.closesAt ?? null,
           feeCycle: savedConversation.feeCycle,
         },
         event,
@@ -535,6 +537,9 @@ export class PaymentService {
       promotionCycle: cycle,
       featuredStartsAt: now,
       featuredEndsAt: new Date(now.getTime() + durationDays * 86_400_000),
+      // S4-59: no free-ad expiry while featured; S4-61 sets a fresh one
+      // when the featured period ends.
+      expiresAt: null,
     });
     const saved = await repository.save(listing);
     return {

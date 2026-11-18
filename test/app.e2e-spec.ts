@@ -25,6 +25,7 @@ import { ContractStatus } from '../src/contract/enums/contract-status.enum';
 import { ContractResolution } from '../src/contract/dto/admin-resolve-contract.input';
 import { claimContractNumber } from '../src/contract/contract-number-pool';
 import { ConversationService } from '../src/conversation/conversation.service';
+import { ConversationStatus } from '../src/conversation/enums/conversation-status.enum';
 import { Message } from '../src/conversation/entities/message.entity';
 import { MessageKind } from '../src/conversation/enums/message-kind.enum';
 import { MessageService } from '../src/conversation/message.service';
@@ -195,6 +196,9 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       phone: '+966500000101',
       email: 'customer-e2e@example.com',
       password: '',
+      // The statistics count verified accounts only (ClickUp 869fn0tyd).
+      emailVerified: true,
+      phoneVerified: true,
       status: UserStatus.ACTIVE,
       cityId: city.id,
       countryId: country.id,
@@ -545,6 +549,66 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       status: ListingStatus.ACTIVE,
       promotionStatus: PromotionStatus.EXPIRED,
     });
+    // S4-59 → S4-62: no free expiry while featured; the free period starts
+    // when it ends; once due the ad is hidden, then re-published and
+    // featured again through checkout.
+    expect(listing.expiresAt).toBeNull();
+    expect(expired.expiresAt!.getTime()).toBeGreaterThan(Date.now());
+
+    const listings = app.get(ListingService);
+    expired.expiresAt = new Date(Date.now() - 1_000);
+    await dataSource.getRepository(Listing).save(expired);
+    await listings.expireFreeListings();
+    expect(
+      await dataSource.getRepository(Listing).findOneByOrFail({
+        id: listing.id,
+      }),
+    ).toMatchObject({ status: ListingStatus.EXPIRED });
+    await expect(listings.findOne(listing.id)).rejects.toThrow();
+    const visible = await listings.findAll({
+      page: 1,
+      limit: 50,
+      status: ListingStatus.EXPIRED,
+    });
+    expect(visible.items.map((item) => item.id)).not.toContain(listing.id);
+    const forAdmin = await listings.findAll(
+      { page: 1, limit: 50, status: ListingStatus.EXPIRED },
+      undefined,
+      { isAdmin: true },
+    );
+    expect(forAdmin.items.map((item) => item.id)).toContain(listing.id);
+
+    const republished = await listings.republish(listing.id, provider.id, true);
+    expect(republished).toMatchObject({
+      status: ListingStatus.ACTIVE,
+      promotionStatus: PromotionStatus.PENDING_PAYMENT,
+    });
+    await expect(listings.findOne(listing.id)).resolves.toMatchObject({
+      id: listing.id,
+    });
+    const again = await app.get(PaymentCheckoutService).startCheckout(
+      {
+        purpose: CheckoutPurpose.PREMIUM_AD,
+        targetId: listing.id,
+        method: PaymentMethod.ELECTRONIC,
+      },
+      providerPrincipal,
+    );
+    await request(app.getHttpServer())
+      .post(new URL(again.redirectUrl).pathname)
+      .type('form')
+      .send({ outcome: 'SUCCEEDED' })
+      .expect(303);
+    expect(
+      await dataSource.getRepository(Listing).findOneByOrFail({
+        id: listing.id,
+      }),
+    ).toMatchObject({
+      type: ListingType.FEATURED,
+      promotionStatus: PromotionStatus.ACTIVE,
+      promotionCycle: 2,
+      expiresAt: null,
+    });
   });
 
   it('lets only the customer rate a completed contract once and keeps averages in sync with moderation', async () => {
@@ -596,6 +660,52 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       { contractId: transactionContractId },
       transactionCustomer,
     );
+
+    // S4-66 / S4-67: links are hidden, and the chat closes for good the
+    // configured hours (default 24) after completion.
+    const linkMessage = await app.get(MessageService).create(
+      {
+        conversationId: transactionConversationId,
+        content: 'see wa.me/966501234567 or www.example.com, price 350.50',
+      },
+      transactionCustomer,
+    );
+    expect(linkMessage.content).toBe(
+      'see [contact hidden] or [contact hidden] price 350.50',
+    );
+    const conversations = app.get(DataSource).getRepository(Conversation);
+    const completedChat = await conversations.findOneByOrFail({
+      id: transactionConversationId,
+    });
+    const hoursLeft =
+      (completedChat.closesAt!.getTime() - Date.now()) / 3_600_000;
+    expect(hoursLeft).toBeGreaterThan(23.9);
+    expect(hoursLeft).toBeLessThanOrEqual(24);
+    await conversations.update(transactionConversationId, {
+      closesAt: new Date(Date.now() - 1_000),
+    });
+    await app.get(ConversationService).closeCompletedConversations();
+    await expect(
+      app.get(MessageService).create(
+        {
+          conversationId: transactionConversationId,
+          content: 'still there?',
+        },
+        transactionCustomer,
+      ),
+    ).rejects.toThrow('This conversation is closed');
+    await expect(
+      app
+        .get(ConversationService)
+        .restart(transactionConversationId, transactionCustomer),
+    ).rejects.toThrow();
+    // Later tests keep using this conversation.
+    await conversations.update(transactionConversationId, {
+      status: ConversationStatus.ACTIVE,
+      closesAt: null,
+      closedAt: null,
+      closeReason: null,
+    });
 
     const anonymous = await graphql(rate, { input });
     expect(anonymous.errors?.[0]).toBeDefined();
@@ -752,24 +862,27 @@ describe('Sprint 3 API boundaries (e2e)', () => {
     const dashboardBaseline = dashboard.data!.adminDashboardStats;
     expect(dashboardBaseline).toMatchObject(baseline);
 
-    // Only active accounts count.
+    // Unverified sign-ups don't count; the cards match the admin lists,
+    // which show verified accounts in any listed status (ClickUp 869fn0tyd).
     const existing = await dataSource
       .getRepository(User)
       .findOneByOrFail({ id: transactionCustomer.sub });
     await dataSource.getRepository(User).save({
-      name: 'Inactive Stats Customer',
+      name: 'Unverified Stats Customer',
       phone: '+966500000901',
-      email: 'stats-inactive@example.com',
+      email: 'stats-unverified@example.com',
       password: '',
-      status: UserStatus.INACTIVE,
+      emailVerified: false,
+      phoneVerified: false,
+      status: UserStatus.ACTIVE,
       cityId: existing.cityId,
       countryId: existing.countryId,
       address: 'Stats address',
     });
-    const afterInactive = await graphql<{ platformStats: Platform }>(
+    const afterUnverified = await graphql<{ platformStats: Platform }>(
       platformQuery,
     );
-    expect(afterInactive.data!.platformStats.customers).toBe(
+    expect(afterUnverified.data!.platformStats.customers).toBe(
       baseline.customers,
     );
 
@@ -799,6 +912,9 @@ describe('Sprint 3 API boundaries (e2e)', () => {
       phone: '+966500000902',
       email: 'stats-active@example.com',
       password: '',
+      // The statistics count verified accounts only (ClickUp 869fn0tyd).
+      emailVerified: true,
+      phoneVerified: true,
       status: UserStatus.ACTIVE,
       cityId: existing.cityId,
       countryId: existing.countryId,

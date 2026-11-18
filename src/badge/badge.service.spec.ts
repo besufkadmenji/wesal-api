@@ -318,6 +318,34 @@ describe('BadgeService', () => {
     );
   });
 
+  it('tells listings when a provider gains or loses the Trust Badge (S4-63)', async () => {
+    const applyTrustBadgeChange = jest.fn(() => Promise.resolve());
+    (service as unknown as { listingService: unknown }).listingService = {
+      applyTrustBadgeChange,
+    };
+    providers = [
+      provider({ id: 'gains', ratingAverage: 4.6, ratingCount: 3 }),
+      provider({
+        id: 'loses',
+        ratingAverage: 3.5,
+        ratingCount: 2,
+        badge: BadgeTier.TRUST,
+      }),
+      provider({
+        id: 'keeps',
+        ratingAverage: 4.8,
+        ratingCount: 4,
+        badge: BadgeTier.TRUST,
+      }),
+    ];
+
+    await service.runAssignment('2026-11', 'en');
+
+    expect(applyTrustBadgeChange).toHaveBeenCalledTimes(2);
+    expect(applyTrustBadgeChange).toHaveBeenCalledWith('gains', true);
+    expect(applyTrustBadgeChange).toHaveBeenCalledWith('loses', false);
+  });
+
   it('runs at most once per month', async () => {
     await service.runAssignment('2026-10', 'en');
     await expect(service.runAssignment('2026-10', 'en')).rejects.toThrow(
