@@ -11,8 +11,11 @@ const BARE_DOMAIN_PATTERN =
 
 // Arabic-Indic (٠-٩) and Persian (۰-۹) digits count as digits too.
 const DIGIT = '[0-9٠-٩۰-۹]';
+// Only a digit next to the run stops a match: a letter touching the number
+// ("d0551234567", "0551234567x") must not let it through (ClickUp: one
+// letter before the number showed it in chat).
 const PHONE_CANDIDATE_PATTERN = new RegExp(
-  `(?<!\\w)\\+?(?:${DIGIT}|\\()(?:${DIGIT}|[\\s().-]){5,}${DIGIT}(?!\\w)`,
+  `(?<!${DIGIT})\\+?(?:${DIGIT}|\\()(?:${DIGIT}|[\\s().-]){5,}${DIGIT}(?!${DIGIT})`,
   'gu',
 );
 const NON_DIGIT = /[^0-9٠-٩۰-۹]/gu;

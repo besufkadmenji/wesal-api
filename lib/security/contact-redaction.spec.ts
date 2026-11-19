@@ -40,8 +40,21 @@ describe('redactContactDetails', () => {
     expect(redactContactDetails(content)).toBe(expected);
   });
 
+  // A letter touching the number used to stop the match.
+  it.each([
+    ['d24324242', 'd[contact hidden]'],
+    ['24324242d', '[contact hidden]d'],
+    ['call x0551234567 now', 'call x[contact hidden] now'],
+    ['رقمي0551234567', 'رقمي[contact hidden]'],
+    ['call +966501234567abc', 'call [contact hidden]abc'],
+  ])('hides a phone with a letter attached: %s', (content, expected) => {
+    expect(redactContactDetails(content)).toBe(expected);
+  });
+
   it.each([
     'the price is 350.50 SAR',
+    'order INV123456789012345678 is ready',
+    'size 3x4 and model A12',
     'السعر ٣٥٠ ريال',
     'done.ok, see you at 10.30',
     'version 2.1.3 is fine',
